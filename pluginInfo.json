@@ -3,9 +3,9 @@
 	"name": "BackgroundMusic FPP Plugin",
 	"author": "Stuart Ledingham (onlinedynamic)",
 	"description": "This plugin is designed to provide background music from a playlist of mp3 files. These can run at the same time as a sequence only playlist.",
-	"homeURL": "https://github.com/OnlineDynamic/DynamicPixelsFPPPlugin",
-	"srcURL": "https://github.com/OnlineDynamic/DynamicPixelsFPPPlugin.git",
-	"bugURL": "https://github.com/OnlineDynamic/DynamicPixelsFPPPlugin/issues",
+	"homeURL": "https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin",
+	"srcURL": "https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin.git",
+	"bugURL": "https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin/issues",
 	"allowUpdates": 1,
 	"versions": [
 		{

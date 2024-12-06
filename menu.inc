@@ -15,11 +15,10 @@ require_once 'config.php';
 
 $menuEntries = Array(
 	Array(
-		'text' => 'D24 Controller - Status',
+		'text' => 'Background Music',
 		'type' => 'status',
-		'page' => 'status.php',
-		'wrap' => 1,
-		'controllerModel' => 'DynamicPixels-D24'
+		'page' => 'backgroundmusic.php',
+		'wrap' => 1
 	),
 #	Array(
 #		'text' => 'Template - Content Setup',
@@ -28,26 +27,24 @@ $menuEntries = Array(
 #		'wrap' => 1,
 #               'controllerModel' => 'DynamicPixels-D24'
 #	),
-	Array(
-		'text' => 'DynamicPixels Controller - Config',
-		'type' => 'output',
-		'page' => 'DynPixconfig.php',
-		'wrap' => 1,
-                'controllerModel' => 'DynamicPixels-D24'
-	),
+#	Array(
+#		'text' => 'DynamicPixels Controller - Config',
+#		'type' => 'output',
+#		'page' => 'DynPixconfig.php',
+#		'wrap' => 1,
+#                'controllerModel' => 'DynamicPixels-D24'
+#	),
 	Array(
 		'text' => 'BackgroundMusic - Help',
 		'type' => 'help',
-		'page' => 'help/d24-help.php',
-		'wrap' => 1,
-		'controllerModel' => 'DynamicPixels-D24'
+		'page' => 'help/backgroundmusic-help.php',
+		'wrap' => 1
 	),
 	Array(
 		'text' => 'BackgroundMusic Plugin - About',
 		'type' => 'help',
-		'page' => 'about.php',
-		'wrap' => 1,
-                'controllerModel' => 'all'
+		'page' => 'backgroundmusic-about.php',
+		'wrap' => 1
 	)
 );
 

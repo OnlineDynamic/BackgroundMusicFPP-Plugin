@@ -59,11 +59,6 @@ foreach ($menuEntries as $entry)
 	if ($entry['type'] != $menu)
 		continue;
 
-        $currentCapeInfo = json_decode(file_get_contents("http://localhost/api/cape"), true);
-
-        if ( !in_array($entry['controllerModel'], array($currentCapeInfo['name'] ,'all'), true ) )
-		continue;
-
 	if (preg_match('/^http.?:\/\//', $entry['page']))
 	{
 		printf("<li><a href='%s' target='_blank'>%s</a></li>\n",

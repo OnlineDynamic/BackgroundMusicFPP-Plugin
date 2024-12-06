@@ -8,8 +8,8 @@
 		<br />
         Stuart Ledingham of Dynamic Pixels<br />
 		<br />
-        <a href='https://github.com/OnlineDynamic/DynamicPixelsFPPPlugin'>Git Repository</a><br>
-        <a href='https://github.com/OnlineDynamic/DynamicPixelsFPPPlugin/issues'>Bug Reporter</a><br>
+        <a href='https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin'>Git Repository</a><br>
+        <a href='https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin/issues'>Bug Reporter</a><br>
 		<br />
       </div>
     </div>

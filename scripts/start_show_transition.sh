@@ -43,13 +43,6 @@ fi
 
 log_message "Original volume: ${ORIGINAL_VOLUME}%"
 
-# Calculate fade steps (10 steps per second for smooth fade)
-FADE_STEPS=$((FADE_TIME * 10))
-BRIGHTNESS_STEP=$(echo "scale=2; $ORIGINAL_BRIGHTNESS / $FADE_STEPS" | bc)
-SLEEP_TIME=$(echo "scale=3; $FADE_TIME / $FADE_STEPS" | bc)
-
-log_message "Fade steps: $FADE_STEPS, brightness step: $BRIGHTNESS_STEP, sleep time: $SLEEP_TIME"
-
 # Start audio fade in background (will fade over FADE_TIME seconds)
 SCRIPT_DIR="$(dirname "$0")"
 if [ -f "/tmp/background_music_player.pid" ]; then
@@ -58,32 +51,20 @@ if [ -f "/tmp/background_music_player.pid" ]; then
     FADE_AUDIO_PID=$!
 fi
 
-# Fade out brightness using Brightness plugin (supports MultiSync)
-log_message "Fading brightness to 0% over ${FADE_TIME}s using Brightness plugin"
-CURRENT_BRIGHTNESS=$ORIGINAL_BRIGHTNESS
+# Fade out brightness using Brightness plugin's native fade (supports MultiSync)
+# Convert seconds to milliseconds for the API
+FADE_TIME_MS=$((FADE_TIME * 1000))
+log_message "Fading brightness to 0% over ${FADE_TIME}s using Brightness plugin FadeDown"
+curl -s -X GET "http://localhost/api/plugin-apis/Brightness/FadeDown/$FADE_TIME_MS" > /dev/null 2>&1
 
-for ((i=1; i<=FADE_STEPS; i++)); do
-    CURRENT_BRIGHTNESS=$(echo "$CURRENT_BRIGHTNESS - $BRIGHTNESS_STEP" | bc)
-    
-    # Ensure we don't go negative
-    CURRENT_BRIGHTNESS_INT=$(echo "$CURRENT_BRIGHTNESS / 1" | bc)
-    if [ "$CURRENT_BRIGHTNESS_INT" -lt 0 ]; then
-        CURRENT_BRIGHTNESS_INT=0
-    fi
-    
-    # Use Brightness plugin API (supports MultiSync)
-    curl -s -X GET "http://localhost/api/plugin-apis/Brightness/$CURRENT_BRIGHTNESS_INT" > /dev/null 2>&1
-    
-    sleep "$SLEEP_TIME"
-done
+# Wait for fade to complete
+sleep "$FADE_TIME"
 
 # Wait for audio fade to complete if it's still running
 if [ -n "$FADE_AUDIO_PID" ]; then
     wait "$FADE_AUDIO_PID" 2>/dev/null
 fi
 
-# Ensure brightness is at 0
-curl -s -X GET "http://localhost/api/plugin-apis/Brightness/0" > /dev/null 2>&1
 log_message "Brightness faded to 0%"
 
 # Ensure background music is stopped

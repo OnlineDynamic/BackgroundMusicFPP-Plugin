@@ -399,6 +399,21 @@
                 <li>Test volume levels before your event</li>
                 <li>Consider having announcements in multiple languages for diverse audiences</li>
             </ul>
+            
+            <h3>Technical Requirements</h3>
+            <p>PSA announcements use ALSA software mixing to play concurrently with background music. The plugin automatically configures this during installation:</p>
+            <ul>
+                <li><strong>ALSA dmix:</strong> Configured in <code>/etc/asound.conf</code></li>
+                <li><strong>Software Mixing:</strong> Allows multiple audio streams simultaneously</li>
+                <li><strong>Backup:</strong> Original config backed up to <code>/etc/asound.conf.backup-*</code></li>
+                <li><strong>Audio Device:</strong> Uses <code>plug:default</code> for automatic format conversion and mixing</li>
+                <li><strong>FPP Compatibility:</strong> Configuration uses FPP's audio card setting (AudioOutput)</li>
+                <li><strong>Transparent Operation:</strong> FPP's playlists and media playback continue to work normally</li>
+            </ul>
+            <div class="alert alert-info">
+                <strong>Note:</strong> If PSA announcements don't play, stop and restart background music after plugin installation to apply ALSA configuration changes. If you change FPP's audio device, reinstall the plugin to update ALSA configuration.
+            </div>
+            </ul>
         </div>
         
         <!-- API Endpoints Tab -->
@@ -676,6 +691,20 @@
                 <li>Verify FPP's volume API is working (test volume slider on controller page)</li>
                 <li>Check logs: <code>/home/fpp/media/logs/fpp-plugin-BackgroundMusic.log</code></li>
             </ul>
+            
+            <h3>PSA Announcement No Audio</h3>
+            <p><strong>Problem:</strong> PSA button shows alert but no audio plays</p>
+            <p><strong>Solution:</strong></p>
+            <ul>
+                <li><strong>Check ALSA configuration:</strong> Verify <code>/etc/asound.conf</code> has dmix configured</li>
+                <li><strong>Restart background music:</strong> Stop and start background music after plugin installation</li>
+                <li><strong>Test device:</strong> Run <code>aplay -L</code> to verify "plug:default" device exists</li>
+                <li><strong>Check logs:</strong> Look for "Device or resource busy" errors in plugin log</li>
+                <li><strong>Verify audio files:</strong> Ensure announcement files are valid and readable</li>
+            </ul>
+            <div class="alert alert-warning">
+                <strong>Important:</strong> PSA announcements require ALSA software mixing (dmix). The plugin configures this automatically during installation, but you must stop/restart background music for changes to take effect.
+            </div>
             
             <h3>Settings Not Saving</h3>
             <p><strong>Problem:</strong> Changes don't persist after clicking Save</p>

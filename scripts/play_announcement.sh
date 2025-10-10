@@ -113,13 +113,17 @@ AUDIO_DEVICE=$(get_audio_device)
     
     log_message "Playing announcement on device: $AUDIO_DEVICE at volume: ${FFPLAY_VOLUME}%"
     
-    # Play the announcement file
-    ffplay -nodisp -autoexit \
-        -volume "$FFPLAY_VOLUME" \
-        -loglevel error \
-        "$ANNOUNCEMENT_FILE" > /dev/null 2>&1
+    # Play the announcement file using ffplay with ALSA plug device for software mixing
+    # The plug: device allows concurrent audio streams through ALSA
+    VOLUME_FILTER="volume=$(echo "scale=2; $FFPLAY_VOLUME / 100" | bc)"
+    
+    # Use plug:default to enable software mixing
+    SDL_AUDIODRIVER=alsa AUDIODEV="plug:default" ffplay -nodisp -autoexit \
+        -af "$VOLUME_FILTER" \
+        "$ANNOUNCEMENT_FILE" >> "$LOG_FILE" 2>&1
     
     PLAY_RESULT=$?
+    log_message "DEBUG: ffplay exit code: $PLAY_RESULT"
     
     if [ $PLAY_RESULT -eq 0 ]; then
         log_message "Announcement completed successfully"

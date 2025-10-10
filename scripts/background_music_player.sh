@@ -107,6 +107,12 @@ start_music() {
     # Get audio device
     local audio_device=$(get_audio_device)
     
+    # Wrap device in plug: for software mixing support (allows PSA announcements to play concurrently)
+    # The plug plugin provides automatic sample rate/format conversion and software mixing
+    if [[ ! "$audio_device" =~ ^plug: ]] && [[ ! "$audio_device" =~ ^dmix: ]]; then
+        audio_device="plug:$audio_device"
+    fi
+    
     echo "Starting background music player..."
     echo "Playlist: $bg_playlist"
     echo "Audio Device: $audio_device"

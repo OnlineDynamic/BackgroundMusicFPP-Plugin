@@ -47,8 +47,36 @@ sudo systemctl restart fppd
 - 🔄 **Auto-Return to Pre-Show** - Optionally restart background music after show ends with configurable delay
 - 📊 **Real-Time Status** - View current FPP playlist, plugin state, and playing track
 - 🎼 **Playlist Details View** - See all tracks with durations, highlights currently playing track
-- 🔌 **GPIO Integration** - Trigger show start via physical buttons or sensors using FPP commands
+- � **PSA System** - 5 configurable announcement buttons with automatic volume ducking
+- �🔌 **GPIO Integration** - Trigger show start via physical buttons or sensors using FPP commands
 - ⚙️ **REST API** - Full programmatic control via HTTP endpoints
+
+## Technical Requirements
+
+### Audio Configuration
+The plugin automatically configures ALSA for software mixing (dmix) during installation. This enables:
+- ✅ Background music and PSA announcements playing simultaneously
+- ✅ Multiple audio streams without conflicts
+- ✅ Smooth volume ducking for announcements
+- ✅ **Full FPP compatibility** - FPP's playlist media playback continues to work normally
+
+**What Gets Configured:**
+- `/etc/asound.conf` - ALSA configuration with dmix support
+- Original config backed up to `/etc/asound.conf.backup-*`
+- Uses FPP's configured audio card (AudioOutput setting)
+- Background music player uses `plug:default` device
+- PSA announcements use software mixing for concurrent playback
+
+**FPP Compatibility:**
+- ✅ Works alongside FPP's native media playback
+- ✅ Uses the same audio card FPP is configured for
+- ✅ FPP playlists with audio continue to work normally
+- ✅ Volume API remains fully functional
+- ✅ No interference with FPP sequences or effects
+
+**Note:** 
+- After plugin installation, stop and restart background music for ALSA configuration to take effect
+- If you change FPP's audio device setting, reinstall the plugin to update ALSA configuration
 
 ## Quick Start
 

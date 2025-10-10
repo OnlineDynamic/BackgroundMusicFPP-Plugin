@@ -350,7 +350,7 @@
                 <li><strong>Prepare Announcement Files:</strong>
                     <ul>
                         <li>Create or obtain your announcement audio files (MP3 format recommended)</li>
-                        <li>Upload them to <code>/home/fpp/media/upload/</code> via FPP's File Manager</li>
+                        <li>Upload them to <code>/home/fpp/media/music/</code> via FPP's File Manager</li>
                         <li>Keep filenames simple and descriptive</li>
                     </ul>
                 </li>
@@ -365,7 +365,7 @@
                 <li><strong>Configure Buttons (up to 5):</strong>
                     <ul>
                         <li>For each button, set a <strong>Label</strong> (e.g., "Welcome Message")</li>
-                        <li>Set the <strong>MP3 File</strong> path (e.g., <code>/home/fpp/media/upload/welcome.mp3</code>)</li>
+                        <li><strong>Select an MP3 File</strong> from the dropdown (files from /home/fpp/media/music/)</li>
                         <li>Leave unused buttons empty - they won't appear on the controller</li>
                     </ul>
                 </li>
@@ -642,7 +642,7 @@
             <ul>
                 <li><strong>No playlist configured:</strong> Select a background music playlist in settings</li>
                 <li><strong>Empty playlist:</strong> Add audio files to the playlist</li>
-                <li><strong>File not found:</strong> Check that media files exist in /home/fpp/media/upload/</li>
+                <li><strong>File not found:</strong> Check that media files exist in /home/fpp/media/music/</li>
                 <li><strong>Permission issues:</strong> Ensure FPP has read access to media files</li>
                 <li><strong>Audio device busy:</strong> Check if another process is using the audio device</li>
             </ul>
@@ -661,8 +661,8 @@
             <p><strong>Problem:</strong> Configured PSA button doesn't show on controller</p>
             <p><strong>Solution:</strong></p>
             <ul>
-                <li>Verify both Label AND File path are configured</li>
-                <li>Check that MP3 file exists at the specified path</li>
+                <li>Verify both Label AND File are selected</li>
+                <li>Check that audio file exists in /home/fpp/media/music/</li>
                 <li>Save settings and refresh the controller page</li>
                 <li>Check browser console for JavaScript errors</li>
             </ul>

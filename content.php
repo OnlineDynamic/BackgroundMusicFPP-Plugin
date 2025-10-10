@@ -10,6 +10,27 @@ if (file_exists($pluginConfigFile)){
     $pluginSettings = array();
 }
 
+// Get audio files from music directory
+function getAudioFiles() {
+    $musicDir = '/home/fpp/media/music';
+    $audioFiles = array();
+    
+    if (is_dir($musicDir)) {
+        $files = scandir($musicDir);
+        foreach ($files as $file) {
+            if ($file != '.' && $file != '..') {
+                $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+                if (in_array($ext, array('mp3', 'wav', 'ogg', 'm4a', 'flac'))) {
+                    $audioFiles[] = $file;
+                }
+            }
+        }
+        sort($audioFiles);
+    }
+    
+    return $audioFiles;
+}
+
 // Get playlists
 function getPlaylists() {
     $ch = curl_init('http://localhost/api/playlists');
@@ -107,6 +128,9 @@ $allPlaylists = getPlaylists();
 $allPlaylists = filterNonEmptyPlaylists($allPlaylists);
 // Then get media-only playlists (which already excludes empty ones)
 $mediaOnlyPlaylists = getMediaOnlyPlaylists($allPlaylists);
+
+// Get audio files for PSA configuration
+$audioFiles = getAudioFiles();
 ?>
 
 <style>
@@ -379,10 +403,26 @@ $mediaOnlyPlaylists = getMediaOnlyPlaylists($allPlaylists);
                 <tr>
                     <td class="label">Button <?php echo $i; ?> MP3 File:</td>
                     <td class="value">
-                        <input type="text" name="PSAButton<?php echo $i; ?>File" id="PSAButton<?php echo $i; ?>File" 
-                               placeholder="/home/fpp/media/upload/announcement<?php echo $i; ?>.mp3" 
-                               value="<?php echo isset($pluginSettings['PSAButton'.$i.'File']) ? htmlspecialchars($pluginSettings['PSAButton'.$i.'File']) : ''; ?>">
-                        <small>Full path to MP3 file (typically in /home/fpp/media/upload/)</small>
+                        <select name="PSAButton<?php echo $i; ?>File" id="PSAButton<?php echo $i; ?>File">
+                            <option value="">-- Select Audio File --</option>
+                            <?php
+                            $currentFile = isset($pluginSettings['PSAButton'.$i.'File']) ? $pluginSettings['PSAButton'.$i.'File'] : '';
+                            // Extract just the filename if it's a full path
+                            $currentFileName = basename($currentFile);
+                            
+                            foreach ($audioFiles as $audioFile) {
+                                $fullPath = '/home/fpp/media/music/' . $audioFile;
+                                $selected = '';
+                                // Check if this file matches the saved setting (by filename or full path)
+                                if ($currentFile === $fullPath || $currentFileName === $audioFile) {
+                                    $selected = 'selected';
+                                }
+                                echo '<option value="' . htmlspecialchars($fullPath) . '" ' . $selected . '>' . 
+                                     htmlspecialchars($audioFile) . '</option>';
+                            }
+                            ?>
+                        </select>
+                        <small>Select audio file from /home/fpp/media/music/</small>
                     </td>
                 </tr>
                 <?php if ($i < 5): ?>

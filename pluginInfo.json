@@ -1,15 +1,15 @@
 {
 	"repoName": "fpp-plugin-BackgroundMusic",
-	"name": "BackgroundMusic FPP Plugin",
+	"name": "Background Music for Pre/Post Show",
 	"author": "Stuart Ledingham (onlinedynamic)",
-	"description": "This plugin is designed to provide background music from a playlist of mp3 files. These can run at the same time as a sequence only playlist.",
+	"description": "Enhances Falcon Player by adding independent background music playback during pre-show sequences with seamless transitions to your main synchronized show. Works alongside FPP's scheduler to play audio-only playlists while your pre-show sequence runs, then provides smooth fade-out transitions with brightness control when starting your main show. Features include configurable fade times, blackout periods, automatic volume management, playlist shuffling, and optional post-show return to pre-show state. Perfect for creating professional atmospheres during crowd-gathering periods before your synchronized light show begins.",
 	"homeURL": "https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin",
 	"srcURL": "https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin.git",
 	"bugURL": "https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin/issues",
 	"allowUpdates": 1,
 	"versions": [
 		{
-			"minFPPVersion": "8.0",
+			"minFPPVersion": "9.0",
 			"maxFPPVersion": "0",
 			"branch": "master",
 			"sha": ""

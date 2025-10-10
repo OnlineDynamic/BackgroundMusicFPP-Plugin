@@ -1,6 +1,7 @@
 <?php
-require_once 'common.php';
-require_once 'config.php';
+// Menu entries are now handled by FPP's plugin system
+// This file is kept for compatibility but the main menu structure
+// is defined in the individual page files
 
 # $menuEntries is an array of menu entries for this plugin
 # text - menu entry text
@@ -15,18 +16,17 @@ require_once 'config.php';
 
 $menuEntries = Array(
 	Array(
-		'text' => 'Background Music',
+		'text' => 'Background Music Controller',
 		'type' => 'status',
 		'page' => 'backgroundmusic.php',
 		'wrap' => 1
 	),
-#	Array(
-#		'text' => 'Template - Content Setup',
-#		'type' => 'content',
-#		'page' => 'content.php',
-#		'wrap' => 1,
-#               'controllerModel' => 'DynamicPixels-D24'
-#	),
+	Array(
+		'text' => 'Background Music Settings',
+		'type' => 'content',
+		'page' => 'content.php',
+		'wrap' => 1
+	),
 #	Array(
 #		'text' => 'DynamicPixels Controller - Config',
 #		'type' => 'output',
@@ -35,15 +35,9 @@ $menuEntries = Array(
 #                'controllerModel' => 'DynamicPixels-D24'
 #	),
 	Array(
-		'text' => 'BackgroundMusic - Help',
+		'text' => 'BackgroundMusic - Help & About',
 		'type' => 'help',
 		'page' => 'help/backgroundmusic-help.php',
-		'wrap' => 1
-	),
-	Array(
-		'text' => 'BackgroundMusic Plugin - About',
-		'type' => 'help',
-		'page' => 'backgroundmusic-about.php',
 		'wrap' => 1
 	)
 );
@@ -51,27 +45,29 @@ $menuEntries = Array(
 ##############################################################################
 # Display the menu entries for this plugin.
 #
-# It is expected that two variables are alread set:
+# It is expected that two variables are already set:
 # $plugin - contains the name of the current plugin directory/repoName
 # $menu - contains the name of the menu section/type
-foreach ($menuEntries as $entry)
-{
-	if ($entry['type'] != $menu)
-		continue;
-
-	if (preg_match('/^http.?:\/\//', $entry['page']))
+if (isset($menu) && isset($plugin)) {
+	foreach ($menuEntries as $entry)
 	{
-		printf("<li><a href='%s' target='_blank'>%s</a></li>\n",
-			$entry['page'], $entry['text']);
-	}
-	else
-	{
-		$nopage = '';
-		if (isset($entry['wrap']) && ($entry['wrap'] == 0))
-			$nopage = '&nopage=1';
+		if ($entry['type'] != $menu)
+			continue;
 
-		printf("<li><a href='plugin.php?plugin=%s&page=%s%s'>%s</a></li>\n",
-			$plugin, $entry['page'], $nopage, $entry['text']);
+		if (preg_match('/^http.?:\/\//', $entry['page']))
+		{
+			printf("<li><a href='%s' target='_blank'>%s</a></li>\n",
+				$entry['page'], $entry['text']);
+		}
+		else
+		{
+			$nopage = '';
+			if (isset($entry['wrap']) && ($entry['wrap'] == 0))
+				$nopage = '&nopage=1';
+
+			printf("<li><a href='plugin.php?plugin=%s&page=%s%s'>%s</a></li>\n",
+				$plugin, $entry['page'], $nopage, $entry['text']);
+		}
 	}
 }
 ?>

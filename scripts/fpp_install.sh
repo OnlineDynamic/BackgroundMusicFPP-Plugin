@@ -8,16 +8,21 @@ cd ..
 
 make "SRCDIR=${SRCDIR}"
 
-
-. ${FPPDIR}/scripts/common
+# Source FPP common functions if available
+if [ -f "${FPPDIR}/scripts/common" ]; then
+    . ${FPPDIR}/scripts/common
+elif [ -f "/opt/fpp/scripts/common" ]; then
+    . /opt/fpp/scripts/common
+fi
 
 # install jq utility for PSU Control script to work
 sudo apt-get -y install jq
 
-#install mpg123 for playing mp3 audion tracks
-sudo apt-get install mpg123
+#install mpg123 for playing mp3 audio tracks
+sudo apt-get -y install mpg123
 
-# Execute script to fix mac address to be static
-
-setSetting restartFlag 1
+# Set restart flag if setSetting function is available
+if command -v setSetting &> /dev/null; then
+    setSetting restartFlag 1
+fi
 

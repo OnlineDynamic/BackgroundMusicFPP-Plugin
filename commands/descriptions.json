@@ -1,0 +1,20 @@
+[
+    {
+        "name": "BackgroundMusic - Start Main Show",
+        "description": "Triggers the main show transition (stops background music, fades out, starts show playlist)",
+        "script": "start-main-show.sh",
+        "args": []
+    },
+    {
+        "name": "BackgroundMusic - Start Background Music",
+        "description": "Starts the background music player (plays music playlist over existing sequence)",
+        "script": "start-background-music.sh",
+        "args": []
+    },
+    {
+        "name": "BackgroundMusic - Stop Background Music",
+        "description": "Stops the background music player (sequences continue running)",
+        "script": "stop-background-music.sh",
+        "args": []
+    }
+]

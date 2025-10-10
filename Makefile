@@ -1,19 +1,13 @@
-SRCDIR ?= /opt/fpp/src
-include ${SRCDIR}/makefiles/common/setup.mk
-include $(SRCDIR)/makefiles/platform/*.mk
+# Background Music Plugin Makefile
+# This plugin is PHP/Bash only, no compilation needed
 
-all: libfpp-plugin-BackgroundMusic.$(SHLIB_EXT)
-debug: all
+all:
+	@echo "Background Music Plugin - No compilation needed"
 
-OBJECTS_fpp_BackgroundMusic_so += src/FPPBackgroundMusic.o
-LIBS_fpp_BackgroundMusic_so += -L${SRCDIR} -lfpp -ljsoncpp -lhttpserver
-CXXFLAGS_src/FPPBackgroundMusic.o += -I${SRCDIR}
-
-%.o: %.cpp Makefile
-	$(CCACHE) $(CC) $(CFLAGS) $(CXXFLAGS) $(CXXFLAGS_$@) -c $< -o $@
-
-libfpp-plugin-BackgroundMusic.$(SHLIB_EXT): $(OBJECTS_fpp_BackgroundMusic_so) ${SRCDIR}/libfpp.$(SHLIB_EXT)
-	$(CCACHE) $(CC) -shared $(CFLAGS_$@) $(OBJECTS_fpp_BackgroundMusic_so) $(LIBS_fpp_BackgroundMusic_so) $(LDFLAGS) -o $@
+install:
+	@echo "Background Music Plugin installed"
 
 clean:
-	rm -f libfpp-BackgroundMusic.so $(OBJECTS_fpp_BackgroundMusic_so)
+	@echo "Nothing to clean"
+
+.PHONY: all install clean

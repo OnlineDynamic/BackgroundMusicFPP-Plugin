@@ -23,5 +23,6 @@ parser.add_argument('-l','--list', help='Plugin Actions',action='store_true')
 args = parser.parse_args()
 
 if args.list:
-   #Tell the plugin that we should be registered for c++
-   print("c++")
+   # This is a PHP/shell script plugin, not a C++ plugin
+   # Print nothing to indicate no callbacks needed
+   pass

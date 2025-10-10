@@ -4,165 +4,111 @@ include_once("/opt/fpp/www/common.php");
 $pluginName = basename(dirname(__FILE__));
 $pluginConfigFile = $settings['configDirectory'] . "/plugin." .$pluginName;
 
-$controllerPhysicalConfigFile = "./controllerPhysicalConfigs.json";
-
 if (file_exists($pluginConfigFile)){
-	$pluginSettings = parse_ini_file($pluginConfigFile);
+$pluginSettings = parse_ini_file($pluginConfigFile);
 }else{
-	$pluginSettings = array(); //There have been no settings saved by the user, create empty array
+$pluginSettings = array();
 }
 
-
-if (file_exists($controllerPhysicalConfigFile)){
-	$controllerConfig = parse_ini_file($controllerPhysicalConfigFile);
-}else{
-	$controllerConfig = array(); //There have been no settings saved by the user, create empty array
+// Get plugin setting by key
+function getPluginSetting($key, $default = '') {
+global $pluginSettings;
+return isset($pluginSettings[$key]) ? $pluginSettings[$key] : $default;
 }
 
-if (isset($pluginSettings['YEAR'])){
-	$setyear = $pluginSettings['YEAR'];
-}else{
-	$setyear = date("Y")-1;	
+// Get all playlists from FPP
+function getPlaylistsFromFPP() {
+$ch = curl_init('http://localhost/api/playlists');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HEADER, 0);
+$data = curl_exec($ch);
+curl_close($ch);
+$result = json_decode($data, true);
+// FPP API returns a simple array of playlist names
+if (is_array($result)) {
+return $result;
+}
+return array();
 }
 
-function getMonths(){
-	return $monthList= array('January' => 1, 'February' => 2, 'March' => 3, 'April' => 4, 'May' => 5, 'June' => 6, 'July' => 7, 'August' => 8, 'September' => 9, 'October' => 10, 'November' => 11, 'December' => 12);
+// Get FPP status
+function getFPPStatus() {
+$ch = curl_init('http://localhost/api/fppd/status');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HEADER, 0);
+$data = curl_exec($ch);
+curl_close($ch);
+return json_decode($data, true);
 }
 
-function getDaysOfMonth(){
-	for($i=1; $i<=31; $i++){
-		$daysList[$i]=$i;
-	}
-	return $daysList;
+// Check if a playlist is currently running
+function isPlaylistRunning($playlistName) {
+$status = getFPPStatus();
+$currentPlaylist = isset($status['current_playlist']['playlist']) ? $status['current_playlist']['playlist'] : '';
+return ($currentPlaylist === $playlistName && $playlistName !== '');
 }
 
-function getYears(){
-	global $setyear;
-    if ($setyear>date("Y")){
-        $setyear=date("Y");
-    }
-	for($i=$setyear; $i<=date("Y")+5; $i++){
-		$yearList[$i]=$i;
-	}
-	return $yearList;
+// Start a playlist
+function startPlaylist($playlistName, $repeat = false) {
+$data = array('command' => 'start', 'playlist' => $playlistName);
+if ($repeat) {
+$data['repeat'] = true;
 }
 
-function getHours(){
-	return $hours= array(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23);
+$ch = curl_init('http://localhost/api/command');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+$response = curl_exec($ch);
+curl_close($ch);
+
+return json_decode($response, true);
 }
 
-function getMinutes(){
-	for( $i= 0; $i<=59; $i++){
-		$minuteList[str_pad($i,2,'0',STR_PAD_LEFT)] = $i;
-	}
-	return $minuteList;
-}
-function GetOverlayList() { 
-	$modelsList = GetModels("");
-	for($i=0;$i<=count($modelsList)-1;$i++) {
-        $OverlayModels[trim($modelsList[$i]["Name"])]=trim($modelsList[$i]["Name"]);
-	}
-	return $OverlayModels;
-}
-function GetModels($host) {
-    if ($host == "") {
-        $host = "localhost";
-    }
-    $ch = curl_init("http://" . $host . "/api/overlays/models");
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HEADER, 0);
-    $data = curl_exec($ch);
-    curl_close($ch);
-    return json_decode($data, true);
+// Stop all playlists
+function stopAllPlaylists() {
+$data = array('command' => 'stop');
+$ch = curl_init('http://localhost/api/command');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+$response = curl_exec($ch);
+curl_close($ch);
+
+return json_decode($response, true);
 }
 
-function getFontsInstalled() {
-	$host = "localhost";
-    $ch = curl_init("http://" . $host . "/api/overlays/fonts");
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HEADER, 0);
-    $data = curl_exec($ch);
-    curl_close($ch);
-    $fontsList= json_decode($data, true);
-	for($i=1;$i<=count($fontsList)-1;$i++) {
-		$installedFonts[$fontsList[$i]]=$fontsList[$i];
-	}
-return $installedFonts;        
+// Get current brightness
+function getCurrentBrightness() {
+$brightness = getSetting('brightness');
+if ($brightness === false || $brightness === '') {
+return 100;
+}
+return intval($brightness);
 }
 
-function getFontSizes(){
-	$maxFontSize = 80;
-	
-	for($i=5; $i<=$maxFontSize; $i++) {
-		$fontSize[$i]=$i;
-    }
-return $fontSize;	
-}
-function getScrollSpeed(){
-	$MAX_PIXELS_PER_SECOND = 100;
+// Set brightness
+function setFPPBrightness($level) {
+if ($level < 0) $level = 0;
+if ($level > 100) $level = 100;
 
-        for($i=0;$i<=$MAX_PIXELS_PER_SECOND;$i++) {
-			$scrollSpeed[$i]= $i;
-        }
-	return $scrollSpeed;
-}
-function getDuration(){
-	$MAX_DURATION = 300;
+$ch = curl_init('http://localhost/api/system/brightness/' . $level);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
+$response = curl_exec($ch);
+curl_close($ch);
 
-        for($i=1;$i<=$MAX_DURATION;$i++) {
-			$maxDuration[$i]= $i;
-        }
-	return $maxDuration;
+return json_decode($response, true);
 }
 
-function ScrollText($host="127.0.0.1", $model, $msg, $Position, $Font, $FontSize="20", $color="#ffffff", $PPS="20", $AntiAlias="", $Duration="10", $autoenable="true") {
-        
-    $data["command"] = "Overlay Model Effect";
-    
-    $args = array();
-    $args[] = $model;
-    $args[] = "" . $autoenable;
-    $args[] = "Text";
-    $args[] = $color;
-    $args[] = $Font;
-    $args[] = "" . $FontSize;
-    $args[] = "" . $AntiAlias;
-    $args[] = $Position;
-    $args[] = "" . $PPS;
-    $args[] = "" . $Duration;
-    $args[] = $msg;
-    $data["args"] = $args;
-    echo json_encode($data);
-    $data = json_encode($data);
-    
-    if ($host == "") {
-        $host = "localhost";
-    }
-    $ch = curl_init("http://" . $host . "/api/command");
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json','Content-Length: ' . strlen($data)));
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
-    curl_setopt($ch, CURLOPT_POSTFIELDS,$data);
-
-    $data = curl_exec($ch);
-    curl_close($ch);
-}
-
-
-function logEntry($data,$logLevel=1) {
-
-	global $logFile,$myPid, $LOG_LEVEL;
-
-	
-	if($logLevel <= $LOG_LEVEL) 
-		return
-		
-		$data = $_SERVER['PHP_SELF']." : [".$myPid."] ".$data;
-		
-		$logWrite= fopen($logFile, "a") or die("Unable to open file!");
-		fwrite($logWrite, date('Y-m-d h:i:s A',time()).": ".$data."\n");
-		fclose($logWrite);
+// Log to plugin log file
+function logPluginMessage($message) {
+$logFile = '/home/fpp/media/logs/fpp-plugin-BackgroundMusic.log';
+$timestamp = date('Y-m-d H:i:s');
+$logMessage = "[$timestamp] $message\n";
+file_put_contents($logFile, $logMessage, FILE_APPEND);
 }
 
 ?>

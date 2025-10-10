@@ -6,7 +6,32 @@ The purpose of this FPP plugin is to allow the end user to control a background 
 
 The plugin allows the user to start an audio-only background playlist whilst a normal FSEQ sequence is already running (normally an animation sequence on repeat).
 
-A 'Start Show' button allows the user to trigger a configured show playlist. When triggered, FPP gradually reduces the brightness of the currently running playlist to fade it out at the same time as fading out the background music (time configurable). Once the fade completes, the background music and FSEQ playlists stop, have a blackout period (time configurable), and then return FPP to its previous brightness setting before starting the configured show playlist.
+A 'Start Show' button allows the user to trigger a configured show playlist. When triggered, the plugin uses the **fpp-brightness** plugin to smoothly fade brightness (with MultiSync support for multi-controller setups), while simultaneously fading out the background music (time configurable). Once the fade completes, the background music and FSEQ playlists stop, have a blackout period (time configurable), and then return FPP to its previous brightness setting before starting the configured show playlist.
+
+## Requirements
+
+- **FPP Version**: 9.0 or higher
+- **Required Plugin**: [fpp-brightness](https://github.com/FalconChristmas/fpp-brightness) - Used for smooth brightness fading with MultiSync support
+
+### Installing Required Plugin
+
+The fpp-brightness plugin must be installed for brightness transitions to work properly:
+
+1. Go to **Plugin Manager** → **Install Plugins**
+2. Search for "brightness"
+3. Click "Install" on the **fpp-brightness** plugin
+4. Restart FPPd when prompted
+
+Alternatively, install manually:
+```bash
+cd /home/fpp/media/plugins
+git clone https://github.com/FalconChristmas/fpp-brightness.git
+cd fpp-brightness
+make
+sudo systemctl restart fppd
+```
+
+**Note**: The brightness plugin provides MultiSync support, meaning brightness changes will automatically synchronize across all controllers in your show when MultiSync is enabled in FPP.
 
 ## Features
 
@@ -14,7 +39,8 @@ A 'Start Show' button allows the user to trigger a configured show playlist. Whe
 - 🔀 **Shuffle Mode** - Randomize playlist order for variety, reshuffles on each loop
 - 🔊 **Volume Control** - Separate volume settings for background music, show, and post-show
 - 📈 **Track Progress Display** - Real-time track name, progress bar, and time remaining
-- 🎭 **Smooth Show Transitions** - Configurable fade-out and blackout before main show
+- 🎭 **Smooth Show Transitions** - Configurable fade-out with brightness control using fpp-brightness plugin
+- 🌐 **MultiSync Compatible** - Brightness fading synchronizes across all controllers automatically
 - 🔄 **Auto-Return to Pre-Show** - Optionally restart background music after show ends with configurable delay
 - 📊 **Real-Time Status** - View current FPP playlist, plugin state, and playing track
 - 🎼 **Playlist Details View** - See all tracks with durations, highlights currently playing track

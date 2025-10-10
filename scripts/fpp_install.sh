@@ -21,6 +21,20 @@ sudo apt-get -y install jq
 #install mpg123 for playing mp3 audio tracks
 sudo apt-get -y install mpg123
 
+# Check if fpp-brightness plugin is installed (required for smooth transitions with MultiSync support)
+if [ ! -d "/home/fpp/media/plugins/fpp-brightness" ]; then
+    echo "============================================"
+    echo "WARNING: fpp-brightness plugin not found!"
+    echo "============================================"
+    echo "The Background Music plugin requires the fpp-brightness plugin"
+    echo "for smooth brightness transitions with MultiSync support."
+    echo ""
+    echo "Please install it from: Plugin Manager -> Install Plugins -> fpp-brightness"
+    echo "Or from: https://github.com/FalconChristmas/fpp-brightness"
+    echo "============================================"
+    sleep 3
+fi
+
 # Set restart flag if setSetting function is available
 if command -v setSetting &> /dev/null; then
     setSetting restartFlag 1

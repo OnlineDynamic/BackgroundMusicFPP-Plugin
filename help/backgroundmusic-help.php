@@ -37,6 +37,18 @@
     <div id="global" class="settings">
         <h1>Background Music Plugin - Help & About</h1>
         
+        <div style="background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+            <h3 style="margin-top: 0; color: #856404;"><i class="fas fa-exclamation-triangle"></i> Required Plugin</h3>
+            <p style="margin-bottom: 0;">
+                This plugin requires the <strong>fpp-brightness</strong> plugin to be installed for brightness transitions to work properly.
+                The brightness plugin provides smooth fading with automatic MultiSync support across all controllers.
+            </p>
+            <p style="margin-bottom: 0; margin-top: 10px;">
+                <strong>Installation:</strong> Go to <em>Plugin Manager → Install Plugins</em> and search for "brightness", or visit 
+                <a href="https://github.com/FalconChristmas/fpp-brightness" target="_blank">fpp-brightness on GitHub</a>
+            </p>
+        </div>
+        
         <h2>Purpose</h2>
         <p>
             This plugin adds background music audio playback to your existing FPP scheduler-controlled
@@ -105,13 +117,17 @@
         <p>When you click "Start Main Show", the following happens automatically:</p>
         <ol>
             <li>System captures current brightness level</li>
-            <li>Brightness gradually fades from current to 0 over configured fade time</li>
+            <li>Brightness fades from current to 0 using the <strong>fpp-brightness plugin</strong> (supports MultiSync)</li>
+            <li>Background music fades out simultaneously over configured fade time</li>
             <li>Background music player stops (independent process)</li>
             <li>All FPP playlists stop (including any running sequences)</li>
             <li>System waits during blackout period (creates dramatic pause)</li>
-            <li>Brightness restores to original level</li>
+            <li>Brightness restores to original level via brightness plugin</li>
             <li>Main show playlist starts</li>
         </ol>
+        
+        <p><strong>MultiSync Note:</strong> If you have MultiSync enabled in FPP and the fpp-brightness plugin installed 
+        on all controllers, brightness changes will automatically synchronize across all controllers during the transition.</p>
         
         <h2>Tips for Best Results</h2>
         <ul>

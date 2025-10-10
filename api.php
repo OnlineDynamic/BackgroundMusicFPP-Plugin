@@ -128,10 +128,14 @@ function fppBackgroundMusicStatus() {
     
     $showRunning = ($currentPlaylist === $showPlaylist && $currentPlaylist !== '');
     
+    // Check if fpp-brightness plugin is installed (required for transitions)
+    $brightnessPluginInstalled = file_exists('/home/fpp/media/plugins/fpp-brightness/libfpp-brightness.so');
+    
     $result = array(
         'backgroundMusicRunning' => $backgroundMusicRunning,
         'showRunning' => $showRunning,
         'brightness' => intval($brightness),
+        'brightnessPluginInstalled' => $brightnessPluginInstalled,
         'currentPlaylist' => $currentPlaylist,
         'fppStatus' => $fppStatus,
         'currentSequence' => $currentSequence,

@@ -47,6 +47,17 @@
 <div id="global" class="settings">
     <h1>Background Music Controller</h1>
     
+    <!-- Brightness Plugin Warning -->
+    <div id="brightnessPluginWarning" style="display: none; background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 15px; margin: 20px auto; max-width: 800px;">
+        <h3 style="margin-top: 0; color: #856404;"><i class="fas fa-exclamation-triangle"></i> Required Plugin Missing</h3>
+        <p style="margin-bottom: 10px;">
+            The <strong>fpp-brightness</strong> plugin is not installed. This plugin is required for smooth brightness transitions with MultiSync support.
+        </p>
+        <p style="margin-bottom: 0;">
+            <strong>Install:</strong> Go to <em>Plugin Manager → Install Plugins</em> and search for "brightness"
+        </p>
+    </div>
+    
     <div class="controlPanel">
             <h2>Control Panel</h2>
             <div>
@@ -335,6 +346,13 @@
                     $('#configPostShowDelay').text(data.config.postShowDelay || '0');
                     
                     updateButtonStates(data);
+                    
+                    // Check if brightness plugin is installed
+                    if (data.brightnessPluginInstalled === false) {
+                        $('#brightnessPluginWarning').show();
+                    } else {
+                        $('#brightnessPluginWarning').hide();
+                    }
                     
                     // Update playlist details with current track info
                     var currentTrack = data.currentTrack || '';

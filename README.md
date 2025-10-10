@@ -11,18 +11,21 @@ A 'Start Show' button allows the user to trigger a configured show playlist. Whe
 ## Requirements
 
 - **FPP Version**: 9.0 or higher
-- **Required Plugin**: [fpp-brightness](https://github.com/FalconChristmas/fpp-brightness) - Used for smooth brightness fading with MultiSync support
+- **Required Plugin**: [fpp-brightness](https://github.com/FalconChristmas/fpp-brightness) - Provides brightness control with MultiSync support
 
-### Installing Required Plugin
+### Installing fpp-brightness Plugin
 
-The fpp-brightness plugin must be installed for brightness transitions to work properly:
+The fpp-brightness plugin must be installed on **ALL controllers** (master and remotes) for brightness transitions and MultiSync to work properly.
 
-1. Go to **Plugin Manager** → **Install Plugins**
+**Installation Steps:**
+
+1. On each controller, go to **Plugin Manager** → **Install Plugins**
 2. Search for "brightness"
 3. Click "Install" on the **fpp-brightness** plugin
 4. Restart FPPd when prompted
+5. Repeat on all controllers in your setup
 
-Alternatively, install manually:
+Alternatively, install manually on each controller:
 ```bash
 cd /home/fpp/media/plugins
 git clone https://github.com/FalconChristmas/fpp-brightness.git
@@ -31,7 +34,7 @@ make
 sudo systemctl restart fppd
 ```
 
-**Note**: The brightness plugin provides MultiSync support, meaning brightness changes will automatically synchronize across all controllers in your show when MultiSync is enabled in FPP.
+**Important:** The brightness plugin enables MultiSync, meaning brightness changes will automatically synchronize across all controllers when MultiSync is enabled in FPP. Make sure to install on every controller for this to work.
 
 ## Features
 

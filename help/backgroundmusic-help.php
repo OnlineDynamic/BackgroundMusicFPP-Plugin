@@ -38,14 +38,28 @@
         <h1>Background Music Plugin - Help & About</h1>
         
         <div style="background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
-            <h3 style="margin-top: 0; color: #856404;"><i class="fas fa-exclamation-triangle"></i> Required Plugin</h3>
-            <p style="margin-bottom: 0;">
-                This plugin requires the <strong>fpp-brightness</strong> plugin to be installed for brightness transitions to work properly.
-                The brightness plugin provides smooth fading with automatic MultiSync support across all controllers.
+            <h3 style="margin-top: 0; color: #856404;"><i class="fas fa-exclamation-triangle"></i> Required Plugin - Install on ALL Controllers</h3>
+            <p style="margin-bottom: 10px; font-weight: bold;">
+                This plugin requires the <strong>fpp-brightness</strong> plugin to be installed on <strong>EVERY controller</strong> 
+                in your setup - both master and all remotes.
             </p>
-            <p style="margin-bottom: 0; margin-top: 10px;">
-                <strong>Installation:</strong> Go to <em>Plugin Manager → Install Plugins</em> and search for "brightness", or visit 
-                <a href="https://github.com/FalconChristmas/fpp-brightness" target="_blank">fpp-brightness on GitHub</a>
+            <p style="margin-bottom: 10px;">
+                <strong>Why on all controllers?</strong> The brightness plugin enables MultiSync, which synchronizes brightness changes 
+                across all controllers during the fade transition. If any controller is missing the plugin, it won't fade in sync with the others.
+            </p>
+            <p style="margin-bottom: 0;">
+                <strong>Installation Steps:</strong>
+            </p>
+            <ol style="margin-top: 5px; margin-bottom: 0;">
+                <li>On each controller, go to <em>Plugin Manager → Install Plugins</em></li>
+                <li>Search for "brightness"</li>
+                <li>Click "Install" on <strong>fpp-brightness</strong></li>
+                <li>Restart FPPd when prompted</li>
+                <li>Repeat on EVERY controller in your show</li>
+            </ol>
+            <p style="margin-top: 10px; margin-bottom: 0;">
+                <strong>Alternative:</strong> Visit <a href="https://github.com/FalconChristmas/fpp-brightness" target="_blank">fpp-brightness on GitHub</a> 
+                for manual installation instructions.
             </p>
         </div>
         
@@ -117,8 +131,8 @@
         <p>When you click "Start Main Show", the following happens automatically:</p>
         <ol>
             <li>System captures current brightness level</li>
-            <li>Brightness fades from current to 0 using the <strong>fpp-brightness plugin</strong> (supports MultiSync)</li>
-            <li>Background music fades out simultaneously over configured fade time</li>
+            <li>Brightness fades from current to 0 using the <strong>fpp-brightness plugin</strong> (10 steps per second)</li>
+            <li>Background music fades out simultaneously</li>
             <li>Background music player stops (independent process)</li>
             <li>All FPP playlists stop (including any running sequences)</li>
             <li>System waits during blackout period (creates dramatic pause)</li>
@@ -126,8 +140,13 @@
             <li>Main show playlist starts</li>
         </ol>
         
-        <p><strong>MultiSync Note:</strong> If you have MultiSync enabled in FPP and the fpp-brightness plugin installed 
-        on all controllers, brightness changes will automatically synchronize across all controllers during the transition.</p>
+        <div style="background-color: #d1ecf1; border-left: 4px solid #0c5460; padding: 10px; margin: 15px 0;">
+            <p style="margin: 0;"><strong><i class="fas fa-info-circle"></i> MultiSync Requirement:</strong> 
+            For brightness to fade in sync across all controllers, the <strong>fpp-brightness plugin must be installed 
+            on the master AND every remote controller</strong>. When MultiSync is enabled in FPP and the plugin is installed 
+            everywhere, brightness changes will automatically synchronize during the transition. Missing the plugin on any 
+            controller will cause that controller's brightness to not fade properly.</p>
+        </div>
         
         <h2>Tips for Best Results</h2>
         <ul>

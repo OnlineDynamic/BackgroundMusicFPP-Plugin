@@ -160,6 +160,19 @@ $mediaOnlyPlaylists = getMediaOnlyPlaylists($allPlaylists);
 
 <div id="global" class="settings">
     <h1>Background Music Configuration</h1>
+    
+    <!-- Brightness Plugin Warning -->
+    <div style="background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 15px; margin: 20px auto; max-width: 800px;">
+        <h3 style="margin-top: 0; color: #856404;"><i class="fas fa-exclamation-triangle"></i> Required: fpp-brightness Plugin</h3>
+        <p style="margin-bottom: 10px;">
+            This plugin requires the <strong>fpp-brightness</strong> plugin to be installed on <strong>ALL controllers</strong> 
+            in your setup for brightness transitions and MultiSync to work properly.
+        </p>
+        <p style="margin-bottom: 0;">
+            <strong>Installation:</strong> On each controller (master and remotes), go to <em>Plugin Manager → Install Plugins</em> 
+            and search for "brightness". Install on <strong>every controller</strong> in your show, then restart FPPd.
+        </p>
+    </div>
         
 <div class="description">
     <p><strong>How it works:</strong></p>

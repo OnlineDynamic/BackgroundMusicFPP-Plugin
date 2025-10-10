@@ -51,10 +51,10 @@
     <div id="brightnessPluginWarning" style="display: none; background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 15px; margin: 20px auto; max-width: 800px;">
         <h3 style="margin-top: 0; color: #856404;"><i class="fas fa-exclamation-triangle"></i> Required Plugin Missing</h3>
         <p style="margin-bottom: 10px;">
-            The <strong>fpp-brightness</strong> plugin is not installed. This plugin is required for smooth brightness transitions with MultiSync support.
+            The <strong>fpp-brightness</strong> plugin is not installed. This plugin is required for brightness transitions with MultiSync support.
         </p>
         <p style="margin-bottom: 0;">
-            <strong>Install:</strong> Go to <em>Plugin Manager → Install Plugins</em> and search for "brightness"
+            <strong>Install on ALL controllers:</strong> Go to <em>Plugin Manager → Install Plugins</em> and search for "brightness"
         </p>
     </div>
     
@@ -347,7 +347,7 @@
                     
                     updateButtonStates(data);
                     
-                    // Check if brightness plugin is installed
+                    // Show warning if brightness plugin is not installed
                     if (data.brightnessPluginInstalled === false) {
                         $('#brightnessPluginWarning').show();
                     } else {

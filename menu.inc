@@ -16,13 +16,13 @@
 
 $menuEntries = Array(
 	Array(
-		'text' => 'Background Music Controller',
+		'text' => '<i class="fas fa-music"></i> Background Music Controller',
 		'type' => 'status',
 		'page' => 'backgroundmusic.php',
 		'wrap' => 1
 	),
 	Array(
-		'text' => 'Background Music Settings',
+		'text' => '<i class="fas fa-cog"></i> Background Music Settings',
 		'type' => 'content',
 		'page' => 'content.php',
 		'wrap' => 1
@@ -35,7 +35,7 @@ $menuEntries = Array(
 #                'controllerModel' => 'DynamicPixels-D24'
 #	),
 	Array(
-		'text' => 'BackgroundMusic - Help & About',
+		'text' => '<i class="fas fa-question-circle"></i> BackgroundMusic - Help & About',
 		'type' => 'help',
 		'page' => 'help/backgroundmusic-help.php',
 		'wrap' => 1

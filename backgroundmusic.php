@@ -1,18 +1,92 @@
 <style>
-    .controlPanel {
+    .controlPanelGrid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
         margin: 20px auto;
-        max-width: 800px;
+        max-width: 1200px;
+    }
+    
+    @media (max-width: 1024px) {
+        .controlPanelGrid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .controlColumn {
+        background-color: #f5f5f5;
+        border-radius: 8px;
+        padding: 20px;
         text-align: center;
+        border: 2px solid #e0e0e0;
     }
+    
+    .controlColumn h2 {
+        margin-top: 0;
+        padding-bottom: 10px;
+        border-bottom: 2px solid;
+    }
+    
+    .controlColumn.background h2 {
+        border-color: #4CAF50;
+        color: #4CAF50;
+    }
+    
+    .controlColumn.psa h2 {
+        border-color: #e91e63;
+        color: #e91e63;
+    }
+    
+    .controlColumn.show h2 {
+        border-color: #2196F3;
+        color: #2196F3;
+    }
+    
     .controlButton {
-        margin: 10px;
-        padding: 20px 40px;
-        font-size: 18px;
-        min-width: 250px;
+        margin: 10px 0;
+        padding: 15px 30px;
+        font-size: 16px;
+        width: 100%;
+        max-width: 300px;
     }
+    
+    .psaButton {
+        margin: 8px 0;
+        padding: 12px 20px;
+        font-size: 14px;
+        width: 100%;
+        max-width: 300px;
+        background-color: #e91e63;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    
+    .psaButton:hover:not(:disabled) {
+        background-color: #c2185b;
+    }
+    
+    .psaButton:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+    
+    .psaButton.playing {
+        background-color: #ff9800;
+        animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    
     .statusPanel {
         margin: 20px auto;
-        max-width: 800px;
+        max-width: 1200px;
         padding: 20px;
         background-color: #f5f5f5;
         border-radius: 5px;
@@ -48,7 +122,7 @@
     <h1>Background Music Controller</h1>
     
     <!-- Brightness Plugin Warning -->
-    <div id="brightnessPluginWarning" style="display: none; background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 15px; margin: 20px auto; max-width: 800px;">
+    <div id="brightnessPluginWarning" style="display: none; background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 15px; margin: 20px auto; max-width: 1200px;">
         <h3 style="margin-top: 0; color: #856404;"><i class="fas fa-exclamation-triangle"></i> Required Plugin Missing</h3>
         <p style="margin-bottom: 10px;">
             The <strong>fpp-brightness</strong> plugin is not installed. This plugin is required for brightness transitions with MultiSync support.
@@ -58,24 +132,44 @@
         </p>
     </div>
     
-    <div class="controlPanel">
-            <h2>Control Panel</h2>
+    <!-- 3-Column Control Panel -->
+    <div class="controlPanelGrid">
+        <!-- Background Music Column -->
+        <div class="controlColumn background">
+            <h2><i class="fas fa-music"></i> Background Music</h2>
             <div>
                 <button id="btnStartBackground" class="controlButton btn-start" onclick="startBackground()">
-                    Start Background Music
+                    <i class="fas fa-play"></i> Start Background Music
                 </button>
             </div>
             <div>
                 <button id="btnStopBackground" class="controlButton btn-stop" onclick="stopBackground()">
-                    Stop Background Music
-                </button>
-            </div>
-            <div>
-                <button id="btnStartShow" class="controlButton btn-show" onclick="startShow()">
-                    Start Main Show
+                    <i class="fas fa-stop"></i> Stop Background Music
                 </button>
             </div>
         </div>
+        
+        <!-- PSA Column -->
+        <div class="controlColumn psa">
+            <h2><i class="fas fa-bullhorn"></i> Public Service Announcements</h2>
+            <div id="psaButtonsContainer">
+                <!-- PSA buttons will be dynamically generated -->
+                <p style="color: #999; font-size: 14px; margin: 20px 0;">
+                    <i class="fas fa-info-circle"></i> Configure PSA buttons in settings
+                </p>
+            </div>
+        </div>
+        
+        <!-- Main Show Column -->
+        <div class="controlColumn show">
+            <h2><i class="fas fa-star"></i> Main Show</h2>
+            <div>
+                <button id="btnStartShow" class="controlButton btn-show" onclick="startShow()">
+                    <i class="fas fa-rocket"></i> Start Main Show
+                </button>
+            </div>
+        </div>
+    </div>
 
         <!-- Current Status Panel -->
         <div class="statusPanel">
@@ -347,6 +441,9 @@
                     
                     updateButtonStates(data);
                     
+                    // Generate PSA buttons from config
+                    generatePSAButtons(data.config);
+                    
                     // Show warning if brightness plugin is not installed
                     if (data.brightnessPluginInstalled === false) {
                         $('#brightnessPluginWarning').show();
@@ -523,6 +620,111 @@
                     $('#btnStartShow').removeClass('loading');
                 }
             });
+        }
+        
+        // PSA Functions
+        var currentlyPlayingPSA = 0; // 0 = none, 1-5 = button number
+        
+        function generatePSAButtons(config) {
+            var container = $('#psaButtonsContainer');
+            var buttonsHtml = '';
+            var hasButtons = false;
+            
+            for (var i = 1; i <= 5; i++) {
+                var label = config['PSAButton' + i + 'Label'] || '';
+                var file = config['PSAButton' + i + 'File'] || '';
+                
+                if (label && file) {
+                    hasButtons = true;
+                    buttonsHtml += '<div><button id="psaBtn' + i + '" class="psaButton" onclick="playAnnouncement(' + i + ')">';
+                    buttonsHtml += '<i class="fas fa-bullhorn"></i> ' + escapeHtml(label);
+                    buttonsHtml += '</button></div>';
+                }
+            }
+            
+            if (hasButtons) {
+                container.html(buttonsHtml);
+            } else {
+                container.html('<p style="color: #999; font-size: 14px; margin: 20px 0;"><i class="fas fa-info-circle"></i> Configure PSA buttons in settings</p>');
+            }
+        }
+        
+        function playAnnouncement(buttonNumber) {
+            if (currentlyPlayingPSA !== 0) {
+                $.jGrowl('An announcement is already playing', {themeState: 'warning'});
+                return;
+            }
+            
+            $('#psaBtn' + buttonNumber).prop('disabled', true).addClass('playing');
+            currentlyPlayingPSA = buttonNumber;
+            
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/play-announcement',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({buttonNumber: buttonNumber}),
+                dataType: 'json',
+                success: function(data) {
+                    if (data.status === 'OK') {
+                        $.jGrowl('Playing announcement...', {themeState: 'success'});
+                        // Monitor announcement status
+                        monitorAnnouncement(buttonNumber);
+                    } else {
+                        $.jGrowl('Error: ' + (data.message || 'Failed to play announcement'), {themeState: 'error'});
+                        resetPSAButton(buttonNumber);
+                    }
+                },
+                error: function() {
+                    $.jGrowl('Failed to play announcement', {themeState: 'error'});
+                    resetPSAButton(buttonNumber);
+                }
+            });
+        }
+        
+        function stopAnnouncement() {
+            if (currentlyPlayingPSA === 0) return;
+            
+            var buttonNumber = currentlyPlayingPSA;
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/stop-announcement',
+                type: 'POST',
+                dataType: 'json',
+                success: function(data) {
+                    $.jGrowl('Announcement stopped', {themeState: 'success'});
+                    resetPSAButton(buttonNumber);
+                },
+                error: function() {
+                    $.jGrowl('Failed to stop announcement', {themeState: 'error'});
+                }
+            });
+        }
+        
+        function monitorAnnouncement(buttonNumber) {
+            // Check if announcement is still playing
+            var checkInterval = setInterval(function() {
+                $.ajax({
+                    url: '/api/plugin/fpp-plugin-BackgroundMusic/psa-status',
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function(data) {
+                        if (!data.playing) {
+                            // Announcement finished
+                            clearInterval(checkInterval);
+                            resetPSAButton(buttonNumber);
+                        }
+                    },
+                    error: function() {
+                        // Error checking status, assume finished
+                        clearInterval(checkInterval);
+                        resetPSAButton(buttonNumber);
+                    }
+                });
+            }, 1000); // Check every second
+        }
+        
+        function resetPSAButton(buttonNumber) {
+            $('#psaBtn' + buttonNumber).prop('disabled', false).removeClass('playing');
+            currentlyPlayingPSA = 0;
         }
         
         setInterval(updateStatus, 2000);

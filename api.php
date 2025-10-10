@@ -53,6 +53,24 @@ function getEndpointsfpppluginBackgroundMusic() {
         'endpoint' => 'playlist-details',
         'callback' => 'fppBackgroundMusicPlaylistDetails');
     array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'POST',
+        'endpoint' => 'play-announcement',
+        'callback' => 'fppBackgroundMusicPlayAnnouncement');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'POST',
+        'endpoint' => 'stop-announcement',
+        'callback' => 'fppBackgroundMusicStopAnnouncement');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'GET',
+        'endpoint' => 'psa-status',
+        'callback' => 'fppBackgroundMusicPSAStatus');
+    array_push($result, $ep);
 
     return $result;
 }
@@ -154,7 +172,19 @@ function fppBackgroundMusicStatus() {
             'volumeLevel' => $volumeLevel,
             'backgroundMusicVolume' => $backgroundMusicVolume,
             'showPlaylistVolume' => $showPlaylistVolume,
-            'postShowBackgroundVolume' => $postShowBackgroundVolume
+            'postShowBackgroundVolume' => $postShowBackgroundVolume,
+            'PSAAnnouncementVolume' => isset($pluginSettings['PSAAnnouncementVolume']) ? $pluginSettings['PSAAnnouncementVolume'] : '90',
+            'PSADuckVolume' => isset($pluginSettings['PSADuckVolume']) ? $pluginSettings['PSADuckVolume'] : '30',
+            'PSAButton1Label' => isset($pluginSettings['PSAButton1Label']) ? $pluginSettings['PSAButton1Label'] : '',
+            'PSAButton1File' => isset($pluginSettings['PSAButton1File']) ? $pluginSettings['PSAButton1File'] : '',
+            'PSAButton2Label' => isset($pluginSettings['PSAButton2Label']) ? $pluginSettings['PSAButton2Label'] : '',
+            'PSAButton2File' => isset($pluginSettings['PSAButton2File']) ? $pluginSettings['PSAButton2File'] : '',
+            'PSAButton3Label' => isset($pluginSettings['PSAButton3Label']) ? $pluginSettings['PSAButton3Label'] : '',
+            'PSAButton3File' => isset($pluginSettings['PSAButton3File']) ? $pluginSettings['PSAButton3File'] : '',
+            'PSAButton4Label' => isset($pluginSettings['PSAButton4Label']) ? $pluginSettings['PSAButton4Label'] : '',
+            'PSAButton4File' => isset($pluginSettings['PSAButton4File']) ? $pluginSettings['PSAButton4File'] : '',
+            'PSAButton5Label' => isset($pluginSettings['PSAButton5Label']) ? $pluginSettings['PSAButton5Label'] : '',
+            'PSAButton5File' => isset($pluginSettings['PSAButton5File']) ? $pluginSettings['PSAButton5File'] : ''
         )
     );
     
@@ -392,6 +422,104 @@ function formatDuration($seconds) {
         $secs = $seconds % 60;
         return sprintf('%d:%02d:%02d', $hours, $minutes, $secs);
     }
+}
+
+// POST /api/plugin/fpp-plugin-BackgroundMusic/play-announcement
+function fppBackgroundMusicPlayAnnouncement() {
+    global $settings;
+    $pluginConfigFile = $settings['configDirectory'] . "/plugin.fpp-plugin-BackgroundMusic";
+    
+    // Load plugin config
+    if (!file_exists($pluginConfigFile)) {
+        return json(array('status' => 'ERROR', 'message' => 'Plugin not configured'));
+    }
+    
+    $pluginSettings = parse_ini_file($pluginConfigFile);
+    
+    // Get input data
+    $input = json_decode(file_get_contents('php://input'), true);
+    $buttonNumber = isset($input['buttonNumber']) ? intval($input['buttonNumber']) : 0;
+    
+    if ($buttonNumber < 1 || $buttonNumber > 5) {
+        return json(array('status' => 'ERROR', 'message' => 'Invalid button number'));
+    }
+    
+    // Get announcement configuration
+    $announcementFile = isset($pluginSettings['PSAButton' . $buttonNumber . 'File']) ? $pluginSettings['PSAButton' . $buttonNumber . 'File'] : '';
+    $announcementVolume = isset($pluginSettings['PSAAnnouncementVolume']) ? intval($pluginSettings['PSAAnnouncementVolume']) : 90;
+    $duckVolume = isset($pluginSettings['PSADuckVolume']) ? intval($pluginSettings['PSADuckVolume']) : 30;
+    
+    if (empty($announcementFile)) {
+        return json(array('status' => 'ERROR', 'message' => 'Announcement button not configured'));
+    }
+    
+    if (!file_exists($announcementFile)) {
+        return json(array('status' => 'ERROR', 'message' => 'Announcement file not found: ' . $announcementFile));
+    }
+    
+    // Call the play_announcement script
+    $scriptPath = dirname(__FILE__) . '/scripts/play_announcement.sh';
+    $output = array();
+    $returnCode = 0;
+    
+    $cmd = "/bin/bash " . escapeshellarg($scriptPath) . " " . 
+           escapeshellarg($announcementFile) . " " . 
+           escapeshellarg($duckVolume) . " " . 
+           escapeshellarg($announcementVolume) . " 2>&1";
+    
+    exec($cmd, $output, $returnCode);
+    
+    if ($returnCode === 0) {
+        return json(array('status' => 'OK', 'message' => 'Announcement started'));
+    } else {
+        return json(array('status' => 'ERROR', 'message' => 'Failed to play announcement', 'details' => implode("\n", $output)));
+    }
+}
+
+// POST /api/plugin/fpp-plugin-BackgroundMusic/stop-announcement
+function fppBackgroundMusicStopAnnouncement() {
+    $pidFile = '/tmp/announcement_player.pid';
+    
+    if (!file_exists($pidFile)) {
+        return json(array('status' => 'OK', 'message' => 'No announcement playing'));
+    }
+    
+    $pid = trim(file_get_contents($pidFile));
+    
+    // Kill the announcement process
+    exec("kill $pid 2>&1", $output, $returnCode);
+    
+    // Clean up PID file
+    @unlink($pidFile);
+    
+    return json(array('status' => 'OK', 'message' => 'Announcement stopped'));
+}
+
+// GET /api/plugin/fpp-plugin-BackgroundMusic/psa-status
+function fppBackgroundMusicPSAStatus() {
+    $pidFile = '/tmp/announcement_player.pid';
+    $playing = false;
+    $currentFile = '';
+    
+    if (file_exists($pidFile)) {
+        $pid = trim(file_get_contents($pidFile));
+        // Check if process is actually running
+        exec("ps -p $pid > /dev/null 2>&1", $output, $returnCode);
+        $playing = ($returnCode === 0);
+        
+        // If not playing but PID file exists, clean it up
+        if (!$playing) {
+            @unlink($pidFile);
+        }
+    }
+    
+    $result = array(
+        'status' => 'OK',
+        'playing' => $playing,
+        'currentFile' => $currentFile
+    );
+    
+    return json($result);
 }
 
 ?>

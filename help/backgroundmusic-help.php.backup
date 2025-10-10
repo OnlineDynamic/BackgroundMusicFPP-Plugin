@@ -156,6 +156,8 @@
         
         <!-- Overview Tab -->
         <div id="overview" class="tab-content active">
+        <!-- Overview Tab -->
+        <div id="overview" class="tab-content active">
             <div style="background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
                 <h3 style="margin-top: 0; color: #856404;"><i class="fas fa-exclamation-triangle"></i> Required Plugin - Install on ALL Controllers</h3>
                 <p style="margin-bottom: 10px; font-weight: bold;">
@@ -251,6 +253,55 @@
             </div>
         </div>
         
+        <!-- Setup Guide Tab -->
+        <div id="setup" class="tab-content">
+            <h3 style="margin-top: 0; color: #856404;"><i class="fas fa-exclamation-triangle"></i> Required Plugin - Install on ALL Controllers</h3>
+            <p style="margin-bottom: 10px; font-weight: bold;">
+                This plugin requires the <strong>fpp-brightness</strong> plugin to be installed on <strong>EVERY controller</strong> 
+                in your setup - both master and all remotes.
+            </p>
+            <p style="margin-bottom: 10px;">
+                <strong>Why on all controllers?</strong> The brightness plugin enables MultiSync, which synchronizes brightness changes 
+                across all controllers during the fade transition. If any controller is missing the plugin, it won't fade in sync with the others.
+            </p>
+            <p style="margin-bottom: 0;">
+                <strong>Installation Steps:</strong>
+            </p>
+            <ol style="margin-top: 5px; margin-bottom: 0;">
+                <li>On each controller, go to <em>Plugin Manager → Install Plugins</em></li>
+                <li>Search for "brightness"</li>
+                <li>Click "Install" on <strong>fpp-brightness</strong></li>
+                <li>Restart FPPd when prompted</li>
+                <li>Repeat on EVERY controller in your show</li>
+            </ol>
+            <p style="margin-top: 10px; margin-bottom: 0;">
+                <strong>Alternative:</strong> Visit <a href="https://github.com/FalconChristmas/fpp-brightness" target="_blank">fpp-brightness on GitHub</a> 
+                for manual installation instructions.
+            </p>
+        </div>
+        
+        <h2>Purpose</h2>
+        <p>
+            This plugin adds background music audio playback to your existing FPP scheduler-controlled
+            pre-show sequences. The music plays independently without interfering with FPP's playlist
+            system. When ready, trigger a smooth transition to your main show with automatic fade-out
+            and brightness control. Optionally, the system can automatically return to pre-show state
+            when your main show ends.
+        </p>
+        
+        <h2>How It Works</h2>
+        <p>
+            <strong>Important:</strong> This plugin is designed to work <em>with</em> FPP's scheduler,
+            not replace it. Your pre-show sequence should already be running via FPP's scheduler in
+            looping mode. This plugin simply adds background music audio on top of that sequence.
+        </p>
+        <ul>
+            <li><strong>Pre-Show:</strong> FPP scheduler runs your looping sequence playlist. 
+                Plugin plays background music independently using ffplay.</li>
+            <li><strong>Main Show:</strong> Plugin fades out, stops music, and triggers your main show.</li>
+            <li><strong>After Show:</strong> If "Return to Pre-Show" is enabled, background music 
+                automatically restarts (scheduler will resume pre-show sequence per its schedule).</li>
+        </ul>
         <!-- Setup Guide Tab -->
         <div id="setup" class="tab-content">
             <h2>Setup Steps</h2>

@@ -326,6 +326,60 @@ $mediaOnlyPlaylists = getMediaOnlyPlaylists($allPlaylists);
                     </td>
                 </tr>
             </table>
+
+            <!-- Public Service Announcement Settings -->
+            <h3 style="margin: 30px auto 10px; max-width: 800px; color: #e91e63; border-bottom: 2px solid #e91e63; padding-bottom: 5px;">
+                <i class="fas fa-bullhorn"></i> Public Service Announcements (PSA)
+            </h3>
+            <div class="description" style="margin-top: 15px;">
+                <p><strong>About PSA:</strong> Play pre-recorded announcements over background music. The music volume will be 
+                "ducked" (lowered) during announcements, then restored afterward. Announcements play through a separate audio 
+                stream that mixes with the background music.</p>
+            </div>
+            <table class="settingsTable">
+                <tr>
+                    <td class="label">Announcement Volume (%):</td>
+                    <td class="value">
+                        <input type="number" name="PSAAnnouncementVolume" id="PSAAnnouncementVolume" min="0" max="100" 
+                               value="<?php echo isset($pluginSettings['PSAAnnouncementVolume']) ? $pluginSettings['PSAAnnouncementVolume'] : '90'; ?>">
+                        <small>Volume level for playing announcements (0-100%)</small>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="label">Ducked Music Volume (%):</td>
+                    <td class="value">
+                        <input type="number" name="PSADuckVolume" id="PSADuckVolume" min="0" max="100" 
+                               value="<?php echo isset($pluginSettings['PSADuckVolume']) ? $pluginSettings['PSADuckVolume'] : '30'; ?>">
+                        <small>Volume level to lower background music to during announcements (0-100%)</small>
+                    </td>
+                </tr>
+            </table>
+            
+            <h4 style="margin: 20px auto 10px; max-width: 800px; color: #555;">Configure Announcement Buttons:</h4>
+            <table class="settingsTable">
+                <?php for ($i = 1; $i <= 5; $i++): ?>
+                <tr>
+                    <td class="label">Button <?php echo $i; ?> Label:</td>
+                    <td class="value">
+                        <input type="text" name="PSAButton<?php echo $i; ?>Label" id="PSAButton<?php echo $i; ?>Label" 
+                               placeholder="e.g. Welcome Message" 
+                               value="<?php echo isset($pluginSettings['PSAButton'.$i.'Label']) ? htmlspecialchars($pluginSettings['PSAButton'.$i.'Label']) : ''; ?>">
+                    </td>
+                </tr>
+                <tr>
+                    <td class="label">Button <?php echo $i; ?> MP3 File:</td>
+                    <td class="value">
+                        <input type="text" name="PSAButton<?php echo $i; ?>File" id="PSAButton<?php echo $i; ?>File" 
+                               placeholder="/home/fpp/media/upload/announcement<?php echo $i; ?>.mp3" 
+                               value="<?php echo isset($pluginSettings['PSAButton'.$i.'File']) ? htmlspecialchars($pluginSettings['PSAButton'.$i.'File']) : ''; ?>">
+                        <small>Full path to MP3 file (typically in /home/fpp/media/upload/)</small>
+                    </td>
+                </tr>
+                <?php if ($i < 5): ?>
+                <tr><td colspan="2" style="height: 10px;"></td></tr>
+                <?php endif; ?>
+                <?php endfor; ?>
+            </table>
             
             <div class="buttonRow">
                 <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Save Settings</button>
@@ -349,7 +403,20 @@ $mediaOnlyPlaylists = getMediaOnlyPlaylists($allPlaylists);
                 'ShuffleMusic': $('#ShuffleMusic').is(':checked') ? '1' : '0',
                 'BackgroundMusicVolume': $('#BackgroundMusicVolume').val(),
                 'ShowPlaylistVolume': $('#ShowPlaylistVolume').val(),
-                'VolumeLevel': $('#BackgroundMusicVolume').val() || '70'  // Maintain backward compatibility
+                'VolumeLevel': $('#BackgroundMusicVolume').val() || '70',  // Maintain backward compatibility
+                // PSA settings
+                'PSAAnnouncementVolume': $('#PSAAnnouncementVolume').val(),
+                'PSADuckVolume': $('#PSADuckVolume').val(),
+                'PSAButton1Label': $('#PSAButton1Label').val(),
+                'PSAButton1File': $('#PSAButton1File').val(),
+                'PSAButton2Label': $('#PSAButton2Label').val(),
+                'PSAButton2File': $('#PSAButton2File').val(),
+                'PSAButton3Label': $('#PSAButton3Label').val(),
+                'PSAButton3File': $('#PSAButton3File').val(),
+                'PSAButton4Label': $('#PSAButton4Label').val(),
+                'PSAButton4File': $('#PSAButton4File').val(),
+                'PSAButton5Label': $('#PSAButton5Label').val(),
+                'PSAButton5File': $('#PSAButton5File').val()
             };
             
             $.ajax({

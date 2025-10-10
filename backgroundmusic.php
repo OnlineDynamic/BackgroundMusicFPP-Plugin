@@ -119,7 +119,17 @@
 </style>
 
 <div id="global" class="settings">
-    <h1>Background Music Controller</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1 style="margin: 0;">Background Music Controller</h1>
+        <div>
+            <a href="plugin.php?_menu=content&plugin=fpp-plugin-BackgroundMusic&page=content.php" class="btn btn-outline-secondary" style="margin-right: 5px;">
+                <i class="fas fa-cog"></i> Settings
+            </a>
+            <a href="plugin.php?plugin=fpp-plugin-BackgroundMusic&page=help%2Fbackgroundmusic-help.php" class="btn btn-outline-info">
+                <i class="fas fa-question-circle"></i> Help
+            </a>
+        </div>
+    </div>
     
     <!-- Brightness Plugin Warning -->
     <div id="brightnessPluginWarning" style="display: none; background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 15px; margin: 20px auto; max-width: 1200px;">

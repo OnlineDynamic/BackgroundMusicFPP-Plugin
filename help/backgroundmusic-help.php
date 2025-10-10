@@ -130,7 +130,17 @@
 </head>
 <body>
     <div id="global" class="settings">
-        <h1>Background Music Plugin - Help & About</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1 style="margin: 0;">Background Music Plugin - Help & About</h1>
+            <div>
+                <a href="/plugin.php?_menu=status&plugin=fpp-plugin-BackgroundMusic&page=backgroundmusic.php" class="btn btn-outline-secondary" style="margin-right: 5px;">
+                    <i class="fas fa-music"></i> Controller
+                </a>
+                <a href="/plugin.php?_menu=content&plugin=fpp-plugin-BackgroundMusic&page=content.php" class="btn btn-outline-secondary">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+            </div>
+        </div>
         
         <!-- Tab Navigation -->
         <div class="tab-navigation">
@@ -756,15 +766,6 @@
                     </p>
                 </div>
             </div>
-        </div>
-        
-        <div style="margin-top: 30px;">
-            <a href="/plugin.php?_menu=status&plugin=fpp-plugin-BackgroundMusic&page=backgroundmusic.php" class="btn btn-primary">
-                <i class="fas fa-arrow-left"></i> Back to Controller
-            </a>
-            <a href="/plugin.php?_menu=content&plugin=fpp-plugin-BackgroundMusic&page=content.php" class="btn btn-outline-secondary">
-                <i class="fas fa-cog"></i> Settings
-            </a>
         </div>
     </div>
     

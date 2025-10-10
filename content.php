@@ -159,7 +159,17 @@ $mediaOnlyPlaylists = getMediaOnlyPlaylists($allPlaylists);
 </style>
 
 <div id="global" class="settings">
-    <h1>Background Music Configuration</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1 style="margin: 0;">Background Music Configuration</h1>
+        <div>
+            <a href="plugin.php?_menu=status&plugin=fpp-plugin-BackgroundMusic&page=backgroundmusic.php" class="btn btn-outline-secondary" style="margin-right: 5px;">
+                <i class="fas fa-arrow-left"></i> Controller
+            </a>
+            <a href="plugin.php?plugin=fpp-plugin-BackgroundMusic&page=help%2Fbackgroundmusic-help.php" class="btn btn-outline-info">
+                <i class="fas fa-question-circle"></i> Help
+            </a>
+        </div>
+    </div>
     
     <!-- Brightness Plugin Warning -->
     <div style="background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 15px; margin: 20px auto; max-width: 800px;">
@@ -383,9 +393,6 @@ $mediaOnlyPlaylists = getMediaOnlyPlaylists($allPlaylists);
             
             <div class="buttonRow">
                 <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Save Settings</button>
-                <a href="plugin.php?_menu=status&plugin=fpp-plugin-BackgroundMusic&page=backgroundmusic.php" class="btn btn-primary">
-                    <i class="fas fa-arrow-left"></i> Back to Controller
-                </a>
             </div>
         </form>
     </div>

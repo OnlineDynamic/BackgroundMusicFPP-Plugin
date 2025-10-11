@@ -71,6 +71,12 @@ function getEndpointsfpppluginBackgroundMusic() {
         'endpoint' => 'psa-status',
         'callback' => 'fppBackgroundMusicPSAStatus');
     array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'GET',
+        'endpoint' => 'check-update',
+        'callback' => 'fppBackgroundMusicCheckUpdate');
+    array_push($result, $ep);
 
     return $result;
 }
@@ -518,6 +524,140 @@ function fppBackgroundMusicPSAStatus() {
         'playing' => $playing,
         'currentFile' => $currentFile
     );
+    
+    return json($result);
+}
+
+// GET /api/plugin/fpp-plugin-BackgroundMusic/check-update
+function fppBackgroundMusicCheckUpdate() {
+    $pluginDir = dirname(__FILE__);
+    $result = array(
+        'status' => 'OK',
+        'hasUpdate' => false,
+        'currentCommit' => '',
+        'latestCommit' => '',
+        'currentCommitShort' => '',
+        'latestCommitShort' => '',
+        'behindBy' => 0,
+        'lastChecked' => time(),
+        'canConnect' => false,
+        'branch' => 'master',
+        'repoURL' => 'https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin'
+    );
+    
+    // Determine which branch to check based on FPP version
+    $pluginInfoFile = $pluginDir . '/pluginInfo.json';
+    $branch = 'master'; // Default fallback
+    
+    if (file_exists($pluginInfoFile)) {
+        $pluginInfo = json_decode(file_get_contents($pluginInfoFile), true);
+        if ($pluginInfo && isset($pluginInfo['versions']) && is_array($pluginInfo['versions'])) {
+            // Get FPP version
+            $fppVersion = getFPPVersion();
+            $fppVersionParts = explode('.', $fppVersion);
+            $fppMajor = isset($fppVersionParts[0]) ? intval($fppVersionParts[0]) : 0;
+            $fppMinor = isset($fppVersionParts[1]) ? intval($fppVersionParts[1]) : 0;
+            
+            // Find matching version config
+            foreach ($pluginInfo['versions'] as $versionConfig) {
+                $minFPP = isset($versionConfig['minFPPVersion']) ? $versionConfig['minFPPVersion'] : '0.0';
+                $maxFPP = isset($versionConfig['maxFPPVersion']) ? $versionConfig['maxFPPVersion'] : '0';
+                $configBranch = isset($versionConfig['branch']) ? $versionConfig['branch'] : 'master';
+                
+                $minParts = explode('.', $minFPP);
+                $minMajor = isset($minParts[0]) ? intval($minParts[0]) : 0;
+                $minMinor = isset($minParts[1]) ? intval($minParts[1]) : 0;
+                
+                // Check if FPP version >= minFPPVersion
+                $meetsMin = ($fppMajor > $minMajor) || ($fppMajor == $minMajor && $fppMinor >= $minMinor);
+                
+                // Check maxFPPVersion (0 means no maximum)
+                $meetsMax = false;
+                if ($maxFPP === '0' || $maxFPP === 0) {
+                    $meetsMax = true;
+                } else {
+                    $maxParts = explode('.', $maxFPP);
+                    $maxMajor = isset($maxParts[0]) ? intval($maxParts[0]) : 0;
+                    $maxMinor = isset($maxParts[1]) ? intval($maxParts[1]) : 0;
+                    $meetsMax = ($fppMajor < $maxMajor) || ($fppMajor == $maxMajor && $fppMinor <= $maxMinor);
+                }
+                
+                if ($meetsMin && $meetsMax) {
+                    $branch = $configBranch;
+                    break;
+                }
+            }
+        }
+    }
+    
+    $result['branch'] = $branch;
+    
+    // Check if we can connect to the internet (check GitHub)
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, "https://github.com");
+    curl_setopt($ch, CURLOPT_NOBODY, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    $result['canConnect'] = ($httpCode >= 200 && $httpCode < 400);
+    
+    if (!$result['canConnect']) {
+        $result['message'] = 'Cannot connect to GitHub - check internet connection';
+        return json($result);
+    }
+    
+    // Get current commit hash
+    $currentCommit = trim(shell_exec("cd " . escapeshellarg($pluginDir) . " && git rev-parse HEAD 2>/dev/null"));
+    if (empty($currentCommit)) {
+        $result['status'] = 'ERROR';
+        $result['message'] = 'Failed to get current git commit';
+        return json($result);
+    }
+    
+    $result['currentCommit'] = $currentCommit;
+    $result['currentCommitShort'] = substr($currentCommit, 0, 7);
+    
+    // Fetch latest from remote for the appropriate branch
+    exec("cd " . escapeshellarg($pluginDir) . " && git fetch origin " . escapeshellarg($branch) . " 2>&1", $fetchOutput, $fetchReturn);
+    
+    if ($fetchReturn !== 0) {
+        $result['status'] = 'ERROR';
+        $result['message'] = 'Failed to fetch updates from remote repository';
+        return json($result);
+    }
+    
+    // Get latest commit hash from remote branch
+    $latestCommit = trim(shell_exec("cd " . escapeshellarg($pluginDir) . " && git rev-parse origin/" . escapeshellarg($branch) . " 2>/dev/null"));
+    if (empty($latestCommit)) {
+        $result['status'] = 'ERROR';
+        $result['message'] = 'Failed to get latest commit from remote';
+        return json($result);
+    }
+    
+    $result['latestCommit'] = $latestCommit;
+    $result['latestCommitShort'] = substr($latestCommit, 0, 7);
+    
+    // Check if we're behind
+    if ($currentCommit !== $latestCommit) {
+        $result['hasUpdate'] = true;
+        
+        // Get number of commits behind
+        $behindCount = trim(shell_exec("cd " . escapeshellarg($pluginDir) . " && git rev-list --count HEAD..origin/" . escapeshellarg($branch) . " 2>/dev/null"));
+        $result['behindBy'] = intval($behindCount);
+        
+        // Get latest commit details
+        $commitInfo = shell_exec("cd " . escapeshellarg($pluginDir) . " && git log origin/" . escapeshellarg($branch) . " -1 --pretty=format:'%s|%an|%ar' 2>/dev/null");
+        if (!empty($commitInfo)) {
+            $parts = explode('|', $commitInfo);
+            $result['latestCommitMessage'] = isset($parts[0]) ? $parts[0] : '';
+            $result['latestCommitAuthor'] = isset($parts[1]) ? $parts[1] : '';
+            $result['latestCommitDate'] = isset($parts[2]) ? $parts[2] : '';
+        }
+    }
     
     return json($result);
 }

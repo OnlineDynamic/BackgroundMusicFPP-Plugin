@@ -5,6 +5,20 @@
 BASEDIR=$(dirname $0)
 cd $BASEDIR
 cd ..
+PLUGIN_DIR=$(pwd)
+
+# Check if this is an upgrade (ALSA config with our marker already exists)
+IS_UPGRADE=0
+if [ -f "/etc/asound.conf" ] && grep -q "Background Music Plugin" /etc/asound.conf; then
+    IS_UPGRADE=1
+    echo "=========================================="
+    echo "Upgrading Background Music Plugin"
+    echo "=========================================="
+else
+    echo "=========================================="
+    echo "Installing Background Music Plugin"
+    echo "=========================================="
+fi
 
 make "SRCDIR=${SRCDIR}"
 
@@ -23,7 +37,9 @@ sudo apt-get -y install mpg123
 
 # Configure ALSA for software mixing (dmix) to allow concurrent audio streams
 # This enables background music and PSA announcements to play simultaneously
+echo "=========================================="
 echo "Configuring ALSA for software mixing support..."
+echo "=========================================="
 
 # Detect the audio card to use (prefer FPP's configured device)
 AUDIO_CARD="0"
@@ -38,18 +54,37 @@ if [ -f "/home/fpp/media/settings" ]; then
     fi
 fi
 
-# Backup existing asound.conf if it exists and doesn't have our marker
+# Check if this is an upgrade (existing config with our marker)
+NEEDS_UPDATE=0
 if [ -f "/etc/asound.conf" ]; then
-    if ! grep -q "Background Music Plugin" /etc/asound.conf; then
+    if grep -q "Background Music Plugin" /etc/asound.conf; then
+        # Check if the audio card matches
+        CURRENT_CARD=$(grep "card ${AUDIO_CARD}" /etc/asound.conf)
+        if [ -z "$CURRENT_CARD" ]; then
+            echo "Audio card changed or config outdated, updating..."
+            NEEDS_UPDATE=1
+        else
+            echo "ALSA config already exists and is up to date"
+        fi
+    else
+        # Backup non-plugin config
         cp /etc/asound.conf /etc/asound.conf.backup-$(date +%Y%m%d-%H%M%S)
         echo "Backed up existing /etc/asound.conf"
+        NEEDS_UPDATE=1
     fi
+else
+    # No config exists
+    NEEDS_UPDATE=1
 fi
 
-# Create ALSA configuration with dmix support
-cat > /etc/asound.conf << EOF
+# Create or update ALSA configuration with dmix support
+if [ $NEEDS_UPDATE -eq 1 ]; then
+    echo "Writing new ALSA configuration..."
+    cat > /etc/asound.conf << EOF
 # ALSA configuration for Background Music Plugin with software mixing support
 # This enables multiple audio streams to play concurrently (background music + PSA announcements)
+# Auto-generated during plugin installation/update
+# Last updated: $(date)
 
 pcm.!default {
     type plug
@@ -78,6 +113,27 @@ ctl.!default {
 }
 EOF
 
+    echo "ALSA software mixing configured successfully for card ${AUDIO_CARD}"
+    echo ""
+    echo "IMPORTANT: If background music is currently playing, stop and restart it"
+    echo "           for the new ALSA configuration to take effect."
+else
+    echo "ALSA configuration is current, no changes needed"
+fi
+
+echo "Note: If FPP's audio device is changed, re-run this install script or"
+echo "      reinstall the plugin to update /etc/asound.conf"
+echo "=========================================="
+        1 1
+    }
+}
+
+ctl.!default {
+    type hw
+    card ${AUDIO_CARD}
+}
+EOF
+
 echo "ALSA software mixing configured successfully for card ${AUDIO_CARD}"
 echo "Note: If FPP's audio device is changed, re-run this install script or manually update /etc/asound.conf"
 
@@ -94,6 +150,33 @@ if [ ! -d "/home/fpp/media/plugins/fpp-brightness" ]; then
     echo "  Or: https://github.com/FalconChristmas/fpp-brightness"
     echo "============================================"
     sleep 3
+fi
+
+# Show upgrade-specific messages
+if [ $IS_UPGRADE -eq 1 ]; then
+    echo ""
+    echo "=========================================="
+    echo "Plugin Upgraded Successfully"
+    echo "=========================================="
+    echo ""
+    echo "IMPORTANT UPGRADE NOTES:"
+    echo "------------------------"
+    echo "✓ ALSA audio configuration updated for software mixing"
+    echo "✓ PSA announcement system now available"
+    echo ""
+    echo "ACTION REQUIRED:"
+    echo "If background music is currently running:"
+    echo "  1. Stop background music"
+    echo "  2. Wait 2-3 seconds"
+    echo "  3. Start background music"
+    echo ""
+    echo "This applies the new ALSA configuration for PSA support."
+    echo "=========================================="
+else
+    echo ""
+    echo "=========================================="
+    echo "Plugin Installed Successfully"
+    echo "=========================================="
 fi
 
 # Set restart flag if setSetting function is available

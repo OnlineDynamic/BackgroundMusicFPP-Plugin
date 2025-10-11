@@ -119,6 +119,24 @@
 </style>
 
 <div id="global" class="settings">
+    <!-- Update Notification Banner -->
+    <div id="updateNotification" style="display: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; padding: 15px 20px; margin: 20px auto; max-width: 1200px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="flex: 1;">
+                <h3 style="margin: 0 0 5px 0; color: white;"><i class="fas fa-cloud-download-alt"></i> Update Available!</h3>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9;" id="updateDetails">A new version is available</p>
+            </div>
+            <div>
+                <button onclick="dismissUpdateNotification()" class="btn btn-sm" style="background-color: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); margin-right: 10px;">
+                    Dismiss
+                </button>
+                <a href="plugin.php?_menu=status&nopage=1&page=plugin-manager.php" class="btn btn-sm" style="background-color: white; color: #667eea; border: none; font-weight: bold;">
+                    <i class="fas fa-download"></i> Update Plugin
+                </a>
+            </div>
+        </div>
+    </div>
+    
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h1 style="margin: 0;">Background Music Controller</h1>
         <div>
@@ -737,10 +755,62 @@
             currentlyPlayingPSA = 0;
         }
         
+        // Update check functionality
+        var updateCheckDismissed = false;
+        var lastUpdateCheck = 0;
+        var UPDATE_CHECK_INTERVAL = 3600000; // Check every hour (in milliseconds)
+        
+        function checkForUpdates() {
+            // Don't check if dismissed or checked recently (within the hour)
+            var now = Date.now();
+            if (updateCheckDismissed || (now - lastUpdateCheck) < UPDATE_CHECK_INTERVAL) {
+                return;
+            }
+            
+            lastUpdateCheck = now;
+            
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/check-update',
+                type: 'GET',
+                dataType: 'json',
+                timeout: 10000, // 10 second timeout
+                success: function(data) {
+                    if (data.status === 'OK' && data.hasUpdate && data.canConnect) {
+                        var details = 'Version ' + data.latestCommitShort + ' is available';
+                        if (data.branch && data.branch !== 'master') {
+                            details += ' (branch: ' + data.branch + ')';
+                        }
+                        if (data.behindBy > 0) {
+                            details += ' — ' + data.behindBy + ' commit' + (data.behindBy > 1 ? 's' : '') + ' behind';
+                        }
+                        if (data.latestCommitMessage) {
+                            details += ' — ' + data.latestCommitMessage;
+                        }
+                        $('#updateDetails').text(details);
+                        $('#updateNotification').slideDown(400);
+                    }
+                },
+                error: function() {
+                    // Silently fail - don't bother the user if update check fails
+                }
+            });
+        }
+        
+        function dismissUpdateNotification() {
+            $('#updateNotification').slideUp(400);
+            updateCheckDismissed = true;
+        }
+        
         setInterval(updateStatus, 2000);
         
         $(document).ready(function() {
             updateStatus();
+            
+            // Check for updates on page load (after a short delay)
+            setTimeout(checkForUpdates, 5000); // Wait 5 seconds after page load
+            
+            // Check for updates periodically
+            setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL);
         });
     </script>
 </div>

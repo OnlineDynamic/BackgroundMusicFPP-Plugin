@@ -8,6 +8,16 @@ The plugin allows the user to start an audio-only background playlist whilst a n
 
 A 'Start Show' button allows the user to trigger a configured show playlist. When triggered, the plugin uses the **fpp-brightness** plugin to smoothly fade brightness (with MultiSync support for multi-controller setups), while simultaneously fading out the background music (time configurable). Once the fade completes, the background music and FSEQ playlists stop, have a blackout period (time configurable), and then return FPP to its previous brightness setting before starting the configured show playlist.
 
+## 🆕 PSA System Added!
+
+**New in this version:**
+- **PSA (Public Service Announcement) System** - 5 configurable buttons to play announcements over background music
+- **Automatic Volume Ducking** - Background music fades during announcements
+- **ALSA Software Mixing** - Concurrent audio playback support
+- **Enhanced API** - New endpoints for PSA control
+
+**Upgrading from v1.x?** The plugin automatically updates ALSA configuration. After upgrade, stop/restart background music to apply changes. See [CHANGELOG.md](CHANGELOG.md) for full details.
+
 ## Requirements
 
 - **FPP Version**: 9.0 or higher
@@ -77,6 +87,24 @@ The plugin automatically configures ALSA for software mixing (dmix) during insta
 **Note:** 
 - After plugin installation, stop and restart background music for ALSA configuration to take effect
 - If you change FPP's audio device setting, reinstall the plugin to update ALSA configuration
+
+### Automatic Update Notifications
+
+The plugin checks for updates automatically when internet is available:
+
+- 🔍 Checks GitHub repository hourly for new versions
+- 📢 Shows notification banner when updates are available
+- 🌿 **Branch-aware**: Automatically checks the correct branch based on your FPP version (defined in pluginInfo.json)
+- ⚙️ Uses FPP's native version management (git commits)
+- 🌐 Only checks when system has internet connectivity
+- ❌ Can be dismissed if you prefer to update later
+- 🔄 Update via FPP's Plugin Manager
+
+**How it works:**
+- Reads `pluginInfo.json` to determine which branch to check based on FPP version
+- Compares local git commit with remote repository
+- Shows notification with commit count and latest changes
+- Provides direct link to Plugin Manager for one-click updates
 
 ## Quick Start
 

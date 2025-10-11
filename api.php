@@ -452,6 +452,7 @@ function fppBackgroundMusicPlayAnnouncement() {
     
     // Get announcement configuration
     $announcementFile = isset($pluginSettings['PSAButton' . $buttonNumber . 'File']) ? $pluginSettings['PSAButton' . $buttonNumber . 'File'] : '';
+    $announcementLabel = isset($pluginSettings['PSAButton' . $buttonNumber . 'Label']) ? $pluginSettings['PSAButton' . $buttonNumber . 'Label'] : 'PSA #' . $buttonNumber;
     $announcementVolume = isset($pluginSettings['PSAAnnouncementVolume']) ? intval($pluginSettings['PSAAnnouncementVolume']) : 90;
     $duckVolume = isset($pluginSettings['PSADuckVolume']) ? intval($pluginSettings['PSADuckVolume']) : 30;
     
@@ -471,7 +472,9 @@ function fppBackgroundMusicPlayAnnouncement() {
     $cmd = "/bin/bash " . escapeshellarg($scriptPath) . " " . 
            escapeshellarg($announcementFile) . " " . 
            escapeshellarg($duckVolume) . " " . 
-           escapeshellarg($announcementVolume) . " 2>&1";
+           escapeshellarg($announcementVolume) . " " . 
+           escapeshellarg($buttonNumber) . " " . 
+           escapeshellarg($announcementLabel) . " 2>&1";
     
     exec($cmd, $output, $returnCode);
     
@@ -504,8 +507,11 @@ function fppBackgroundMusicStopAnnouncement() {
 // GET /api/plugin/fpp-plugin-BackgroundMusic/psa-status
 function fppBackgroundMusicPSAStatus() {
     $pidFile = '/tmp/announcement_player.pid';
+    $statusFile = '/tmp/announcement_status.txt';
     $playing = false;
-    $currentFile = '';
+    $buttonNumber = 0;
+    $buttonLabel = '';
+    $announcementFile = '';
     
     if (file_exists($pidFile)) {
         $pid = trim(file_get_contents($pidFile));
@@ -513,16 +519,29 @@ function fppBackgroundMusicPSAStatus() {
         exec("ps -p $pid > /dev/null 2>&1", $output, $returnCode);
         $playing = ($returnCode === 0);
         
+        // If playing, read status information
+        if ($playing && file_exists($statusFile)) {
+            $statusData = parse_ini_file($statusFile);
+            if ($statusData) {
+                $buttonNumber = isset($statusData['buttonNumber']) ? intval($statusData['buttonNumber']) : 0;
+                $buttonLabel = isset($statusData['buttonLabel']) ? $statusData['buttonLabel'] : '';
+                $announcementFile = isset($statusData['announcementFile']) ? $statusData['announcementFile'] : '';
+            }
+        }
+        
         // If not playing but PID file exists, clean it up
         if (!$playing) {
             @unlink($pidFile);
+            @unlink($statusFile);
         }
     }
     
     $result = array(
         'status' => 'OK',
         'playing' => $playing,
-        'currentFile' => $currentFile
+        'buttonNumber' => $buttonNumber,
+        'buttonLabel' => $buttonLabel,
+        'announcementFile' => $announcementFile
     );
     
     return json($result);

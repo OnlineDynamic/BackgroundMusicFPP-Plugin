@@ -2,7 +2,7 @@
 ##########################################################################
 # play_announcement.sh - Play public service announcement with ducking
 # 
-# Usage: play_announcement.sh <announcement_file> <duck_volume> <announcement_volume>
+# Usage: play_announcement.sh <announcement_file> <duck_volume> <announcement_volume> [button_number] [button_label]
 #
 # This script:
 # 1. Reduces background music volume (ducking)
@@ -13,10 +13,13 @@
 ANNOUNCEMENT_FILE="$1"
 DUCK_VOLUME="${2:-30}"          # Volume to duck background music to (default 30%)
 ANNOUNCEMENT_VOLUME="${3:-90}"  # Volume for announcement playback (default 90%)
+BUTTON_NUMBER="${4:-0}"         # Button number (optional)
+BUTTON_LABEL="${5:-PSA}"        # Button label (optional)
 
 PLUGIN_CONFIG="/home/fpp/media/config/plugin.fpp-plugin-BackgroundMusic"
 LOG_FILE="/home/fpp/media/logs/fpp-plugin-BackgroundMusic.log"
 ANNOUNCEMENT_PID_FILE="/tmp/announcement_player.pid"
+ANNOUNCEMENT_STATUS_FILE="/tmp/announcement_status.txt"
 
 log_message() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - [PSA] $1" >> "$LOG_FILE"
@@ -105,6 +108,14 @@ get_audio_device() {
 
 AUDIO_DEVICE=$(get_audio_device)
 
+# Save announcement status
+cat > "$ANNOUNCEMENT_STATUS_FILE" << EOF
+buttonNumber=$BUTTON_NUMBER
+buttonLabel=$BUTTON_LABEL
+announcementFile=$(basename "$ANNOUNCEMENT_FILE")
+startTime=$(date +%s)
+EOF
+
 # Play announcement in background
 (
     # Set announcement volume (ALSA will mix with background music)
@@ -156,8 +167,9 @@ AUDIO_DEVICE=$(get_audio_device)
         log_message "Volume restored to ${ORIGINAL_VOLUME}%"
     fi
     
-    # Clean up PID file
+    # Clean up PID and status files
     rm -f "$ANNOUNCEMENT_PID_FILE"
+    rm -f "$ANNOUNCEMENT_STATUS_FILE"
     
 ) &
 

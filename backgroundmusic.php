@@ -84,6 +84,19 @@
         50% { opacity: 0.7; }
     }
     
+    .psa-status-active {
+        animation: psa-flash 2s infinite;
+    }
+    
+    @keyframes psa-flash {
+        0%, 100% { 
+            color: #e91e63;
+        }
+        50% { 
+            color: #ff4081;
+        }
+    }
+    
     .statusPanel {
         margin: 20px auto;
         max-width: 1200px;
@@ -223,6 +236,12 @@
             <div class="statusItem">
                 <span class="statusLabel">Main Show:</span>
                 <span id="statusShow">Not Running</span>
+            </div>
+            <div class="statusItem" id="psaStatusContainer" style="display: none;">
+                <span class="statusLabel">PSA Announcement:</span>
+                <span id="statusPSA" class="psa-status-active" style="font-weight: bold; color: #e91e63;">
+                    <i class="fas fa-bullhorn"></i> Playing...
+                </span>
             </div>
             <div class="statusItem">
                 <span class="statusLabel">Current FPP Playlist:</span>
@@ -482,6 +501,9 @@
                     // Update playlist details with current track info
                     var currentTrack = data.currentTrack || '';
                     updatePlaylistDetails(currentTrack);
+                    
+                    // Check PSA status
+                    updatePSAStatus();
                 },
                 error: function() {
                     $('#statusBackgroundMusic').text('Error getting status');
@@ -544,6 +566,29 @@
                 },
                 error: function() {
                     $('#playlistTracksTable').html('<tr><td colspan="3" style="text-align: center; color: #999;">Error loading playlist</td></tr>');
+                }
+            });
+        }
+        
+        function updatePSAStatus() {
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/psa-status',
+                type: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    if (data.status === 'OK' && data.playing) {
+                        var statusText = '<i class="fas fa-bullhorn"></i> Playing';
+                        if (data.buttonLabel) {
+                            statusText += ': ' + escapeHtml(data.buttonLabel);
+                        }
+                        $('#statusPSA').html(statusText);
+                        $('#psaStatusContainer').show();
+                    } else {
+                        $('#psaStatusContainer').hide();
+                    }
+                },
+                error: function() {
+                    $('#psaStatusContainer').hide();
                 }
             });
         }

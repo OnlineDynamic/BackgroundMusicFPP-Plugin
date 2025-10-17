@@ -126,6 +126,12 @@
             font-size: 13px;
             margin: 10px 0;
         }
+        
+        /* Suppress Font Awesome brand icons loading errors (not used in this page) */
+        @font-face {
+            font-family: "Font Awesome 6 Brands";
+            src: none;
+        }
     </style>
 </head>
 <body>
@@ -163,7 +169,7 @@
                 <i class="fas fa-history"></i> Changelog
             </button>
             <button class="tab-button" onclick="switchTab('about', this)">
-                Plugin Info
+                <i class="fas fa-info-circle"></i> Plugin Info
             </button>
         </div>
         

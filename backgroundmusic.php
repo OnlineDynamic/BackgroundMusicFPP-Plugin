@@ -789,23 +789,47 @@
         }
         
         function updateButtonStates(status) {
+            // Check if show playlist is configured
+            var hasShowPlaylist = status.config && status.config.showPlaylist && status.config.showPlaylist.trim() !== '';
+            
             if (status.backgroundMusicRunning) {
                 $('#btnStartBackground').prop('disabled', true).css('opacity', '0.5')
                     .attr('title', 'Background music is already running');
                 $('#btnStopBackground').prop('disabled', false);
-                $('#btnStartShow').prop('disabled', false);
+                
+                // Enable start show only if playlist is configured
+                if (hasShowPlaylist) {
+                    $('#btnStartShow').prop('disabled', false).css('opacity', '1')
+                        .html('<i class="fas fa-rocket"></i> Start Main Show')
+                        .attr('title', 'Start the main show');
+                } else {
+                    $('#btnStartShow').prop('disabled', true).css('opacity', '0.5')
+                        .html('<i class="fas fa-cog"></i> Configure Show Playlist')
+                        .attr('title', 'No show playlist configured - click Settings tab to configure');
+                }
             } else if (status.showRunning) {
                 // Disable background music button when show is running
                 $('#btnStartBackground').prop('disabled', true).css('opacity', '0.5')
                     .attr('title', 'Cannot start background music while show is playing');
                 $('#btnStopBackground').prop('disabled', true);
                 $('#btnStartShow').prop('disabled', true).css('opacity', '0.5')
+                    .html('<i class="fas fa-rocket"></i> Start Main Show')
                     .attr('title', 'Show is already running');
             } else {
                 $('#btnStartBackground').prop('disabled', false).css('opacity', '1')
                     .attr('title', 'Start background music playback');
                 $('#btnStopBackground').prop('disabled', true);
-                $('#btnStartShow').prop('disabled', true);
+                
+                // Disable start show button when nothing is running
+                if (hasShowPlaylist) {
+                    $('#btnStartShow').prop('disabled', true).css('opacity', '0.5')
+                        .html('<i class="fas fa-rocket"></i> Start Main Show')
+                        .attr('title', 'Start background music first');
+                } else {
+                    $('#btnStartShow').prop('disabled', true).css('opacity', '0.5')
+                        .html('<i class="fas fa-cog"></i> Configure Show Playlist')
+                        .attr('title', 'No show playlist configured - click Settings tab to configure');
+                }
             }
         }
         

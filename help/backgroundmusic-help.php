@@ -163,10 +163,7 @@
                 <i class="fas fa-history"></i> Changelog
             </button>
             <button class="tab-button" onclick="switchTab('about', this)">
-                <i class="fas fa-info-circle"></i> About
-            </button>
-        </div>
-                <i class="fas fa-info-circle"></i> About
+                Plugin Info
             </button>
         </div>
         
@@ -885,18 +882,14 @@
                 
                 // Load Git commit history when changelog tab is opened
                 function loadChangelog() {
-                    console.log('Loading changelog...');
-                    
                     fetch('/api/plugin/fpp-plugin-BackgroundMusic/get-commit-history')
                         .then(response => {
-                            console.log('Response received:', response.status);
                             if (!response.ok) {
                                 throw new Error('Network response was not ok');
                             }
                             return response.json();
                         })
                         .then(data => {
-                            console.log('Data received:', data);
                             const container = document.getElementById('changelogContent');
                             
                             if (data.status === 'OK' && data.commits && data.commits.length > 0) {
@@ -951,7 +944,6 @@
                             }
                         })
                         .catch(error => {
-                            console.error('Error loading changelog:', error);
                             document.getElementById('changelogContent').innerHTML = `
                                 <div style="background-color: #f8d7da; border: 2px solid #f5c6cb; border-radius: 5px; padding: 20px; text-align: center;">
                                     <i class="fas fa-exclamation-circle" style="font-size: 32px; color: #721c24; margin-bottom: 10px;"></i>
@@ -974,8 +966,6 @@
                                 changelogLoaded = true;
                             }
                         };
-                    } else {
-                        console.error('switchTab function not found');
                     }
                 });
             </script>

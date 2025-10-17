@@ -2,8 +2,8 @@
 
 # fpp-plugin-backgroundmusic install script
 
-BASEDIR=$(dirname $0)
-cd $BASEDIR
+BASEDIR=$(dirname "$0")
+cd "$BASEDIR"
 cd ..
 PLUGIN_DIR=$(pwd)
 
@@ -51,7 +51,11 @@ if [ -f "/home/fpp/media/settings" ]; then
     if [ -n "$FPP_AUDIO_OUTPUT" ]; then
         AUDIO_CARD="$FPP_AUDIO_OUTPUT"
         echo "Using FPP's configured audio card: $AUDIO_CARD"
+    else
+        echo "No audio output configured in FPP, using default card 0"
     fi
+else
+    echo "FPP settings file not found, using default card 0"
 fi
 
 # Check if this is an upgrade (existing config with our marker)
@@ -65,22 +69,24 @@ if [ -f "/etc/asound.conf" ]; then
             NEEDS_UPDATE=1
         else
             echo "ALSA config already exists and is up to date"
+            NEEDS_UPDATE=0
         fi
     else
         # Backup non-plugin config
-        cp /etc/asound.conf /etc/asound.conf.backup-$(date +%Y%m%d-%H%M%S)
+        sudo cp /etc/asound.conf /etc/asound.conf.backup-$(date +%Y%m%d-%H%M%S)
         echo "Backed up existing /etc/asound.conf"
         NEEDS_UPDATE=1
     fi
 else
     # No config exists
+    echo "Creating new ALSA configuration..."
     NEEDS_UPDATE=1
 fi
 
 # Create or update ALSA configuration with dmix support
 if [ $NEEDS_UPDATE -eq 1 ]; then
     echo "Writing new ALSA configuration..."
-    cat > /etc/asound.conf << EOF
+    sudo tee /etc/asound.conf > /dev/null << EOF
 # ALSA configuration for Background Music Plugin with software mixing support
 # This enables multiple audio streams to play concurrently (background music + PSA announcements)
 # Auto-generated during plugin installation/update
@@ -124,18 +130,6 @@ fi
 echo "Note: If FPP's audio device is changed, re-run this install script or"
 echo "      reinstall the plugin to update /etc/asound.conf"
 echo "=========================================="
-        1 1
-    }
-}
-
-ctl.!default {
-    type hw
-    card ${AUDIO_CARD}
-}
-EOF
-
-echo "ALSA software mixing configured successfully for card ${AUDIO_CARD}"
-echo "Note: If FPP's audio device is changed, re-run this install script or manually update /etc/asound.conf"
 
 # Check if fpp-brightness plugin is installed (required for transitions with MultiSync support)
 if [ ! -d "/home/fpp/media/plugins/fpp-brightness" ]; then

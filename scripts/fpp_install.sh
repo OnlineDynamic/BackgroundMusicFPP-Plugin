@@ -134,15 +134,49 @@ echo "=========================================="
 # Check if fpp-brightness plugin is installed (required for transitions with MultiSync support)
 if [ ! -d "/home/fpp/media/plugins/fpp-brightness" ]; then
     echo "============================================"
-    echo "WARNING: fpp-brightness plugin not found!"
+    echo "fpp-brightness plugin not found!"
     echo "============================================"
     echo "The Background Music plugin requires the fpp-brightness plugin"
     echo "for brightness transitions with MultiSync support."
     echo ""
-    echo "Please install it on ALL controllers:"
-    echo "  Plugin Manager -> Install Plugins -> fpp-brightness"
-    echo "  Or: https://github.com/FalconChristmas/fpp-brightness"
-    echo "============================================"
+    echo "Attempting to install fpp-brightness plugin automatically..."
+    echo ""
+    
+    # Try to install via git clone
+    cd /home/fpp/media/plugins
+    if git clone https://github.com/FalconChristmas/fpp-brightness.git; then
+        echo "✓ fpp-brightness plugin cloned successfully"
+        
+        # Run its install script if it exists
+        if [ -f "/home/fpp/media/plugins/fpp-brightness/install.sh" ]; then
+            echo "Running fpp-brightness install script..."
+            cd /home/fpp/media/plugins/fpp-brightness
+            bash install.sh
+            echo "✓ fpp-brightness plugin installed successfully"
+        elif [ -f "/home/fpp/media/plugins/fpp-brightness/scripts/fpp_install.sh" ]; then
+            echo "Running fpp-brightness install script..."
+            cd /home/fpp/media/plugins/fpp-brightness
+            bash scripts/fpp_install.sh
+            echo "✓ fpp-brightness plugin installed successfully"
+        else
+            echo "✓ fpp-brightness plugin downloaded (no install script found)"
+        fi
+        
+        echo ""
+        echo "IMPORTANT: Install fpp-brightness on ALL other controllers"
+        echo "           in your MultiSync setup via Plugin Manager"
+        echo "============================================"
+    else
+        echo "✗ Failed to automatically install fpp-brightness plugin"
+        echo ""
+        echo "Please install manually on ALL controllers:"
+        echo "  Plugin Manager -> Install Plugins -> fpp-brightness"
+        echo "  Or: https://github.com/FalconChristmas/fpp-brightness"
+        echo "============================================"
+    fi
+    
+    # Return to plugin directory
+    cd "$PLUGIN_DIR"
     sleep 3
 fi
 

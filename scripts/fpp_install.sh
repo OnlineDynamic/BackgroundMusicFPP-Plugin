@@ -207,6 +207,15 @@ else
     echo "=========================================="
 fi
 
+# Create log file with proper permissions
+LOG_FILE="/home/fpp/media/logs/fpp-plugin-BackgroundMusic.log"
+if [ ! -f "$LOG_FILE" ]; then
+    touch "$LOG_FILE"
+    chown fpp:fpp "$LOG_FILE"
+    chmod 664 "$LOG_FILE"
+    echo "Created log file: $LOG_FILE"
+fi
+
 # Set restart flag if setSetting function is available
 if command -v setSetting &> /dev/null; then
     setSetting restartFlag 1

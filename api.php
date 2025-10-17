@@ -401,11 +401,13 @@ function fppBackgroundMusicStartShow() {
     
     // Execute the fade and show transition script in background
     $scriptPath = dirname(__FILE__) . '/scripts/start_show_transition.sh';
-    $cmd = sprintf('/bin/bash %s %d %d %s > /dev/null 2>&1 &', 
+    $logFile = '/home/fpp/media/logs/fpp-plugin-BackgroundMusic-api.log';
+    $cmd = sprintf('/bin/bash %s %d %d %s >> %s 2>&1 &', 
         escapeshellarg($scriptPath), 
         $fadeTime, 
         $blackoutTime, 
-        escapeshellarg($showPlaylist));
+        escapeshellarg($showPlaylist),
+        escapeshellarg($logFile));
     
     exec($cmd);
     

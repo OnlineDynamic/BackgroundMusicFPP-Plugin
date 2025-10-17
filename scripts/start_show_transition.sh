@@ -11,9 +11,6 @@
 # 6. Starts the configured show playlist
 ##########################################################################
 
-. /opt/fpp/scripts/common
-. /opt/fpp/scripts/functions
-
 FADE_TIME=${1:-5}        # Fade time in seconds (default 5)
 BLACKOUT_TIME=${2:-2}    # Blackout time in seconds (default 2)
 SHOW_PLAYLIST=${3:-""}   # Show playlist to start
@@ -28,7 +25,7 @@ log_message() {
 log_message "Starting show transition: fade=$FADE_TIME sec, blackout=$BLACKOUT_TIME sec, show=$SHOW_PLAYLIST"
 
 # Get current brightness setting (will restore this later)
-ORIGINAL_BRIGHTNESS=$(getSetting brightness)
+ORIGINAL_BRIGHTNESS=$(curl -s "http://localhost/api/system/brightness" | jq -r '.brightness' 2>/dev/null)
 if [ -z "$ORIGINAL_BRIGHTNESS" ] || [ "$ORIGINAL_BRIGHTNESS" = "false" ]; then
     ORIGINAL_BRIGHTNESS=100
 fi
@@ -72,6 +69,15 @@ if [ -f "/tmp/background_music_player.pid" ]; then
     log_message "Stopping background music player"
     SCRIPT_DIR="$(dirname "$0")"
     /bin/bash "$SCRIPT_DIR/background_music_player.sh" stop >> "$LOG_FILE" 2>&1
+else
+    log_message "No background music PID file found, checking for orphaned processes"
+fi
+
+# Kill any remaining ffplay processes (orphaned or not properly stopped)
+if pgrep -f "ffplay.*\.mp3" > /dev/null 2>&1; then
+    log_message "Found running ffplay processes - killing them"
+    pkill -f "ffplay.*\.mp3" 2>/dev/null
+    sleep 1
 fi
 
 # Get the Show Playlist Volume setting
@@ -109,8 +115,10 @@ curl -s -X GET "http://localhost/api/plugin-apis/Brightness/$ORIGINAL_BRIGHTNESS
 # Start the show playlist
 if [ -n "$SHOW_PLAYLIST" ]; then
     log_message "Starting show playlist: $SHOW_PLAYLIST"
-    # Use FPP's playlist API to start the playlist
-    curl -s -X GET "http://localhost/api/playlist/${SHOW_PLAYLIST}/start" > /dev/null 2>&1
+    # Use FPP's command API to start the playlist
+    curl -s -X POST "http://localhost/api/command" \
+        -H "Content-Type: application/json" \
+        -d "{\"command\":\"Start Playlist\",\"args\":[\"${SHOW_PLAYLIST}\",false,false]}" > /dev/null 2>&1
     
     # Verify it started
     sleep 2

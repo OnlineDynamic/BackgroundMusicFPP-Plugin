@@ -26,9 +26,19 @@ get_audio_device() {
         fi
     fi
     
-    # Default to sysdefault if nothing found
-    if [ -z "$audio_device" ]; then
-        audio_device="sysdefault"
+    # If still empty or just a number (like "0"), use default
+    if [ -z "$audio_device" ] || [[ "$audio_device" =~ ^[0-9]+$ ]]; then
+        # Try to detect available ALSA devices
+        if aplay -L | grep -q "^sysdefault:CARD="; then
+            audio_device="sysdefault"
+        elif aplay -L | grep -q "^default:CARD="; then
+            audio_device="default"
+        elif aplay -L | grep -q "^plughw:"; then
+            audio_device=$(aplay -L | grep "^plughw:" | head -1)
+        else
+            # Last resort - use hw:0,0
+            audio_device="hw:0,0"
+        fi
     fi
     
     echo "$audio_device"
@@ -108,6 +118,16 @@ start_music() {
     
     # Get audio device
     local audio_device=$(get_audio_device)
+    
+    echo "Detected audio device: $audio_device"
+    
+    # Test if the audio device is valid
+    if ! aplay -L | grep -q "$audio_device" && ! echo "$audio_device" | grep -q "^hw:"; then
+        echo "WARNING: Audio device '$audio_device' not found in ALSA device list"
+        echo "Available devices:"
+        aplay -L | head -20
+        echo "Attempting to use anyway with plug wrapper..."
+    fi
     
     # Wrap device in plug: for software mixing support (allows PSA announcements to play concurrently)
     # The plug plugin provides automatic sample rate/format conversion and software mixing

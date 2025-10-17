@@ -166,6 +166,24 @@
         border-style: solid;
         border-color: transparent transparent rgba(0, 0, 0, 0.9) transparent;
     }
+    
+    /* Collapsible sections */
+    .collapsible-section {
+        display: block;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+    }
+    
+    .statusPanel h2 {
+        transition: background-color 0.2s;
+    }
+    
+    .statusPanel h2:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+        border-radius: 4px;
+        padding: 5px;
+        margin: -5px;
+    }
 </style>
 
 <div id="global" class="settings">
@@ -296,7 +314,11 @@
 
         <!-- Volume Control Panel -->
         <div class="statusPanel">
-            <h2><i class="fas fa-volume-up"></i> Volume Control</h2>
+            <h2 style="cursor: pointer; user-select: none;" onclick="toggleSection('volumeControl')" data-tooltip="Click to expand/collapse">
+                <i class="fas fa-volume-up"></i> Volume Control 
+                <i id="volumeControlIcon" class="fas fa-chevron-down" style="float: right; font-size: 14px; transition: transform 0.3s;"></i>
+            </h2>
+            <div id="volumeControl" class="collapsible-section">
             <div class="statusItem">
                 <span class="statusLabel">Current Volume:</span>
                 <span id="statusVolume" style="font-weight: bold; font-size: 18px; color: #007bff;">70%</span>
@@ -314,11 +336,16 @@
                     <span>Adjust FPP system volume (affects all audio output)</span>
                 </div>
             </div>
+            </div>
         </div>
 
         <!-- Background Music Playlist Details Panel -->
         <div class="statusPanel">
-            <h2><i class="fas fa-music"></i> Background Music Playlist</h2>
+            <h2 style="cursor: pointer; user-select: none;" onclick="toggleSection('playlistDetails')" data-tooltip="Click to expand/collapse">
+                <i class="fas fa-music"></i> Background Music Playlist
+                <i id="playlistDetailsIcon" class="fas fa-chevron-down" style="float: right; font-size: 14px; transition: transform 0.3s;"></i>
+            </h2>
+            <div id="playlistDetails" class="collapsible-section">
             <div class="statusItem">
                 <span class="statusLabel">Playlist:</span>
                 <span id="playlistName" style="font-weight: bold; color: #007bff;">-</span>
@@ -360,14 +387,14 @@
             <div style="margin-top: 15px; padding: 8px; background-color: #e3f2fd; border-radius: 4px; font-size: 13px;">
                 <i class="fas fa-info-circle"></i> <strong>Tip:</strong> Drag and drop tracks to reorder, or click a track to jump to it
             </div>
-            <div style="margin-top: 10px; max-height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px;">
+            <div style="margin-top: 10px; max-height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px; padding-right: 5px;">
                 <table id="playlistTable" style="width: 100%; border-collapse: collapse; font-size: 14px;">
                     <thead style="position: sticky; top: 0; background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                         <tr>
                             <th style="padding: 8px; text-align: center; width: 30px;"><i class="fas fa-grip-vertical"></i></th>
                             <th style="padding: 8px; text-align: left; width: 40px;">#</th>
                             <th style="padding: 8px; text-align: left;">Track Name</th>
-                            <th style="padding: 8px; text-align: right; width: 80px;">Duration</th>
+                            <th style="padding: 8px 15px 8px 8px; text-align: right; width: 80px;">Duration</th>
                         </tr>
                     </thead>
                     <tbody id="playlistTracksTable">
@@ -379,11 +406,16 @@
                     </tbody>
                 </table>
             </div>
+            </div>
         </div>
 
         <!-- Configuration Summary Panel -->
         <div class="statusPanel">
-            <h2><i class="fas fa-cog"></i> Configuration Summary</h2>
+            <h2 style="cursor: pointer; user-select: none;" onclick="toggleSection('configSummary')" data-tooltip="Click to expand/collapse">
+                <i class="fas fa-cog"></i> Configuration Summary
+                <i id="configSummaryIcon" class="fas fa-chevron-down" style="float: right; font-size: 14px; transition: transform 0.3s;"></i>
+            </h2>
+            <div id="configSummary" class="collapsible-section">
             
             <!-- Playlists -->
             <h4 style="color: #2196F3; margin-top: 15px; margin-bottom: 10px; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px;">
@@ -454,10 +486,42 @@
                     <i class="fas fa-cog"></i> Configure Settings
                 </a>
             </div>
+            </div>
         </div>
     </div>
 
     <script>
+        // Collapsible section toggle function
+        function toggleSection(sectionId) {
+            var section = document.getElementById(sectionId);
+            var icon = document.getElementById(sectionId + 'Icon');
+            
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                icon.style.transform = 'rotate(0deg)';
+                localStorage.setItem('section_' + sectionId, 'expanded');
+            } else {
+                section.style.display = 'none';
+                icon.style.transform = 'rotate(-90deg)';
+                localStorage.setItem('section_' + sectionId, 'collapsed');
+            }
+        }
+        
+        // Initialize section states from localStorage on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            ['volumeControl', 'playlistDetails', 'configSummary'].forEach(function(sectionId) {
+                var state = localStorage.getItem('section_' + sectionId);
+                if (state === 'collapsed') {
+                    var section = document.getElementById(sectionId);
+                    var icon = document.getElementById(sectionId + 'Icon');
+                    if (section && icon) {
+                        section.style.display = 'none';
+                        icon.style.transform = 'rotate(-90deg)';
+                    }
+                }
+            });
+        });
+        
         // Helper function to format seconds as MM:SS
         function formatTime(seconds) {
             var mins = Math.floor(seconds / 60);
@@ -677,7 +741,7 @@
                             rows += '<td style="text-align: center; padding: 8px; cursor: grab;"><i class="fas fa-grip-vertical" style="color: #999;"></i></td>';
                             rows += '<td style="text-align: center; padding: 8px;">' + track.number + '</td>';
                             rows += '<td style="padding: 8px;">' + escapeHtml(track.name) + iconHtml + '</td>';
-                            rows += '<td style="text-align: right; padding: 8px;">' + track.durationFormatted + '</td>';
+                            rows += '<td style="text-align: right; padding: 8px 15px 8px 8px;">' + track.durationFormatted + '</td>';
                             rows += '</tr>';
                         }
                         $('#playlistTracksTable').html(rows);

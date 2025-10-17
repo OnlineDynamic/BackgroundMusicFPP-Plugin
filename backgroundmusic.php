@@ -180,7 +180,7 @@
                 <button onclick="dismissUpdateNotification()" class="btn btn-sm" style="background-color: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); margin-right: 10px;">
                     Dismiss
                 </button>
-                <a href="plugin.php?_menu=status&nopage=1&page=plugin-manager.php" class="btn btn-sm" style="background-color: white; color: #667eea; border: none; font-weight: bold;">
+                <a href="/plugin.php?page=plugin-manager.php" class="btn btn-sm" style="background-color: white; color: #667eea; border: none; font-weight: bold;">
                     <i class="fas fa-download"></i> Update Plugin
                 </a>
             </div>

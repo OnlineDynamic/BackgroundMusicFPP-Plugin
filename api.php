@@ -32,6 +32,36 @@ function getEndpointsfpppluginBackgroundMusic() {
     
     $ep = array(
         'method' => 'POST',
+        'endpoint' => 'pause-background',
+        'callback' => 'fppBackgroundMusicPauseBackground');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'POST',
+        'endpoint' => 'resume-background',
+        'callback' => 'fppBackgroundMusicResumeBackground');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'POST',
+        'endpoint' => 'next-track',
+        'callback' => 'fppBackgroundMusicNextTrack');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'POST',
+        'endpoint' => 'previous-track',
+        'callback' => 'fppBackgroundMusicPreviousTrack');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'POST',
+        'endpoint' => 'jump-to-track',
+        'callback' => 'fppBackgroundMusicJumpToTrack');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'POST',
         'endpoint' => 'start-show',
         'callback' => 'fppBackgroundMusicStartShow');
     array_push($result, $ep);
@@ -76,6 +106,12 @@ function getEndpointsfpppluginBackgroundMusic() {
         'method' => 'GET',
         'endpoint' => 'check-update',
         'callback' => 'fppBackgroundMusicCheckUpdate');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'POST',
+        'endpoint' => 'reorder-playlist',
+        'callback' => 'fppBackgroundMusicReorderPlaylist');
     array_push($result, $ep);
 
     return $result;
@@ -136,6 +172,9 @@ function fppBackgroundMusicStatus() {
     $trackDuration = 0;
     $trackElapsed = 0;
     $trackProgress = 0;
+    $playbackState = 'stopped';
+    $currentTrackNumber = 0;
+    $totalTracks = 0;
     
     if ($backgroundMusicRunning) {
         $statusFile = '/tmp/bg_music_status.txt';
@@ -146,6 +185,9 @@ function fppBackgroundMusicStatus() {
                 $trackDuration = isset($statusData['duration']) ? intval($statusData['duration']) : 0;
                 $trackElapsed = isset($statusData['elapsed']) ? intval($statusData['elapsed']) : 0;
                 $trackProgress = isset($statusData['progress']) ? intval($statusData['progress']) : 0;
+                $playbackState = isset($statusData['state']) ? $statusData['state'] : 'playing';
+                $currentTrackNumber = isset($statusData['track_number']) ? intval($statusData['track_number']) : 0;
+                $totalTracks = isset($statusData['total_tracks']) ? intval($statusData['total_tracks']) : 0;
             }
         }
     }
@@ -167,6 +209,9 @@ function fppBackgroundMusicStatus() {
         'trackDuration' => $trackDuration,
         'trackElapsed' => $trackElapsed,
         'trackProgress' => $trackProgress,
+        'playbackState' => $playbackState,
+        'currentTrackNumber' => $currentTrackNumber,
+        'totalTracks' => $totalTracks,
         'config' => array(
             'backgroundMusicPlaylist' => $backgroundMusicPlaylist,
             'showPlaylist' => $showPlaylist,
@@ -238,6 +283,83 @@ function fppBackgroundMusicStopBackground() {
     exec("/bin/bash " . escapeshellarg($scriptPath) . " stop 2>&1", $output, $returnCode);
     
     return json(array('status' => 'OK', 'message' => 'Background music stopped'));
+}
+
+// POST /api/plugin/fpp-plugin-BackgroundMusic/pause-background
+function fppBackgroundMusicPauseBackground() {
+    $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
+    $output = array();
+    $returnCode = 0;
+    exec("/bin/bash " . escapeshellarg($scriptPath) . " pause 2>&1", $output, $returnCode);
+    
+    if ($returnCode === 0) {
+        return json(array('status' => 'OK', 'message' => 'Background music paused'));
+    } else {
+        return json(array('status' => 'ERROR', 'message' => 'Failed to pause background music', 'details' => implode("\n", $output)));
+    }
+}
+
+// POST /api/plugin/fpp-plugin-BackgroundMusic/resume-background
+function fppBackgroundMusicResumeBackground() {
+    $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
+    $output = array();
+    $returnCode = 0;
+    exec("/bin/bash " . escapeshellarg($scriptPath) . " resume 2>&1", $output, $returnCode);
+    
+    if ($returnCode === 0) {
+        return json(array('status' => 'OK', 'message' => 'Background music resumed'));
+    } else {
+        return json(array('status' => 'ERROR', 'message' => 'Failed to resume background music', 'details' => implode("\n", $output)));
+    }
+}
+
+// POST /api/plugin/fpp-plugin-BackgroundMusic/next-track
+function fppBackgroundMusicNextTrack() {
+    $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
+    $output = array();
+    $returnCode = 0;
+    exec("/bin/bash " . escapeshellarg($scriptPath) . " next 2>&1", $output, $returnCode);
+    
+    if ($returnCode === 0) {
+        return json(array('status' => 'OK', 'message' => 'Skipped to next track'));
+    } else {
+        return json(array('status' => 'ERROR', 'message' => 'Failed to skip track', 'details' => implode("\n", $output)));
+    }
+}
+
+// POST /api/plugin/fpp-plugin-BackgroundMusic/previous-track
+function fppBackgroundMusicPreviousTrack() {
+    $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
+    $output = array();
+    $returnCode = 0;
+    exec("/bin/bash " . escapeshellarg($scriptPath) . " previous 2>&1", $output, $returnCode);
+    
+    if ($returnCode === 0) {
+        return json(array('status' => 'OK', 'message' => 'Went to previous track'));
+    } else {
+        return json(array('status' => 'ERROR', 'message' => 'Failed to go to previous track', 'details' => implode("\n", $output)));
+    }
+}
+
+// POST /api/plugin/fpp-plugin-BackgroundMusic/jump-to-track
+function fppBackgroundMusicJumpToTrack() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $trackNumber = isset($input['trackNumber']) ? intval($input['trackNumber']) : 0;
+    
+    if ($trackNumber < 1) {
+        return json(array('status' => 'ERROR', 'message' => 'Invalid track number'));
+    }
+    
+    $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
+    $output = array();
+    $returnCode = 0;
+    exec("/bin/bash " . escapeshellarg($scriptPath) . " jump " . escapeshellarg($trackNumber) . " 2>&1", $output, $returnCode);
+    
+    if ($returnCode === 0) {
+        return json(array('status' => 'OK', 'message' => 'Jumped to track ' . $trackNumber));
+    } else {
+        return json(array('status' => 'ERROR', 'message' => 'Failed to jump to track', 'details' => implode("\n", $output)));
+    }
 }
 
 // POST /api/plugin/fpp-plugin-BackgroundMusic/start-show
@@ -679,6 +801,103 @@ function fppBackgroundMusicCheckUpdate() {
     }
     
     return json($result);
+}
+
+// POST /api/plugin/fpp-plugin-BackgroundMusic/reorder-playlist
+function fppBackgroundMusicReorderPlaylist() {
+    global $settings;
+    $pluginConfigFile = $settings['configDirectory'] . "/plugin.fpp-plugin-BackgroundMusic";
+    
+    // Get POST data
+    $input = json_decode(file_get_contents('php://input'), true);
+    $trackOrder = isset($input['trackOrder']) ? $input['trackOrder'] : null;
+    
+    if (!is_array($trackOrder) || count($trackOrder) === 0) {
+        return json(array('status' => 'ERROR', 'message' => 'Invalid track order data'));
+    }
+    
+    // Read plugin configuration to get playlist name
+    if (file_exists($pluginConfigFile)) {
+        $pluginSettings = parse_ini_file($pluginConfigFile);
+        $playlistName = isset($pluginSettings['BackgroundMusicPlaylist']) ? $pluginSettings['BackgroundMusicPlaylist'] : '';
+        
+        if (empty($playlistName)) {
+            return json(array('status' => 'ERROR', 'message' => 'No background music playlist configured'));
+        }
+        
+        // Get playlist file path
+        $playlistFile = $settings['playlistDirectory'] . '/' . $playlistName . '.json';
+        
+        if (!file_exists($playlistFile)) {
+            return json(array('status' => 'ERROR', 'message' => 'Playlist file not found'));
+        }
+        
+        // Read and parse playlist
+        $playlistContent = file_get_contents($playlistFile);
+        $playlistData = json_decode($playlistContent, true);
+        
+        if (!$playlistData || !isset($playlistData['mainPlaylist'])) {
+            return json(array('status' => 'ERROR', 'message' => 'Invalid playlist format'));
+        }
+        
+        // Extract only the media items that are enabled
+        $mediaItems = array();
+        $otherItems = array();
+        foreach ($playlistData['mainPlaylist'] as $item) {
+            if ($item['type'] === 'media' && isset($item['enabled']) && $item['enabled'] == 1) {
+                $mediaItems[] = $item;
+            } else {
+                $otherItems[] = $item;
+            }
+        }
+        
+        // Verify track order matches the number of media items
+        if (count($trackOrder) !== count($mediaItems)) {
+            return json(array('status' => 'ERROR', 'message' => 'Track order count does not match playlist'));
+        }
+        
+        // Reorder the media items based on trackOrder array (0-indexed)
+        $reorderedMedia = array();
+        foreach ($trackOrder as $oldIndex) {
+            if (isset($mediaItems[$oldIndex])) {
+                $reorderedMedia[] = $mediaItems[$oldIndex];
+            }
+        }
+        
+        // Merge back with other items (keep non-media items in their original positions)
+        // For simplicity, we'll put all media items first, then other items
+        $playlistData['mainPlaylist'] = array_merge($reorderedMedia, $otherItems);
+        
+        // Write back to file with pretty printing
+        $jsonOutput = json_encode($playlistData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        if (file_put_contents($playlistFile, $jsonOutput) !== false) {
+            // Check if background music is running
+            $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
+            exec("/bin/bash " . escapeshellarg($scriptPath) . " status 2>&1", $statusOutput, $statusReturn);
+            
+            if ($statusReturn === 0) {
+                // It's running - regenerate the m3u playlist file so it picks up the new order
+                // The player will continue the current track and use the new order afterwards
+                $m3uFile = '/tmp/background_music_playlist.m3u';
+                $m3uContent = "#EXTM3U\n";
+                foreach ($reorderedMedia as $item) {
+                    $mediaName = isset($item['mediaName']) ? $item['mediaName'] : '';
+                    if (!empty($mediaName)) {
+                        $m3uContent .= "/home/fpp/media/music/" . $mediaName . "\n";
+                    }
+                }
+                file_put_contents($m3uFile, $m3uContent);
+                
+                return json(array('status' => 'OK', 'message' => 'Playlist reordered - will apply after current track'));
+            } else {
+                return json(array('status' => 'OK', 'message' => 'Playlist reordered successfully'));
+            }
+        } else {
+            return json(array('status' => 'ERROR', 'message' => 'Failed to save playlist file'));
+        }
+    } else {
+        return json(array('status' => 'ERROR', 'message' => 'Plugin not configured'));
+    }
 }
 
 ?>

@@ -129,6 +129,43 @@
         opacity: 0.6;
         pointer-events: none;
     }
+    
+    /* Player control button tooltips - position below */
+    .player-control-btn {
+        position: relative;
+    }
+    
+    .custom-tooltip {
+        position: absolute;
+        bottom: -40px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        white-space: nowrap;
+        z-index: 10000;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    
+    .custom-tooltip.show {
+        opacity: 1;
+    }
+    
+    .custom-tooltip::before {
+        content: '';
+        position: absolute;
+        top: -6px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 0 6px 6px 6px;
+        border-style: solid;
+        border-color: transparent transparent rgba(0, 0, 0, 0.9) transparent;
+    }
 </style>
 
 <div id="global" class="settings">
@@ -227,7 +264,7 @@
                 <span class="statusLabel">Progress:</span>
                 <div style="display: inline-block; width: 60%; vertical-align: middle;">
                     <div style="background-color: #e9ecef; border-radius: 4px; height: 20px; position: relative; overflow: hidden;">
-                        <div id="trackProgressBar" style="background-color: #007bff; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                        <div id="statusTrackProgressBar" style="background-color: #007bff; height: 100%; width: 0%; transition: width 0.3s;"></div>
                         <span id="trackProgressText" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px; font-weight: bold; color: #000;">0%</span>
                     </div>
                 </div>
@@ -294,10 +331,40 @@
                 <span class="statusLabel">Total Duration:</span>
                 <span id="playlistTotalDuration" style="font-weight: bold;">-</span>
             </div>
-            <div style="margin-top: 15px; max-height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            
+            <!-- Player Controls -->
+            <div id="playerControls" style="display: none; margin: 15px 0; text-align: center; background-color: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">
+                <div style="margin-bottom: 10px;">
+                    <strong>Now Playing:</strong> <span id="nowPlayingTrack" style="color: #007bff;">-</span>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <span id="trackTime" style="font-family: monospace; font-size: 14px;">0:00 / 0:00</span>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <div style="width: 100%; height: 6px; background-color: #e0e0e0; border-radius: 3px; overflow: hidden;">
+                        <div id="trackProgressBar" style="width: 0%; height: 100%; background-color: #4CAF50; transition: width 0.3s;"></div>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-secondary player-control-btn" onclick="previousTrack()" data-tooltip="Previous Track" style="padding: 8px 15px;">
+                        <i class="fas fa-step-backward"></i> Previous
+                    </button>
+                    <button id="btnPauseResume" class="btn btn-warning player-control-btn" onclick="togglePauseResume()" data-tooltip="Pause/Resume" style="padding: 8px 20px;">
+                        <i class="fas fa-pause"></i> <span id="pauseResumeText">Pause</span>
+                    </button>
+                    <button class="btn btn-secondary player-control-btn" onclick="nextTrack()" data-tooltip="Next Track" style="padding: 8px 15px;">
+                        <i class="fas fa-step-forward"></i> Next
+                    </button>
+                </div>
+            </div>
+            <div style="margin-top: 15px; padding: 8px; background-color: #e3f2fd; border-radius: 4px; font-size: 13px;">
+                <i class="fas fa-info-circle"></i> <strong>Tip:</strong> Drag and drop tracks to reorder, or click a track to jump to it
+            </div>
+            <div style="margin-top: 10px; max-height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px;">
+                <table id="playlistTable" style="width: 100%; border-collapse: collapse; font-size: 14px;">
                     <thead style="position: sticky; top: 0; background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                         <tr>
+                            <th style="padding: 8px; text-align: center; width: 30px;"><i class="fas fa-grip-vertical"></i></th>
                             <th style="padding: 8px; text-align: left; width: 40px;">#</th>
                             <th style="padding: 8px; text-align: left;">Track Name</th>
                             <th style="padding: 8px; text-align: right; width: 80px;">Duration</th>
@@ -433,9 +500,9 @@
                         $('#trackProgressContainer').show();
                         $('#statusCurrentTrack').text(data.currentTrack);
                         
-                        // Update progress bar
+                        // Update progress bar in Current Status section
                         var progress = data.trackProgress || 0;
-                        $('#trackProgressBar').css('width', progress + '%');
+                        $('#statusTrackProgressBar').css('width', progress + '%');
                         $('#trackProgressText').text(progress + '%');
                         
                         // Update time display
@@ -502,6 +569,34 @@
                     var currentTrack = data.currentTrack || '';
                     updatePlaylistDetails(currentTrack);
                     
+                    // Update player controls
+                    if (data.backgroundMusicRunning) {
+                        $('#playerControls').show();
+                        $('#nowPlayingTrack').text(currentTrack || '-');
+                        
+                        // Update progress bar
+                        var progress = data.trackProgress || 0;
+                        $('#trackProgressBar').css('width', progress + '%');
+                        
+                        // Update time display
+                        var elapsed = data.trackElapsed || 0;
+                        var duration = data.trackDuration || 0;
+                        $('#trackTime').text(formatTime(elapsed) + ' / ' + formatTime(duration));
+                        
+                        // Update pause/resume button
+                        if (data.playbackState === 'paused') {
+                            $('#btnPauseResume').removeClass('btn-warning').addClass('btn-success');
+                            $('#btnPauseResume i').removeClass('fa-pause').addClass('fa-play');
+                            $('#pauseResumeText').text('Resume');
+                        } else {
+                            $('#btnPauseResume').removeClass('btn-success').addClass('btn-warning');
+                            $('#btnPauseResume i').removeClass('fa-play').addClass('fa-pause');
+                            $('#pauseResumeText').text('Pause');
+                        }
+                    } else {
+                        $('#playerControls').hide();
+                    }
+                    
                     // Check PSA status
                     updatePSAStatus();
                 },
@@ -524,7 +619,24 @@
             });
         }
         
-        function updatePlaylistDetails(currentTrack) {
+        function updatePlaylistDetails(currentTrack, forceRefresh) {
+            // Don't update if user is dragging
+            if (isDragging) {
+                return;
+            }
+            
+            // Store current track globally
+            lastCurrentTrack = currentTrack;
+            
+            // Throttle playlist updates to once every 10 seconds unless forced
+            var now = Date.now();
+            if (!forceRefresh && lastPlaylistData && (now - lastPlaylistUpdate) < 10000) {
+                // Just update the playing indicator without fetching new data
+                // Only update if track changed or hasn't been updated yet
+                updatePlayingIndicator(currentTrack);
+                return;
+            }
+            
             $.ajax({
                 url: '/api/plugin/fpp-plugin-BackgroundMusic/playlist-details',
                 type: 'GET',
@@ -535,6 +647,11 @@
                         $('#playlistTrackCount').text(data.totalTracks + ' tracks');
                         $('#playlistTotalDuration').text('Total: ' + data.totalDurationFormatted);
                         
+                        // Store tracks globally for reordering
+                        window.playlistTracks = data.tracks;
+                        lastPlaylistData = data;
+                        lastPlaylistUpdate = now;
+                        
                         // Build table rows
                         var rows = '';
                         for (var i = 0; i < data.tracks.length; i++) {
@@ -544,29 +661,96 @@
                             var iconHtml = '';
                             
                             if (isPlaying) {
-                                rowStyle = ' style="background-color: #e3f2fd; font-weight: bold; border-left: 3px solid #2196F3;"';
+                                rowStyle = ' style="cursor: pointer; background-color: #e3f2fd; font-weight: bold; border-left: 3px solid #2196F3;"';
                                 iconHtml = ' <i class="fas fa-play" style="color: #2196F3; margin-left: 5px;"></i>';
+                            } else {
+                                rowStyle = ' style="cursor: pointer;"';
                             }
                             
-                            rows += '<tr' + rowStyle + '>';
+                            rows += '<tr data-track-index="' + i + '" data-track-number="' + track.number + '" data-track-name="' + track.name + '"' + rowStyle + '>';
+                            rows += '<td style="text-align: center; padding: 8px; cursor: grab;"><i class="fas fa-grip-vertical" style="color: #999;"></i></td>';
                             rows += '<td style="text-align: center; padding: 8px;">' + track.number + '</td>';
                             rows += '<td style="padding: 8px;">' + escapeHtml(track.name) + iconHtml + '</td>';
                             rows += '<td style="text-align: right; padding: 8px;">' + track.durationFormatted + '</td>';
                             rows += '</tr>';
                         }
                         $('#playlistTracksTable').html(rows);
+                        
+                        // Initialize sortable if not already done
+                        if (!$('#playlistTracksTable').hasClass('ui-sortable')) {
+                            initPlaylistSortable();
+                        }
+                        
+                        // Add click handlers for jumping to track
+                        $('#playlistTracksTable tr').click(function(e) {
+                            // Don't trigger if clicking on the drag handle
+                            if ($(e.target).hasClass('fa-grip-vertical') || $(e.target).closest('td').find('.fa-grip-vertical').length > 0) {
+                                return;
+                            }
+                            var trackNumber = $(this).data('track-number');
+                            if (trackNumber) {
+                                jumpToTrack(trackNumber);
+                            }
+                        });
                     } else {
                         // No playlist or error
                         var message = data.message || 'No playlist configured';
                         $('#playlistName').text('-');
                         $('#playlistTrackCount').text('-');
                         $('#playlistTotalDuration').text('-');
-                        $('#playlistTracksTable').html('<tr><td colspan="3" style="text-align: center; color: #999;">' + message + '</td></tr>');
+                        $('#playlistTracksTable').html('<tr><td colspan="4" style="text-align: center; color: #999;">' + message + '</td></tr>');
+                        lastPlaylistData = null;
                     }
                 },
                 error: function() {
-                    $('#playlistTracksTable').html('<tr><td colspan="3" style="text-align: center; color: #999;">Error loading playlist</td></tr>');
+                    $('#playlistTracksTable').html('<tr><td colspan="4" style="text-align: center; color: #999;">Error loading playlist</td></tr>');
                 }
+            });
+        }
+        
+        function updatePlayingIndicator(currentTrack) {
+            // Lightweight update - just change the playing indicator without rebuilding the table
+            var $rows = $('#playlistTracksTable tr');
+            
+            // If no rows, nothing to update
+            if ($rows.length === 0) {
+                return;
+            }
+            
+            $rows.each(function() {
+                var $row = $(this);
+                var trackName = $row.data('track-name');
+                var $nameCell = $row.find('td:eq(2)'); // Column 0=grip, 1=number, 2=name, 3=duration
+                var isPlaying = currentTrack && trackName === currentTrack;
+                var rowStyle = $row.attr('style') || '';
+                var hasHighlight = rowStyle.indexOf('background-color: #e3f2fd') >= 0 || rowStyle.indexOf('background-color:#e3f2fd') >= 0;
+                
+                if (isPlaying && !hasHighlight) {
+                    // Add highlight
+                    $row.css({
+                        'background-color': '#e3f2fd',
+                        'font-weight': 'bold',
+                        'border-left': '3px solid #2196F3'
+                    });
+                    // Add play icon if not present
+                    if ($nameCell.find('.fa-play').length === 0) {
+                        var currentText = $nameCell.clone().children().remove().end().text().trim();
+                        $nameCell.html(escapeHtml(currentText) + ' <i class="fas fa-play" style="color: #2196F3; margin-left: 5px;"></i>');
+                    }
+                } else if (!isPlaying && hasHighlight) {
+                    // Remove highlight
+                    $row.css({
+                        'background-color': '',
+                        'font-weight': '',
+                        'border-left': ''
+                    });
+                    // Remove play icon
+                    if ($nameCell.find('.fa-play').length > 0) {
+                        var currentText = $nameCell.clone().children().remove().end().text().trim();
+                        $nameCell.html(escapeHtml(currentText));
+                    }
+                }
+                // If already correct state, do nothing (prevents flashing)
             });
         }
         
@@ -669,6 +853,184 @@
             });
         }
         
+        function togglePauseResume() {
+            var $btn = $('#btnPauseResume');
+            var isPaused = $btn.hasClass('btn-success');
+            var endpoint = isPaused ? 'resume-background' : 'pause-background';
+            var action = isPaused ? 'resumed' : 'paused';
+            
+            $btn.prop('disabled', true);
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/' + endpoint,
+                type: 'POST',
+                dataType: 'json',
+                success: function(data) {
+                    if (data.status === 'OK') {
+                        $.jGrowl('Background music ' + action, {themeState: 'success', life: 1000});
+                    } else {
+                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'error'});
+                    }
+                    $btn.prop('disabled', false);
+                    updateStatus();
+                },
+                error: function() {
+                    $.jGrowl('Failed to ' + (isPaused ? 'resume' : 'pause') + ' background music', {themeState: 'error'});
+                    $btn.prop('disabled', false);
+                }
+            });
+        }
+        
+        function nextTrack() {
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/next-track',
+                type: 'POST',
+                dataType: 'json',
+                success: function(data) {
+                    if (data.status === 'OK') {
+                        $.jGrowl('Skipping to next track', {themeState: 'success', life: 1000});
+                    } else {
+                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'error'});
+                    }
+                    updateStatus();
+                },
+                error: function() {
+                    $.jGrowl('Failed to skip track', {themeState: 'error'});
+                }
+            });
+        }
+        
+        function previousTrack() {
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/previous-track',
+                type: 'POST',
+                dataType: 'json',
+                success: function(data) {
+                    if (data.status === 'OK') {
+                        $.jGrowl('Going to previous track', {themeState: 'success', life: 1000});
+                    } else {
+                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'error'});
+                    }
+                    updateStatus();
+                },
+                error: function() {
+                    $.jGrowl('Failed to go to previous track', {themeState: 'error'});
+                }
+            });
+        }
+        
+        function jumpToTrack(trackNumber) {
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/jump-to-track',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({trackNumber: trackNumber}),
+                dataType: 'json',
+                success: function(data) {
+                    if (data.status === 'OK') {
+                        $.jGrowl('Jumping to track ' + trackNumber, {themeState: 'success', life: 1000});
+                    } else {
+                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'error'});
+                    }
+                    updateStatus();
+                },
+                error: function() {
+                    $.jGrowl('Failed to jump to track', {themeState: 'error'});
+                }
+            });
+        }
+        
+        function initPlaylistSortable() {
+            // Check if jQuery UI sortable is available
+            if (typeof $.fn.sortable === 'undefined') {
+                console.warn('jQuery UI sortable not available, drag-and-drop disabled');
+                return;
+            }
+            
+            $('#playlistTracksTable').sortable({
+                handle: '.fa-grip-vertical',
+                axis: 'y',
+                cursor: 'move',
+                tolerance: 'pointer',
+                delay: 100, // Small delay helps prevent accidental drags
+                start: function(event, ui) {
+                    isDragging = true;
+                    ui.item.css('opacity', '0.7');
+                    ui.placeholder.css({
+                        'background-color': '#e3f2fd',
+                        'border': '2px dashed #2196F3',
+                        'visibility': 'visible',
+                        'height': ui.item.outerHeight() + 'px'
+                    });
+                },
+                stop: function(event, ui) {
+                    isDragging = false;
+                    ui.item.css('opacity', '1');
+                },
+                helper: function(e, tr) {
+                    var $originals = tr.children();
+                    var $helper = tr.clone();
+                    $helper.children().each(function(index) {
+                        $(this).width($originals.eq(index).width());
+                    });
+                    $helper.css({
+                        'background-color': '#f8f9fa',
+                        'box-shadow': '0 4px 8px rgba(0,0,0,0.2)',
+                        'border': '1px solid #dee2e6'
+                    });
+                    return $helper;
+                },
+                update: function(event, ui) {
+                    // Get new order
+                    var newOrder = [];
+                    $('#playlistTracksTable tr').each(function() {
+                        var trackIndex = $(this).data('track-index');
+                        if (trackIndex !== undefined) {
+                            newOrder.push(trackIndex);
+                        }
+                    });
+                    
+                    // Update track numbers in the display
+                    $('#playlistTracksTable tr').each(function(index) {
+                        $(this).find('td:eq(1)').text(index + 1);
+                        $(this).data('track-number', index + 1);
+                    });
+                    
+                    // Save new order
+                    savePlaylistOrder(newOrder);
+                }
+            }).disableSelection();
+        }
+        
+        function savePlaylistOrder(trackOrder) {
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/reorder-playlist',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({trackOrder: trackOrder}),
+                dataType: 'json',
+                success: function(data) {
+                    if (data.status === 'OK') {
+                        var message = 'Playlist order saved';
+                        if (data.message.indexOf('after current track') >= 0) {
+                            message = 'Order saved - will apply after current track';
+                        }
+                        $.jGrowl(message, {themeState: 'success', life: 3000});
+                        // Force a fresh playlist load after reordering
+                        lastPlaylistUpdate = 0;
+                        // Update status to refresh the playlist display
+                        setTimeout(function() {
+                            updateStatus();
+                        }, 500);
+                    } else {
+                        $.jGrowl('Error saving playlist order: ' + (data.message || 'Unknown error'), {themeState: 'error'});
+                    }
+                },
+                error: function() {
+                    $.jGrowl('Failed to save playlist order', {themeState: 'error'});
+                }
+            });
+        }
+        
         function startShow() {
             if (!confirm('This will fade out the background music and animation, then start the main show. Continue?')) {
                 return;
@@ -697,6 +1059,12 @@
         
         // PSA Functions
         var currentlyPlayingPSA = 0; // 0 = none, 1-5 = button number
+        
+        // Drag and drop state
+        var isDragging = false;
+        var lastPlaylistUpdate = 0;
+        var lastPlaylistData = null;
+        var lastCurrentTrack = '';
         
         function generatePSAButtons(config) {
             var container = $('#psaButtonsContainer');
@@ -848,8 +1216,32 @@
         
         setInterval(updateStatus, 2000);
         
+        // Initialize custom tooltips for player control buttons
+        function initCustomTooltips() {
+            $('.player-control-btn').each(function() {
+                var $btn = $(this);
+                var tooltipText = $btn.attr('data-tooltip');
+                
+                if (tooltipText) {
+                    var $tooltip = $('<div class="custom-tooltip">' + tooltipText + '</div>');
+                    $btn.append($tooltip);
+                    
+                    $btn.on('mouseenter', function() {
+                        $(this).find('.custom-tooltip').addClass('show');
+                    });
+                    
+                    $btn.on('mouseleave', function() {
+                        $(this).find('.custom-tooltip').removeClass('show');
+                    });
+                }
+            });
+        }
+        
         $(document).ready(function() {
             updateStatus();
+            
+            // Initialize custom tooltips
+            initCustomTooltips();
             
             // Check for updates on page load (after a short delay)
             setTimeout(checkForUpdates, 5000); // Wait 5 seconds after page load

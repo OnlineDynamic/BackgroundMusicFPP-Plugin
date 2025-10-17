@@ -222,6 +222,14 @@
                 continuously - no gaps, no configuration needed. Works perfectly even with short playlists.
             </p>
             
+            <h3>Media Player Controls</h3>
+            <p>
+                Full media player functionality with pause/resume, next/previous track navigation, and jump to specific track. 
+                The controller interface includes a progress bar showing current track position and time, clickable playlist 
+                for instant track selection, and drag-and-drop reordering. All controls are available via both the web UI 
+                and REST API.
+            </p>
+            
             <h3>Smooth Show Transitions</h3>
             <p>
                 Professional fade-out with synchronized brightness dimming across all controllers (via MultiSync). 
@@ -447,10 +455,13 @@
                 <ul>
                     <li><code>backgroundMusicRunning</code> - Boolean, true if music playing</li>
                     <li><code>showRunning</code> - Boolean, true if main show active</li>
+                    <li><code>playbackState</code> - String ("playing", "paused", or "stopped"), current playback state</li>
                     <li><code>brightness</code> - Integer (0-100), current brightness level</li>
                     <li><code>brightnessPluginInstalled</code> - Boolean, fpp-brightness plugin status</li>
                     <li><code>currentPlaylist</code> - String, currently playing FPP playlist</li>
                     <li><code>currentTrack</code> - String, currently playing music track name</li>
+                    <li><code>currentTrackNumber</code> - Integer, track position in playlist (1-based)</li>
+                    <li><code>totalTracks</code> - Integer, total number of tracks in playlist</li>
                     <li><code>trackDuration</code> - Integer, track duration in seconds</li>
                     <li><code>trackElapsed</code> - Integer, elapsed time in seconds</li>
                     <li><code>trackProgress</code> - Integer (0-100), playback progress percentage</li>
@@ -460,8 +471,11 @@
                 <div class="code-block">{
   "backgroundMusicRunning": true,
   "showRunning": false,
+  "playbackState": "playing",
   "brightness": 100,
   "currentTrack": "Holiday Music 01.mp3",
+  "currentTrackNumber": 3,
+  "totalTracks": 12,
   "trackProgress": 45,
   "config": {
     "backgroundMusicPlaylist": "PreShowMusic",
@@ -508,6 +522,88 @@
                 <p><strong>Response:</strong></p>
                 <div class="code-block">{"status": "OK", "message": "Background music stopped"}</div>
             </div>
+            
+            <h3>Media Player Controls</h3>
+            
+            <div class="api-endpoint">
+                <div>
+                    <span class="api-method post">POST</span>
+                    <code class="api-path">pause-background</code>
+                </div>
+                <p><strong>Description:</strong> Pause currently playing background music</p>
+                <p><strong>Behavior:</strong> Pauses audio playback without stopping the player. Progress bar freezes at current position.</p>
+                <p><strong>Response:</strong></p>
+                <div class="code-block">{"status": "OK", "message": "Background music paused"}</div>
+            </div>
+            
+            <div class="api-endpoint">
+                <div>
+                    <span class="api-method post">POST</span>
+                    <code class="api-path">resume-background</code>
+                </div>
+                <p><strong>Description:</strong> Resume paused background music</p>
+                <p><strong>Behavior:</strong> Continues playback from current position. Progress bar resumes advancing.</p>
+                <p><strong>Response:</strong></p>
+                <div class="code-block">{"status": "OK", "message": "Background music resumed"}</div>
+            </div>
+            
+            <div class="api-endpoint">
+                <div>
+                    <span class="api-method post">POST</span>
+                    <code class="api-path">next-track</code>
+                </div>
+                <p><strong>Description:</strong> Skip to next track in background music playlist</p>
+                <p><strong>Behavior:</strong> Immediately advances to next track. If at end of playlist, wraps to first track.</p>
+                <p><strong>Response:</strong></p>
+                <div class="code-block">{"status": "OK", "message": "Skipped to next track"}</div>
+            </div>
+            
+            <div class="api-endpoint">
+                <div>
+                    <span class="api-method post">POST</span>
+                    <code class="api-path">previous-track</code>
+                </div>
+                <p><strong>Description:</strong> Go back to previous track in background music playlist</p>
+                <p><strong>Behavior:</strong> Returns to previous track. If at first track, wraps to last track.</p>
+                <p><strong>Response:</strong></p>
+                <div class="code-block">{"status": "OK", "message": "Returned to previous track"}</div>
+            </div>
+            
+            <div class="api-endpoint">
+                <div>
+                    <span class="api-method post">POST</span>
+                    <code class="api-path">jump-to-track</code>
+                </div>
+                <p><strong>Description:</strong> Jump directly to a specific track number</p>
+                <p><strong>Request Body:</strong></p>
+                <div class="code-block">{"trackNumber": 5}</div>
+                <p><strong>Parameters:</strong></p>
+                <ul>
+                    <li><code>trackNumber</code> - Integer (1-based), track position in playlist</li>
+                </ul>
+                <p><strong>Behavior:</strong> Immediately starts playing the specified track.</p>
+                <p><strong>Response:</strong></p>
+                <div class="code-block">{"status": "OK", "message": "Jumped to track 5"}</div>
+            </div>
+            
+            <div class="api-endpoint">
+                <div>
+                    <span class="api-method post">POST</span>
+                    <code class="api-path">reorder-playlist</code>
+                </div>
+                <p><strong>Description:</strong> Reorder background music playlist tracks</p>
+                <p><strong>Request Body:</strong></p>
+                <div class="code-block">{"trackOrder": ["song3.mp3", "song1.mp3", "song2.mp3"]}</div>
+                <p><strong>Parameters:</strong></p>
+                <ul>
+                    <li><code>trackOrder</code> - Array of strings, track filenames in new order</li>
+                </ul>
+                <p><strong>Behavior:</strong> Updates playlist order without interrupting current playback. Changes persist across restarts.</p>
+                <p><strong>Response:</strong></p>
+                <div class="code-block">{"status": "OK", "message": "Playlist reordered successfully"}</div>
+            </div>
+            
+            <h3>Show Control</h3>
             
             <div class="api-endpoint">
                 <div>
@@ -608,6 +704,28 @@
             
             <p>Start background music:</p>
             <div class="code-block">curl -X POST http://localhost/api/plugin/fpp-plugin-BackgroundMusic/start-background</div>
+            
+            <p>Pause playback:</p>
+            <div class="code-block">curl -X POST http://localhost/api/plugin/fpp-plugin-BackgroundMusic/pause-background</div>
+            
+            <p>Resume playback:</p>
+            <div class="code-block">curl -X POST http://localhost/api/plugin/fpp-plugin-BackgroundMusic/resume-background</div>
+            
+            <p>Skip to next track:</p>
+            <div class="code-block">curl -X POST http://localhost/api/plugin/fpp-plugin-BackgroundMusic/next-track</div>
+            
+            <p>Go to previous track:</p>
+            <div class="code-block">curl -X POST http://localhost/api/plugin/fpp-plugin-BackgroundMusic/previous-track</div>
+            
+            <p>Jump to track #5:</p>
+            <div class="code-block">curl -X POST -H "Content-Type: application/json" \
+  -d '{"trackNumber": 5}' \
+  http://localhost/api/plugin/fpp-plugin-BackgroundMusic/jump-to-track</div>
+            
+            <p>Reorder playlist tracks:</p>
+            <div class="code-block">curl -X POST -H "Content-Type: application/json" \
+  -d '{"trackOrder": ["song3.mp3", "song1.mp3", "song2.mp3"]}' \
+  http://localhost/api/plugin/fpp-plugin-BackgroundMusic/reorder-playlist</div>
             
             <p>Play announcement #1:</p>
             <div class="code-block">curl -X POST -H "Content-Type: application/json" \

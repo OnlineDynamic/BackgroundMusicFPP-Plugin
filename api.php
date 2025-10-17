@@ -185,7 +185,19 @@ function fppBackgroundMusicStatus() {
     if ($backgroundMusicRunning) {
         $statusFile = '/tmp/bg_music_status.txt';
         if (file_exists($statusFile)) {
-            $statusData = parse_ini_file($statusFile);
+            // Read status file line by line to handle special characters properly
+            $statusLines = file($statusFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            $statusData = array();
+            foreach ($statusLines as $line) {
+                // Split on first = only
+                $pos = strpos($line, '=');
+                if ($pos !== false) {
+                    $key = substr($line, 0, $pos);
+                    $value = substr($line, $pos + 1);
+                    $statusData[$key] = $value;
+                }
+            }
+            
             if ($statusData) {
                 $currentTrack = isset($statusData['filename']) ? $statusData['filename'] : '';
                 $trackDuration = isset($statusData['duration']) ? intval($statusData['duration']) : 0;
@@ -893,6 +905,9 @@ function fppBackgroundMusicReorderPlaylist() {
                     }
                 }
                 file_put_contents($m3uFile, $m3uContent);
+                
+                // Create signal file to tell player that playlist was reordered
+                file_put_contents('/tmp/bg_music_reorder.txt', '1');
                 
                 return json(array('status' => 'OK', 'message' => 'Playlist reordered - will apply after current track'));
             } else {

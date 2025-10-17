@@ -142,6 +142,7 @@ FFPLAY_PID_FILE="/tmp/bg_music_ffplay.pid"
 JUMP_FILE="/tmp/bg_music_jump.txt"
 PREVIOUS_FILE="/tmp/bg_music_previous.txt"
 NEXT_FILE="/tmp/bg_music_next.txt"
+REORDER_FILE="/tmp/bg_music_reorder.txt"
 
 # Initialize state
 echo "playing" > "\$STATE_FILE"
@@ -187,14 +188,16 @@ update_status() {
     # Ensure progress doesn't exceed 100
     [ \$progress -gt 100 ] && progress=100
     
-    # Write status file
-    echo "filename=\$filename" > "\$STATUS_FILE"
-    echo "duration=\$duration" >> "\$STATUS_FILE"
-    echo "elapsed=\$elapsed" >> "\$STATUS_FILE"
-    echo "progress=\$progress" >> "\$STATUS_FILE"
-    echo "state=\$state" >> "\$STATUS_FILE"
-    echo "track_number=\$track_num" >> "\$STATUS_FILE"
-    echo "total_tracks=\$total_tracks" >> "\$STATUS_FILE"
+    # Write status file (use printf to safely handle special characters)
+    {
+        echo "filename=\$filename"
+        echo "duration=\$duration"
+        echo "elapsed=\$elapsed"
+        echo "progress=\$progress"
+        echo "state=\$state"
+        echo "track_number=\$track_num"
+        echo "total_tracks=\$total_tracks"
+    } > "\$STATUS_FILE"
 }
 
 # Main loop - continuously play music
@@ -222,16 +225,37 @@ while true; do
         continue
     fi
     
-    # If playlist order changed (detected by comparing with last track), 
-    # try to maintain position based on the currently playing file
-    if [ -n "\$last_playlist_track" ]; then
-        # Find the current track in the new playlist order
-        for i in "\${!playlist_files[@]}"; do
-            if [ "\${playlist_files[i]}" = "\$last_playlist_track" ]; then
-                current_track_index=\$i
-                break
+    # Check if playlist was reordered externally
+    if [ -f "\$REORDER_FILE" ]; then
+        rm -f "\$REORDER_FILE"
+        # Try to maintain position based on the currently playing file
+        if [ -n "\$last_playlist_track" ]; then
+            found_at_index=-1
+            for i in "\${!playlist_files[@]}"; do
+                if [ "\${playlist_files[i]}" = "\$last_playlist_track" ]; then
+                    found_at_index=\$i
+                    break
+                fi
+            done
+            
+            # Update to new position if found
+            if [ \$found_at_index -ge 0 ]; then
+                # Current track found - move to next track in new order
+                current_track_index=\$((found_at_index + 1))
+                if [ \$current_track_index -ge \$total_tracks ]; then
+                    current_track_index=0
+                fi
+                echo "Playlist reordered - advancing from index \$found_at_index to \$current_track_index" >&2
+            elif [ \$current_track_index -ge \$total_tracks ]; then
+                # Track not found and index out of bounds - wrap to start
+                current_track_index=0
+                echo "Playlist reordered - track not found, wrapping to start" >&2
             fi
-        done
+        elif [ \$current_track_index -ge \$total_tracks ]; then
+            # No last track info but index out of bounds - wrap to start
+            current_track_index=0
+            echo "Playlist reordered - no position info, wrapping to start" >&2
+        fi
     fi
     
     # Shuffle if enabled (only on first run or after full loop)
@@ -252,6 +276,9 @@ while true; do
     media_file="\${playlist_files[\$current_track_index]}"
     track_name=\$(basename "\$media_file")
     track_number=\$((current_track_index + 1))
+    
+    # Save current track for reordering detection
+    last_playlist_track="\$media_file"
     
     # Get duration in seconds
     duration=\$(get_duration "\$media_file")
@@ -335,10 +362,9 @@ while true; do
     fi
     
     # Save the current track file path for playlist change detection
-    # BUT only if track completed naturally (not skipped via next/previous/jump)
-    if [ \$track_was_skipped -eq 0 ] && [ \$next_pressed -eq 0 ] && [ \$previous_pressed -eq 0 ]; then
-        last_playlist_track="\$media_file"
-    fi
+    # This is ONLY used when playlist is externally reordered
+    # We do NOT save it on normal completion - let index increment handle progression
+    # Only save if we need to maintain position through external changes
     
     # Save current index as previous for next iteration
     previous_track_index=\$current_track_index
@@ -346,9 +372,17 @@ while true; do
     # Move to next track (unless previous was pressed, which already set the correct index)
     if [ \$previous_pressed -eq 0 ]; then
         current_track_index=\$((current_track_index + 1))
+        # Check if we would wrap around - if so, check for pending reorder first
         if [ \$current_track_index -ge \$total_tracks ]; then
-            current_track_index=0
-            last_playlist_track=""  # Reset on loop restart
+            # If playlist was reordered, don't wrap - let reorder detection handle it
+            if [ -f "\$REORDER_FILE" ]; then
+                # Keep the incremented index, reorder detection will fix it in next loop
+                echo "At playlist end with pending reorder - will reposition after reload" >&2
+            else
+                # No reorder pending, normal wrap to start
+                current_track_index=0
+                last_playlist_track=""  # Reset on loop restart
+            fi
         fi
     fi
     
@@ -543,6 +577,7 @@ stop_music() {
     rm -f /tmp/bg_music_jump.txt
     rm -f /tmp/bg_music_previous.txt
     rm -f /tmp/bg_music_next.txt
+    rm -f /tmp/bg_music_reorder.txt
     
     # Note: We do NOT manipulate ALSA volume. FPP controls ALSA via its volume slider.
     # Background music uses ffplay's -volume parameter which multiplies with ALSA.

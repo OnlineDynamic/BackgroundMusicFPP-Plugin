@@ -205,6 +205,16 @@ current_track_index=0
 previous_track_index=-1
 last_playlist_track=""
 
+# Check if we should resume from previous position
+if [ -f "\$STATUS_FILE" ]; then
+    saved_track=\$(grep "^track_number=" "\$STATUS_FILE" | cut -d'=' -f2)
+    if [ -n "\$saved_track" ] && [ "\$saved_track" -gt 0 ]; then
+        # Resume from the next track after the saved position
+        current_track_index=\$saved_track
+        echo "Resuming from track \$current_track_index (continuing from previous session)" >&2
+    fi
+fi
+
 while true; do
     # Read playlist into array
     playlist_files=()
@@ -571,7 +581,8 @@ stop_music() {
     rm -f "$PID_FILE"
     rm -f "$PLAYLIST_FILE"
     rm -f /tmp/bg_music_loop.sh
-    rm -f /tmp/bg_music_status.txt
+    # Keep status file for resume functionality - only delete if explicitly requested
+    # rm -f /tmp/bg_music_status.txt
     rm -f "$STATE_FILE"
     rm -f "$FFPLAY_PID_FILE"
     rm -f /tmp/bg_music_jump.txt

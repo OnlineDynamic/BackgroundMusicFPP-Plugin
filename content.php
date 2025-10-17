@@ -352,6 +352,20 @@ $audioFiles = getAudioFiles();
                     </td>
                 </tr>
                 <tr>
+                    <td class="label">Resume Playlist Mode:</td>
+                    <td class="value">
+                        <select name="ResumeMode" id="ResumeMode">
+                            <option value="continue" <?php echo (!isset($pluginSettings['ResumeMode']) || $pluginSettings['ResumeMode'] == 'continue') ? 'selected' : ''; ?>>
+                                Continue from Next Track
+                            </option>
+                            <option value="restart" <?php echo (isset($pluginSettings['ResumeMode']) && $pluginSettings['ResumeMode'] == 'restart') ? 'selected' : ''; ?>>
+                                Restart from Beginning
+                            </option>
+                        </select>
+                        <small>Choose whether to continue from the next track or restart the playlist from the beginning after the show ends</small>
+                    </td>
+                </tr>
+                <tr>
                     <td class="label">Post-Show Delay (seconds):</td>
                     <td class="value">
                         <input type="number" name="PostShowDelay" id="PostShowDelay" min="0" max="300" 
@@ -445,6 +459,7 @@ $audioFiles = getAudioFiles();
                 'FadeTime': $('#FadeTime').val(),
                 'BlackoutTime': $('#BlackoutTime').val(),
                 'ReturnToPreShow': $('#ReturnToPreShow').is(':checked') ? '1' : '0',
+                'ResumeMode': $('#ResumeMode').val(),
                 'PostShowDelay': $('#PostShowDelay').val(),
                 'PostShowBackgroundVolume': $('#PostShowBackgroundVolume').val(),
                 'ShuffleMusic': $('#ShuffleMusic').is(':checked') ? '1' : '0',

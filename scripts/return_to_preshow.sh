@@ -62,6 +62,26 @@ fi
 # Default to 70 if still not found
 POST_SHOW_VOLUME=${POST_SHOW_VOLUME:-70}
 
+# Read the ResumeMode setting
+RESUME_MODE=$(grep "^ResumeMode=" "$PLUGIN_CONFIG" | cut -d'=' -f2 | tr -d '\r')
+
+# Default to 'continue' if not set
+if [ -z "$RESUME_MODE" ]; then
+    RESUME_MODE="continue"
+fi
+
+log_message "Resume mode: $RESUME_MODE"
+
+# If restart mode, clear the status file to reset position
+if [ "$RESUME_MODE" = "restart" ]; then
+    log_message "Restart mode - resetting playlist position to beginning"
+    if [ -f "/tmp/bg_music_status.txt" ]; then
+        # Clear the status file to force starting from track 0
+        rm -f "/tmp/bg_music_status.txt"
+        log_message "Cleared status file to restart from beginning"
+    fi
+fi
+
 # Note: We do NOT set ALSA volume here. The background_music_player.sh script
 # will set ALSA volume when it starts mpg123, which needs direct ALSA control.
 # This allows FPP's volume slider to work properly when sequences are running.

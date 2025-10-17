@@ -109,6 +109,12 @@ function getEndpointsfpppluginBackgroundMusic() {
     array_push($result, $ep);
     
     $ep = array(
+        'method' => 'GET',
+        'endpoint' => 'get-commit-history',
+        'callback' => 'fppBackgroundMusicGetCommitHistory');
+    array_push($result, $ep);
+    
+    $ep = array(
         'method' => 'POST',
         'endpoint' => 'reorder-playlist',
         'callback' => 'fppBackgroundMusicReorderPlaylist');
@@ -898,6 +904,55 @@ function fppBackgroundMusicReorderPlaylist() {
     } else {
         return json(array('status' => 'ERROR', 'message' => 'Plugin not configured'));
     }
+}
+
+// GET /api/plugin/fpp-plugin-BackgroundMusic/get-commit-history
+function fppBackgroundMusicGetCommitHistory() {
+    $pluginDir = dirname(__FILE__);
+    
+    // Check if this is a Git repository
+    if (!is_dir($pluginDir . '/.git')) {
+        return json(array(
+            'status' => 'ERROR',
+            'message' => 'Not a Git repository. This may be a manual installation.',
+            'commits' => array()
+        ));
+    }
+    
+    // Get the last 50 commits
+    $gitCommand = "cd " . escapeshellarg($pluginDir) . " && git log -50 --pretty=format:'%H|%an|%ae|%ad|%s' --date=iso 2>&1";
+    $output = array();
+    $returnVar = 0;
+    
+    exec($gitCommand, $output, $returnVar);
+    
+    if ($returnVar !== 0) {
+        return json(array(
+            'status' => 'ERROR',
+            'message' => 'Failed to execute git log command',
+            'commits' => array()
+        ));
+    }
+    
+    $commits = array();
+    foreach ($output as $line) {
+        $parts = explode('|', $line, 5);
+        if (count($parts) === 5) {
+            $commits[] = array(
+                'hash' => $parts[0],
+                'author' => $parts[1],
+                'email' => $parts[2],
+                'date' => $parts[3],
+                'message' => $parts[4]
+            );
+        }
+    }
+    
+    return json(array(
+        'status' => 'OK',
+        'commits' => $commits,
+        'count' => count($commits)
+    ));
 }
 
 ?>

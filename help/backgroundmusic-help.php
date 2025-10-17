@@ -159,7 +159,13 @@
             <button class="tab-button" onclick="switchTab('troubleshooting', this)">
                 <i class="fas fa-wrench"></i> Troubleshooting
             </button>
+            <button class="tab-button" onclick="switchTab('changelog', this)">
+                <i class="fas fa-history"></i> Changelog
+            </button>
             <button class="tab-button" onclick="switchTab('about', this)">
+                <i class="fas fa-info-circle"></i> About
+            </button>
+        </div>
                 <i class="fas fa-info-circle"></i> About
             </button>
         </div>
@@ -855,6 +861,124 @@
                 <li>Steps to reproduce the problem</li>
                 <li>Your configuration settings (sanitized if needed)</li>
             </ul>
+        </div>
+        
+        <!-- Changelog Tab -->
+        <div id="changelog" class="tab-content">
+            <h2>Plugin Version History</h2>
+            <p>Recent commits and changes to the Background Music Plugin:</p>
+            
+            <div id="changelogContent" style="margin-top: 20px;">
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 32px; color: #007bff;"></i>
+                    <p style="margin-top: 15px; color: #6c757d;">Loading commit history...</p>
+                </div>
+            </div>
+            
+            <script>
+                // Helper function to escape HTML
+                function escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                }
+                
+                // Load Git commit history when changelog tab is opened
+                function loadChangelog() {
+                    console.log('Loading changelog...');
+                    
+                    fetch('/api/plugin/fpp-plugin-BackgroundMusic/get-commit-history')
+                        .then(response => {
+                            console.log('Response received:', response.status);
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            console.log('Data received:', data);
+                            const container = document.getElementById('changelogContent');
+                            
+                            if (data.status === 'OK' && data.commits && data.commits.length > 0) {
+                                let html = '';
+                                data.commits.forEach((commit, index) => {
+                                    const date = new Date(commit.date);
+                                    const formattedDate = date.toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    });
+                                    
+                                    const escapedMessage = escapeHtml(commit.message);
+                                    const escapedAuthor = escapeHtml(commit.author);
+                                    const shortHash = commit.hash.substring(0, 7);
+                                    const bgColor = index % 2 === 0 ? '#f8f9fa' : '#ffffff';
+                                    
+                                    html += `
+                                        <div style="background-color: ${bgColor}; 
+                                                    border-left: 4px solid #007bff; 
+                                                    padding: 15px 20px; 
+                                                    margin-bottom: 10px; 
+                                                    border-radius: 4px;
+                                                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                                                <div style="flex: 1;">
+                                                    <strong style="color: #212529; font-size: 15px;">${escapedMessage}</strong>
+                                                </div>
+                                                <div style="text-align: right; margin-left: 15px;">
+                                                    <code style="background-color: #e9ecef; padding: 2px 6px; border-radius: 3px; font-size: 11px; color: #495057;">${shortHash}</code>
+                                                </div>
+                                            </div>
+                                            <div style="font-size: 13px; color: #6c757d;">
+                                                <i class="fas fa-user" style="margin-right: 5px;"></i>${escapedAuthor}
+                                                <span style="margin: 0 10px;">•</span>
+                                                <i class="fas fa-calendar" style="margin-right: 5px;"></i>${formattedDate}
+                                            </div>
+                                        </div>
+                                    `;
+                                });
+                                container.innerHTML = html;
+                            } else {
+                                const errorMsg = data.message || 'Unable to load commit history. This may be a manual installation or Git is not available.';
+                                container.innerHTML = `
+                                    <div style="background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 20px; text-align: center;">
+                                        <i class="fas fa-exclamation-triangle" style="font-size: 32px; color: #856404; margin-bottom: 10px;"></i>
+                                        <p style="margin: 0; color: #856404;">${escapeHtml(errorMsg)}</p>
+                                    </div>
+                                `;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error loading changelog:', error);
+                            document.getElementById('changelogContent').innerHTML = `
+                                <div style="background-color: #f8d7da; border: 2px solid #f5c6cb; border-radius: 5px; padding: 20px; text-align: center;">
+                                    <i class="fas fa-exclamation-circle" style="font-size: 32px; color: #721c24; margin-bottom: 10px;"></i>
+                                    <p style="margin: 0; color: #721c24;">Error loading commit history: ${escapeHtml(error.message)}</p>
+                                </div>
+                            `;
+                        });
+                }
+                
+                // Load changelog when tab is first opened
+                document.addEventListener('DOMContentLoaded', function() {
+                    let changelogLoaded = false;
+                    const originalSwitchTab = window.switchTab;
+                    
+                    if (typeof originalSwitchTab === 'function') {
+                        window.switchTab = function(tabName, button) {
+                            originalSwitchTab(tabName, button);
+                            if (tabName === 'changelog' && !changelogLoaded) {
+                                loadChangelog();
+                                changelogLoaded = true;
+                            }
+                        };
+                    } else {
+                        console.error('switchTab function not found');
+                    }
+                });
+            </script>
         </div>
         
         <!-- About Tab -->

@@ -5,8 +5,22 @@ $pluginConfigFile = $settings['configDirectory'] . "/plugin." . $pluginName;
 
 // Load current settings
 if (file_exists($pluginConfigFile)){
-    $pluginSettings = parse_ini_file($pluginConfigFile);
+    if (is_readable($pluginConfigFile)) {
+        $pluginSettings = parse_ini_file($pluginConfigFile);
+        if ($pluginSettings === false) {
+            error_log("BackgroundMusic: parse_ini_file failed for $pluginConfigFile");
+            $pluginSettings = array();
+        } else {
+            error_log("BackgroundMusic: Successfully loaded config with " . count($pluginSettings) . " settings");
+            // Trim whitespace from all values
+            $pluginSettings = array_map('trim', $pluginSettings);
+        }
+    } else {
+        error_log("BackgroundMusic: Config file exists but is not readable: $pluginConfigFile");
+        $pluginSettings = array();
+    }
 } else {
+    error_log("BackgroundMusic: Config file does not exist: $pluginConfigFile");
     $pluginSettings = array();
 }
 
@@ -230,11 +244,13 @@ $audioFiles = getAudioFiles();
                         <select name="BackgroundMusicPlaylist" id="BackgroundMusicPlaylist">
                             <option value="">-- Select Playlist --</option>
                             <?php
+                            $savedBgPlaylist = isset($pluginSettings['BackgroundMusicPlaylist']) ? $pluginSettings['BackgroundMusicPlaylist'] : '';
+                            error_log("BackgroundMusic: Saved BG Playlist: '" . $savedBgPlaylist . "'");
                             foreach ($mediaOnlyPlaylists as $playlist) {
                                 $selected = '';
-                                if (isset($pluginSettings['BackgroundMusicPlaylist']) && 
-                                    $pluginSettings['BackgroundMusicPlaylist'] == $playlist) {
+                                if ($savedBgPlaylist != '' && $savedBgPlaylist == $playlist) {
                                     $selected = 'selected';
+                                    error_log("BackgroundMusic: Matched BG playlist: '" . $playlist . "'");
                                 }
                                 echo '<option value="' . htmlspecialchars($playlist) . '" ' . $selected . '>' . 
                                      htmlspecialchars($playlist) . '</option>';
@@ -250,11 +266,13 @@ $audioFiles = getAudioFiles();
                         <select name="ShowPlaylist" id="ShowPlaylist">
                             <option value="">-- Select Playlist --</option>
                             <?php
+                            $savedShowPlaylist = isset($pluginSettings['ShowPlaylist']) ? $pluginSettings['ShowPlaylist'] : '';
+                            error_log("BackgroundMusic: Saved Show Playlist: '" . $savedShowPlaylist . "'");
                             foreach ($allPlaylists as $playlist) {
                                 $selected = '';
-                                if (isset($pluginSettings['ShowPlaylist']) && 
-                                    $pluginSettings['ShowPlaylist'] == $playlist) {
+                                if ($savedShowPlaylist != '' && $savedShowPlaylist == $playlist) {
                                     $selected = 'selected';
+                                    error_log("BackgroundMusic: Matched Show playlist: '" . $playlist . "'");
                                 }
                                 echo '<option value="' . htmlspecialchars($playlist) . '" ' . $selected . '>' . 
                                      htmlspecialchars($playlist) . '</option>';

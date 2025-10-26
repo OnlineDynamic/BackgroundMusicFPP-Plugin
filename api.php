@@ -135,11 +135,24 @@ function fppBackgroundMusicStatus() {
     global $settings;
     $pluginConfigFile = $settings['configDirectory'] . "/plugin.fpp-plugin-BackgroundMusic";
     
-    // Load plugin config
+    // Load plugin config with error checking
+    $pluginSettings = array();
     if (file_exists($pluginConfigFile)){
-        $pluginSettings = parse_ini_file($pluginConfigFile);
+        // Check if file is readable
+        if (!is_readable($pluginConfigFile)) {
+            error_log("BackgroundMusic Plugin: Config file exists but is not readable: $pluginConfigFile");
+            // Try to fix permissions
+            @chmod($pluginConfigFile, 0644);
+        }
+        
+        // Try to parse the file
+        $pluginSettings = @parse_ini_file($pluginConfigFile);
+        if ($pluginSettings === false) {
+            error_log("BackgroundMusic Plugin: Failed to parse config file: $pluginConfigFile");
+            $pluginSettings = array();
+        }
     } else {
-        $pluginSettings = array();
+        error_log("BackgroundMusic Plugin: Config file does not exist: $pluginConfigFile");
     }
     
     // Get current brightness

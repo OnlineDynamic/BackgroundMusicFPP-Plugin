@@ -492,6 +492,11 @@ function fppBackgroundMusicSaveSettings() {
     // Write settings in INI format
     $configContent = "";
     foreach ($input as $key => $value) {
+        // Quote values that contain spaces or special characters
+        if (strpos($value, ' ') !== false || strpos($value, '"') !== false || strpos($value, '=') !== false) {
+            // Escape any existing quotes and wrap in quotes
+            $value = '"' . str_replace('"', '\\"', $value) . '"';
+        }
         $configContent .= "$key=$value\n";
     }
     

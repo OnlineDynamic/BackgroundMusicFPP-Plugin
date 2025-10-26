@@ -108,6 +108,18 @@ get_audio_device() {
 
 AUDIO_DEVICE=$(get_audio_device)
 
+# Wrap device in plug: for software mixing support
+# The plug plugin provides automatic sample rate/format conversion and software mixing
+if [[ ! "$AUDIO_DEVICE" =~ ^plug: ]] && [[ ! "$AUDIO_DEVICE" =~ ^dmix: ]]; then
+    AUDIO_DEVICE="plug:$AUDIO_DEVICE"
+fi
+
+log_message "Using audio device: $AUDIO_DEVICE"
+
+# Get announcement duration
+DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$ANNOUNCEMENT_FILE" 2>/dev/null | cut -d'.' -f1)
+[ -z "$DURATION" ] && DURATION=0
+
 # Save announcement status
 # Quote the button label if it contains spaces
 if [[ "$BUTTON_LABEL" =~ [[:space:]] ]]; then
@@ -121,6 +133,7 @@ buttonNumber=$BUTTON_NUMBER
 buttonLabel=$QUOTED_LABEL
 announcementFile=$(basename "$ANNOUNCEMENT_FILE")
 startTime=$(date +%s)
+duration=$DURATION
 EOF
 
 # Play announcement in background
@@ -135,8 +148,8 @@ EOF
     # The plug: device allows concurrent audio streams through ALSA
     VOLUME_FILTER="volume=$(echo "scale=2; $FFPLAY_VOLUME / 100" | bc)"
     
-    # Use plug:default to enable software mixing
-    SDL_AUDIODRIVER=alsa AUDIODEV="plug:default" ffplay -nodisp -autoexit \
+    # Use the detected audio device (already wrapped with plug: prefix)
+    SDL_AUDIODRIVER=alsa AUDIODEV="$AUDIO_DEVICE" ffplay -nodisp -autoexit \
         -af "$VOLUME_FILTER" \
         "$ANNOUNCEMENT_FILE" >> "$LOG_FILE" 2>&1
     

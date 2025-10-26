@@ -672,6 +672,9 @@ function fppBackgroundMusicPSAStatus() {
     $buttonNumber = 0;
     $buttonLabel = '';
     $announcementFile = '';
+    $duration = 0;
+    $elapsed = 0;
+    $progress = 0;
     $maxDuration = 300; // 5 minutes max for any announcement
     
     if (file_exists($pidFile)) {
@@ -687,11 +690,19 @@ function fppBackgroundMusicPSAStatus() {
                 $buttonNumber = isset($statusData['buttonNumber']) ? intval($statusData['buttonNumber']) : 0;
                 $buttonLabel = isset($statusData['buttonLabel']) ? $statusData['buttonLabel'] : '';
                 $announcementFile = isset($statusData['announcementFile']) ? $statusData['announcementFile'] : '';
+                $duration = isset($statusData['duration']) ? intval($statusData['duration']) : 0;
                 
-                // Check if announcement has been running too long (stuck)
+                // Calculate elapsed time and progress
                 if (isset($statusData['startTime'])) {
                     $startTime = intval($statusData['startTime']);
                     $elapsed = time() - $startTime;
+                    
+                    // Calculate progress percentage
+                    if ($duration > 0) {
+                        $progress = min(100, round(($elapsed / $duration) * 100));
+                    }
+                    
+                    // Check if announcement has been running too long (stuck)
                     if ($elapsed > $maxDuration) {
                         error_log("BackgroundMusic: PSA stuck for $elapsed seconds, killing process $pid");
                         // Kill stuck process
@@ -719,7 +730,10 @@ function fppBackgroundMusicPSAStatus() {
         'playing' => $playing,
         'buttonNumber' => $buttonNumber,
         'buttonLabel' => $buttonLabel,
-        'announcementFile' => $announcementFile
+        'announcementFile' => $announcementFile,
+        'duration' => $duration,
+        'elapsed' => $elapsed,
+        'progress' => $progress
     );
     
     return json($result);

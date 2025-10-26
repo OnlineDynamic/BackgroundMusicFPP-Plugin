@@ -107,12 +107,35 @@
     .statusItem {
         margin: 10px 0;
         font-size: 16px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
     }
     .statusLabel {
         font-weight: bold;
         display: inline-block;
         width: 200px;
+        flex-shrink: 0;
     }
+    
+    /* PSA Progress Bar Styling */
+    #psaStatusContainer .progress {
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    #psaProgressBar {
+        background: linear-gradient(90deg, #17a2b8 0%, #138496 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 60px;
+    }
+    #psaProgressText {
+        color: white;
+        text-shadow: 0 0 3px rgba(0,0,0,0.8);
+        white-space: nowrap;
+    }
+    
     .btn-start {
         background-color: #4CAF50;
         color: white;
@@ -294,9 +317,18 @@
             </div>
             <div class="statusItem" id="psaStatusContainer" style="display: none;">
                 <span class="statusLabel">PSA Announcement:</span>
-                <span id="statusPSA" class="psa-status-active" style="font-weight: bold; color: #e91e63;">
-                    <i class="fas fa-bullhorn"></i> Playing...
-                </span>
+                <div style="display: flex; flex-direction: column; gap: 5px; flex: 1;">
+                    <span id="statusPSA" class="psa-status-active" style="font-weight: bold; color: #e91e63;">
+                        <i class="fas fa-bullhorn"></i> Playing...
+                    </span>
+                    <div class="progress" style="height: 20px; margin: 0; background-color: #2a2a2a; border: 1px solid #444;">
+                        <div id="psaProgressBar" class="progress-bar bg-info" role="progressbar" 
+                             style="width: 0%; transition: width 0.5s ease;" 
+                             aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                            <span id="psaProgressText" style="font-size: 11px; font-weight: bold;">0:00 / 0:00</span>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="statusItem">
                 <span class="statusLabel">Current FPP Playlist:</span>
@@ -836,6 +868,20 @@
                             statusText += ': ' + escapeHtml(data.buttonLabel);
                         }
                         $('#statusPSA').html(statusText);
+                        
+                        // Update progress bar
+                        var progress = data.progress || 0;
+                        var elapsed = data.elapsed || 0;
+                        var duration = data.duration || 0;
+                        
+                        $('#psaProgressBar').css('width', progress + '%');
+                        $('#psaProgressBar').attr('aria-valuenow', progress);
+                        
+                        // Format time as mm:ss
+                        var elapsedStr = formatTime(elapsed);
+                        var durationStr = formatTime(duration);
+                        $('#psaProgressText').text(elapsedStr + ' / ' + durationStr);
+                        
                         $('#psaStatusContainer').show();
                     } else {
                         $('#psaStatusContainer').hide();

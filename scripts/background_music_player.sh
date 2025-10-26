@@ -77,6 +77,15 @@ create_audio_playlist() {
     return 0
 }
 
+# Function to strip quotes from INI values
+strip_quotes() {
+    local value="$1"
+    # Remove leading and trailing quotes
+    value="${value%\"}"
+    value="${value#\"}"
+    echo "$value"
+}
+
 # Function to start background music
 start_music() {
     # Check if already running
@@ -94,13 +103,17 @@ start_music() {
         return 1
     fi
     
-    local bg_playlist=$(grep "^BackgroundMusicPlaylist=" "$PLUGIN_CONFIG" | cut -d'=' -f2 | tr -d '\r')
-    local shuffle_mode=$(grep "^ShuffleMusic=" "$PLUGIN_CONFIG" | cut -d'=' -f2 | tr -d '\r')
-    local volume_level=$(grep "^BackgroundMusicVolume=" "$PLUGIN_CONFIG" | cut -d'=' -f2 | tr -d '\r')
+    local bg_playlist=$(grep "^BackgroundMusicPlaylist=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
+    bg_playlist=$(strip_quotes "$bg_playlist")
+    local shuffle_mode=$(grep "^ShuffleMusic=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
+    shuffle_mode=$(strip_quotes "$shuffle_mode")
+    local volume_level=$(grep "^BackgroundMusicVolume=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
+    volume_level=$(strip_quotes "$volume_level")
     
     # Fallback to VolumeLevel for backward compatibility
     if [ -z "$volume_level" ]; then
-        volume_level=$(grep "^VolumeLevel=" "$PLUGIN_CONFIG" | cut -d'=' -f2 | tr -d '\r')
+        volume_level=$(grep "^VolumeLevel=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
+        volume_level=$(strip_quotes "$volume_level")
     fi
     
     # Default volume to 70 if not set

@@ -109,9 +109,16 @@ get_audio_device() {
 AUDIO_DEVICE=$(get_audio_device)
 
 # Save announcement status
+# Quote the button label if it contains spaces
+if [[ "$BUTTON_LABEL" =~ [[:space:]] ]]; then
+    QUOTED_LABEL="\"$BUTTON_LABEL\""
+else
+    QUOTED_LABEL="$BUTTON_LABEL"
+fi
+
 cat > "$ANNOUNCEMENT_STATUS_FILE" << EOF
 buttonNumber=$BUTTON_NUMBER
-buttonLabel=$BUTTON_LABEL
+buttonLabel=$QUOTED_LABEL
 announcementFile=$(basename "$ANNOUNCEMENT_FILE")
 startTime=$(date +%s)
 EOF

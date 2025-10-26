@@ -672,6 +672,7 @@ function fppBackgroundMusicPSAStatus() {
     $buttonNumber = 0;
     $buttonLabel = '';
     $announcementFile = '';
+    $maxDuration = 300; // 5 minutes max for any announcement
     
     if (file_exists($pidFile)) {
         $pid = trim(file_get_contents($pidFile));
@@ -686,12 +687,29 @@ function fppBackgroundMusicPSAStatus() {
                 $buttonNumber = isset($statusData['buttonNumber']) ? intval($statusData['buttonNumber']) : 0;
                 $buttonLabel = isset($statusData['buttonLabel']) ? $statusData['buttonLabel'] : '';
                 $announcementFile = isset($statusData['announcementFile']) ? $statusData['announcementFile'] : '';
+                
+                // Check if announcement has been running too long (stuck)
+                if (isset($statusData['startTime'])) {
+                    $startTime = intval($statusData['startTime']);
+                    $elapsed = time() - $startTime;
+                    if ($elapsed > $maxDuration) {
+                        error_log("BackgroundMusic: PSA stuck for $elapsed seconds, killing process $pid");
+                        // Kill stuck process
+                        exec("kill $pid 2>&1");
+                        $playing = false;
+                    }
+                }
             }
         }
         
         // If not playing but PID file exists, clean it up
         if (!$playing) {
             @unlink($pidFile);
+            @unlink($statusFile);
+        }
+    } else {
+        // No PID file - ensure status file is also cleaned up
+        if (file_exists($statusFile)) {
             @unlink($statusFile);
         }
     }

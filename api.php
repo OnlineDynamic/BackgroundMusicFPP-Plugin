@@ -194,6 +194,7 @@ function fppBackgroundMusicStatus() {
     $playbackState = 'stopped';
     $currentTrackNumber = 0;
     $totalTracks = 0;
+    $streamSource = false;
     
     if ($backgroundMusicRunning) {
         $statusFile = '/tmp/bg_music_status.txt';
@@ -212,13 +213,19 @@ function fppBackgroundMusicStatus() {
             }
             
             if ($statusData) {
-                $currentTrack = isset($statusData['filename']) ? $statusData['filename'] : '';
-                $trackDuration = isset($statusData['duration']) ? intval($statusData['duration']) : 0;
-                $trackElapsed = isset($statusData['elapsed']) ? intval($statusData['elapsed']) : 0;
-                $trackProgress = isset($statusData['progress']) ? intval($statusData['progress']) : 0;
+                // Check if this is a stream source
+                $streamSource = isset($statusData['source']) && $statusData['source'] === 'stream';
+                
+                // Only populate track info for playlist mode, not for streams
+                if (!$streamSource) {
+                    $currentTrack = isset($statusData['filename']) ? $statusData['filename'] : '';
+                    $trackDuration = isset($statusData['duration']) ? intval($statusData['duration']) : 0;
+                    $trackElapsed = isset($statusData['elapsed']) ? intval($statusData['elapsed']) : 0;
+                    $trackProgress = isset($statusData['progress']) ? intval($statusData['progress']) : 0;
+                    $currentTrackNumber = isset($statusData['track_number']) ? intval($statusData['track_number']) : 0;
+                    $totalTracks = isset($statusData['total_tracks']) ? intval($statusData['total_tracks']) : 0;
+                }
                 $playbackState = isset($statusData['state']) ? $statusData['state'] : 'playing';
-                $currentTrackNumber = isset($statusData['track_number']) ? intval($statusData['track_number']) : 0;
-                $totalTracks = isset($statusData['total_tracks']) ? intval($statusData['total_tracks']) : 0;
             }
         }
     }
@@ -244,7 +251,9 @@ function fppBackgroundMusicStatus() {
         'currentTrackNumber' => $currentTrackNumber,
         'totalTracks' => $totalTracks,
         'config' => array(
+            'backgroundMusicSource' => isset($pluginSettings['BackgroundMusicSource']) ? $pluginSettings['BackgroundMusicSource'] : 'playlist',
             'backgroundMusicPlaylist' => $backgroundMusicPlaylist,
+            'backgroundMusicStreamURL' => isset($pluginSettings['BackgroundMusicStreamURL']) ? $pluginSettings['BackgroundMusicStreamURL'] : '',
             'showPlaylist' => $showPlaylist,
             'fadeTime' => isset($pluginSettings['FadeTime']) ? $pluginSettings['FadeTime'] : 5,
             'blackoutTime' => isset($pluginSettings['BlackoutTime']) ? $pluginSettings['BlackoutTime'] : 2,
@@ -284,10 +293,19 @@ function fppBackgroundMusicStartBackground() {
         return json(array('status' => 'ERROR', 'message' => 'Plugin not configured'));
     }
     
-    $backgroundMusicPlaylist = isset($pluginSettings['BackgroundMusicPlaylist']) ? $pluginSettings['BackgroundMusicPlaylist'] : '';
+    // Check source type
+    $source = isset($pluginSettings['BackgroundMusicSource']) ? $pluginSettings['BackgroundMusicSource'] : 'playlist';
     
-    if (empty($backgroundMusicPlaylist)) {
-        return json(array('status' => 'ERROR', 'message' => 'Background music playlist not configured'));
+    if ($source === 'stream') {
+        $streamURL = isset($pluginSettings['BackgroundMusicStreamURL']) ? $pluginSettings['BackgroundMusicStreamURL'] : '';
+        if (empty($streamURL)) {
+            return json(array('status' => 'ERROR', 'message' => 'Stream URL not configured'));
+        }
+    } else {
+        $backgroundMusicPlaylist = isset($pluginSettings['BackgroundMusicPlaylist']) ? $pluginSettings['BackgroundMusicPlaylist'] : '';
+        if (empty($backgroundMusicPlaylist)) {
+            return json(array('status' => 'ERROR', 'message' => 'Background music playlist not configured'));
+        }
     }
     
     // Start background music using independent player (not FPP playlist system)

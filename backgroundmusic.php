@@ -118,6 +118,10 @@
         flex-shrink: 0;
     }
     
+    .hidden {
+        display: none !important;
+    }
+    
     /* PSA Progress Bar Styling */
     #psaStatusContainer .progress {
         border-radius: 4px;
@@ -372,7 +376,7 @@
         </div>
 
         <!-- Background Music Playlist Details Panel -->
-        <div class="statusPanel">
+        <div class="statusPanel" id="playlistDetailsPanel">
             <h2 style="cursor: pointer; user-select: none;" onclick="toggleSection('playlistDetails')" data-tooltip="Click to expand/collapse">
                 <i class="fas fa-music"></i> Background Music Playlist
                 <i id="playlistDetailsIcon" class="fas fa-chevron-down" style="float: right; font-size: 14px; transition: transform 0.3s;"></i>
@@ -451,17 +455,25 @@
             
             <!-- Playlists -->
             <h4 style="color: #2196F3; margin-top: 15px; margin-bottom: 10px; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px;">
-                <i class="fas fa-list"></i> Playlists
+                <i class="fas fa-list"></i> Background Music Source
             </h4>
             <div class="statusItem">
+                <span class="statusLabel">Source Type:</span>
+                <span id="configBackgroundMusicSource">-</span>
+            </div>
+            <div class="statusItem" id="configBackgroundMusicPlaylistRow">
                 <span class="statusLabel">Background Music Playlist:</span>
                 <span id="configBackgroundMusic">-</span>
+            </div>
+            <div class="statusItem hidden" id="configBackgroundMusicStreamRow">
+                <span class="statusLabel">Stream URL:</span>
+                <span id="configBackgroundMusicStream">-</span>
             </div>
             <div class="statusItem">
                 <span class="statusLabel">Show Playlist:</span>
                 <span id="configShowPlaylist">-</span>
             </div>
-            <div class="statusItem">
+            <div class="statusItem" id="configShuffleMusicRow">
                 <span class="statusLabel">Shuffle Music:</span>
                 <span id="configShuffleMusic">-</span>
             </div>
@@ -594,8 +606,9 @@
                     $('#statusShow').text(data.showRunning ? 'Running' : 'Not Running');
                     $('#statusBrightness').text(data.brightness + '%');
                     
-                    // Show current track information
-                    if (data.backgroundMusicRunning && data.currentTrack) {
+                    // Show current track information (only for playlist mode)
+                    var bgSource = data.config.backgroundMusicSource || 'playlist';
+                    if (bgSource === 'playlist' && data.backgroundMusicRunning && data.currentTrack) {
                         $('#currentTrackContainer').show();
                         $('#trackProgressContainer').show();
                         $('#statusCurrentTrack').text(data.currentTrack);
@@ -639,9 +652,26 @@
                         $('#statusCurrentPlaylist').text(idleText).css('color', '#6c757d');
                     }
                     
-                    $('#configBackgroundMusic').text(data.config.backgroundMusicPlaylist || 'Not Set');
+                    // Display background music source information
+                    var bgSource = data.config.backgroundMusicSource || 'playlist';
+                    $('#configBackgroundMusicSource').text(bgSource === 'stream' ? 'Internet Stream' : 'FPP Playlist');
+                    
+                    if (bgSource === 'stream') {
+                        $('#configBackgroundMusicPlaylistRow').addClass('hidden');
+                        $('#configBackgroundMusicStreamRow').removeClass('hidden');
+                        $('#configShuffleMusicRow').addClass('hidden');
+                        $('#playlistDetailsPanel').addClass('hidden');
+                        $('#configBackgroundMusicStream').text(data.config.backgroundMusicStreamURL || 'Not Set');
+                    } else {
+                        $('#configBackgroundMusicPlaylistRow').removeClass('hidden');
+                        $('#configBackgroundMusicStreamRow').addClass('hidden');
+                        $('#configShuffleMusicRow').removeClass('hidden');
+                        $('#playlistDetailsPanel').removeClass('hidden');
+                        $('#configBackgroundMusic').text(data.config.backgroundMusicPlaylist || 'Not Set');
+                        $('#configShuffleMusic').text(data.config.shuffleMusic == '1' ? 'Yes' : 'No');
+                    }
+                    
                     $('#configShowPlaylist').text(data.config.showPlaylist || 'Not Set');
-                    $('#configShuffleMusic').text(data.config.shuffleMusic == '1' ? 'Yes' : 'No');
                     
                     $('#configBackgroundMusicVolume').text(data.config.backgroundMusicVolume || data.config.volumeLevel || '70');
                     $('#configShowPlaylistVolume').text(data.config.showPlaylistVolume || '100');

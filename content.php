@@ -225,20 +225,35 @@ $audioFiles = getAudioFiles();
 <div class="description">
     <p><strong>How it works:</strong></p>
     <ul>
-        <li><strong>Background Music Playlist:</strong> Audio-only playlist that plays over your existing pre-show sequence (already running via FPP scheduler)</li>
-        <li><strong>Show Playlist:</strong> Main show playlist to start after fade transition</li>
-        <li><strong>Fade Time:</strong> Duration to gradually fade out brightness and music before show</li>
-        <li><strong>Blackout Time:</strong> Silent period after fade before starting the show</li>
-        <li><strong>Return to Pre-Show:</strong> After the show completes, automatically restart background music (your scheduler will handle restarting the sequence)</li>
+        <li><strong>Background Music Source:</strong> Choose between a local FPP Playlist (audio files you upload) or an Internet Radio Stream (continuous online audio). The selected source plays over your existing pre-show sequence (already running via FPP scheduler).</li>
+        <li><strong>Show Playlist:</strong> Main show playlist to start after the fade transition.</li>
+        <li><strong>Fade Time:</strong> Duration to gradually fade out both brightness and background music before the show.</li>
+        <li><strong>Blackout Time:</strong> Silent period after fade before starting the show (for dramatic effect).</li>
+        <li><strong>Return to Pre-Show:</strong> After the show completes, background music (playlist or stream) automatically restarts. Your scheduler will handle restarting the pre-show sequence.</li>
+        <li><strong>Playlist Mode:</strong> Supports shuffle, track control, and playlist management.</li>
+        <li><strong>Stream Mode:</strong> Plays a continuous audio stream (no shuffle or track control). Auto-reconnects if the stream drops.</li>
     </ul>
     <p><strong>Expected Setup:</strong> Your pre-show sequence (or non media playlist) should already be running (looping) via FPP's scheduler. This plugin adds background music on top.</p>
 </div>        <form id="settingsForm" onsubmit="return saveSettings();">
-            <!-- Playlist Selection -->
+            <!-- Background Music Source Selection -->
             <h3 style="margin: 30px auto 10px; max-width: 800px; color: #2196F3; border-bottom: 2px solid #2196F3; padding-bottom: 5px;">
-                <i class="fas fa-list"></i> Playlist Selection
+                <i class="fas fa-list"></i> Background Music Source Selection
             </h3>
             <table class="settingsTable">
                 <tr>
+                    <td class="label">Background Music Source:</td>
+                    <td class="value">
+                        <select name="BackgroundMusicSource" id="BackgroundMusicSource" onchange="toggleBackgroundSource()">
+                            <?php
+                            $bgSource = isset($pluginSettings['BackgroundMusicSource']) ? $pluginSettings['BackgroundMusicSource'] : 'playlist';
+                            ?>
+                            <option value="playlist" <?php echo ($bgSource == 'playlist') ? 'selected' : ''; ?>>FPP Playlist</option>
+                            <option value="stream" <?php echo ($bgSource == 'stream') ? 'selected' : ''; ?>>Internet Stream</option>
+                        </select>
+                        <small>Choose between local playlist or internet audio stream</small>
+                    </td>
+                </tr>
+                <tr id="playlistRow" style="<?php echo ($bgSource == 'stream') ? 'display: none;' : ''; ?>">
                     <td class="label">Background Music Playlist:</td>
                     <td class="value">
                         <select name="BackgroundMusicPlaylist" id="BackgroundMusicPlaylist">
@@ -258,6 +273,48 @@ $audioFiles = getAudioFiles();
                             ?>
                         </select>
                         <small>Audio playlist to play as background music (media-only playlists)</small>
+                    </td>
+                </tr>
+                <tr id="streamRow" style="<?php echo ($bgSource == 'playlist') ? 'display: none;' : ''; ?>">
+                    <td class="label">Stream URL:</td>
+                    <td class="value">
+                        <select name="BackgroundMusicStreamPreset" id="BackgroundMusicStreamPreset" 
+                                onchange="handleStreamPresetChange()" style="width: 100%; max-width: 600px; margin-bottom: 5px;">
+                            <?php
+                            $currentStreamURL = isset($pluginSettings['BackgroundMusicStreamURL']) ? $pluginSettings['BackgroundMusicStreamURL'] : '';
+                            $isCustom = true;
+                            
+                            // Define preset streams
+                            $presets = array(
+                                'https://radio.themillerlights.com:8000/radio.mp3' => 'The Miller Lights Holiday Radio'
+                            );
+                            
+                            // Check if current URL matches a preset
+                            foreach ($presets as $url => $name) {
+                                if ($currentStreamURL === $url) {
+                                    $isCustom = false;
+                                    break;
+                                }
+                            }
+                            ?>
+                            <option value="">-- Select Stream or Enter Custom --</option>
+                            <?php foreach ($presets as $url => $name): ?>
+                                <option value="<?php echo htmlspecialchars($url); ?>" 
+                                        <?php echo ($currentStreamURL === $url) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($name); ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <option value="custom" <?php echo $isCustom && !empty($currentStreamURL) ? 'selected' : ''; ?>>
+                                Custom URL...
+                            </option>
+                        </select>
+                        <div id="customStreamURLContainer" style="<?php echo (!$isCustom || empty($currentStreamURL)) ? 'display: none;' : ''; ?> margin-top: 5px;">
+                            <input type="text" id="BackgroundMusicStreamURLInput" 
+                                   value="<?php echo $isCustom ? htmlspecialchars($currentStreamURL) : ''; ?>" 
+                                   style="width: 100%; max-width: 600px;" 
+                                   placeholder="https://example.com:8000/stream.mp3">
+                        </div>
+                        <small>Select a preset stream or enter your own URL (HTTP/HTTPS)</small>
                     </td>
                 </tr>
                 <tr>
@@ -282,7 +339,7 @@ $audioFiles = getAudioFiles();
                         <small>Main show playlist to start after fade and blackout</small>
                     </td>
                 </tr>
-                <tr>
+                <tr id="shuffleRow" style="<?php echo ($bgSource == 'stream') ? 'display: none;' : ''; ?>">
                     <td class="label">Shuffle Music Playlist:</td>
                     <td class="value">
                         <div style="display: flex; align-items: flex-start; gap: 10px;">
@@ -470,9 +527,47 @@ $audioFiles = getAudioFiles();
     </div>
 
     <script>
+        function toggleBackgroundSource() {
+            var source = $('#BackgroundMusicSource').val();
+            if (source === 'playlist') {
+                $('#playlistRow').show();
+                $('#streamRow').hide();
+                $('#shuffleRow').show();
+            } else {
+                $('#playlistRow').hide();
+                $('#streamRow').show();
+                $('#shuffleRow').hide();
+            }
+        }
+        
+        function handleStreamPresetChange() {
+            var preset = $('#BackgroundMusicStreamPreset').val();
+            if (preset === 'custom') {
+                $('#customStreamURLContainer').show();
+                $('#BackgroundMusicStreamURLInput').focus();
+            } else if (preset === '') {
+                $('#customStreamURLContainer').hide();
+                $('#BackgroundMusicStreamURLInput').val('');
+            } else {
+                $('#customStreamURLContainer').hide();
+                $('#BackgroundMusicStreamURLInput').val(preset);
+            }
+        }
+        
         function saveSettings() {
+            // Get the actual stream URL value
+            var streamURL = '';
+            var preset = $('#BackgroundMusicStreamPreset').val();
+            if (preset === 'custom') {
+                streamURL = $('#BackgroundMusicStreamURLInput').val();
+            } else if (preset !== '') {
+                streamURL = preset;
+            }
+            
             var formData = {
+                'BackgroundMusicSource': $('#BackgroundMusicSource').val(),
                 'BackgroundMusicPlaylist': $('#BackgroundMusicPlaylist').val(),
+                'BackgroundMusicStreamURL': streamURL,
                 'ShowPlaylist': $('#ShowPlaylist').val(),
                 'FadeTime': $('#FadeTime').val(),
                 'BlackoutTime': $('#BlackoutTime').val(),

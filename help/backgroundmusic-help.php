@@ -225,15 +225,21 @@
             </ul>
             
             <h2>Features</h2>
-            <h3>Background Music Playback</h3>
+            <h3>Flexible Background Music Sources</h3>
             <p>
-                Independent audio player that runs alongside your sequences. Music automatically loops 
-                continuously - no gaps, no configuration needed. Works perfectly even with short playlists.
+                Choose between two background music sources:
             </p>
+            <ul>
+                <li><strong>FPP Playlist (Local Audio Files):</strong> Use your own music collection stored locally. 
+                Supports track control, shuffle mode, and playlist management. Automatically loops with no gaps.</li>
+                <li><strong>Internet Radio Streams:</strong> Stream online audio sources like internet radio stations. 
+                Supports HTTP/HTTPS streams (MP3, AAC, etc.). Auto-reconnects if the stream drops. Perfect for 
+                holiday radio stations or continuous background content.</li>
+            </ul>
             
             <h3>Media Player Controls</h3>
             <p>
-                Full media player functionality with pause/resume, next/previous track navigation, and jump to specific track. 
+                Full media player functionality available when using FPP Playlist mode: pause/resume, next/previous track navigation, and jump to specific track. 
                 The controller interface includes a progress bar showing current track position and time, clickable playlist 
                 for instant track selection, and drag-and-drop reordering. All controls are available via both the web UI 
                 and REST API.
@@ -253,8 +259,9 @@
             
             <h3>Shuffle Mode</h3>
             <p>
-                Enable "Shuffle Music Playlist" to randomize track order. The playlist is reshuffled
-                each time it loops, providing variety and preventing listener fatigue.
+                Enable "Shuffle Music Playlist" to randomize track order when using FPP Playlist mode. The playlist is reshuffled
+                each time it loops, providing variety and preventing listener fatigue. (Note: Shuffle is not available 
+                for internet streams as they provide continuous content.)
             </p>
             
             <h2>How the Transition Works</h2>
@@ -295,12 +302,26 @@
                         <li>This should already be running before using this plugin</li>
                     </ul>
                 </li>
-                <li><strong>Create Background Music Playlist:</strong>
+                <li><strong>Choose Background Music Source:</strong>
                     <ul>
-                        <li>Create a playlist containing ONLY audio files (media type)</li>
-                        <li>No sequences or FSEQ files - audio only (MP3, WAV, etc.)</li>
-                        <li>Go to Content Setup → Playlists → Add Playlist</li>
-                        <li>Add your music files to the playlist</li>
+                        <li><strong>Option 1 - FPP Playlist (Local Audio Files):</strong>
+                            <ul>
+                                <li>Create a playlist containing ONLY audio files (media type)</li>
+                                <li>No sequences or FSEQ files - audio only (MP3, WAV, etc.)</li>
+                                <li>Go to Content Setup → Playlists → Add Playlist</li>
+                                <li>Add your music files to the playlist</li>
+                                <li>Supports shuffle, track control, and playlist management</li>
+                            </ul>
+                        </li>
+                        <li><strong>Option 2 - Internet Radio Stream:</strong>
+                            <ul>
+                                <li>Use an online audio stream (e.g., internet radio station)</li>
+                                <li>Supports HTTP/HTTPS streaming audio (MP3, AAC, etc.)</li>
+                                <li>Choose from preset streams or enter a custom URL</li>
+                                <li>Auto-reconnects if stream drops</li>
+                                <li>No track control or shuffle (continuous stream)</li>
+                            </ul>
+                        </li>
                     </ul>
                 </li>
                 <li><strong>Create Main Show Playlist:</strong>
@@ -312,13 +333,15 @@
                 <li><strong>Configure Plugin:</strong>
                     <ul>
                         <li>Go to Content Setup → Background Music Settings</li>
-                        <li>Select your background music playlist (media-only)</li>
+                        <li>Select background music source type (FPP Playlist or Stream)</li>
+                        <li>If using FPP Playlist: Select your media-only playlist</li>
+                        <li>If using Stream: Choose a preset or enter custom stream URL</li>
                         <li>Select your main show playlist</li>
                         <li>Set fade time (how long to fade out, 1-60 seconds, recommended: 5s)</li>
                         <li>Set blackout time (pause before show starts, 0-30 seconds, recommended: 2-3s)</li>
                         <li>Configure volume levels for different states</li>
                         <li>Enable "Return to Pre-Show" if you want music to auto-restart after show</li>
-                        <li>Enable "Shuffle Music" if you want randomized track order (optional)</li>
+                        <li>Enable "Shuffle Music" if using FPP Playlist (not available for streams)</li>
                         <li>Save Settings</li>
                     </ul>
                 </li>
@@ -782,11 +805,36 @@
             <h3>Background Music Won't Start</h3>
             <p><strong>Possible Causes & Solutions:</strong></p>
             <ul>
-                <li><strong>No playlist configured:</strong> Select a background music playlist in settings</li>
-                <li><strong>Empty playlist:</strong> Add audio files to the playlist</li>
-                <li><strong>File not found:</strong> Check that media files exist in /home/fpp/media/music/</li>
+                <li><strong>No source configured:</strong> Select either an FPP Playlist or Stream URL in settings</li>
+                <li><strong>Playlist mode - Empty playlist:</strong> Add audio files to the playlist</li>
+                <li><strong>Playlist mode - File not found:</strong> Check that media files exist in /home/fpp/media/music/</li>
+                <li><strong>Stream mode - Invalid URL:</strong> Verify the stream URL is correct and accessible</li>
+                <li><strong>Stream mode - Network issues:</strong> Check internet connectivity and firewall settings</li>
                 <li><strong>Permission issues:</strong> Ensure FPP has read access to media files</li>
                 <li><strong>Audio device busy:</strong> Check if another process is using the audio device</li>
+            </ul>
+            
+            <h3>Internet Stream Not Playing</h3>
+            <p><strong>Problem:</strong> Stream source configured but no audio</p>
+            <p><strong>Solution:</strong></p>
+            <ul>
+                <li><strong>Check URL format:</strong> Must be direct stream URL (http:// or https://), not a webpage</li>
+                <li><strong>Test stream URL:</strong> Try playing it in a media player (VLC, etc.) to verify it works</li>
+                <li><strong>Network connectivity:</strong> Verify FPP has internet access (ping test)</li>
+                <li><strong>Stream format:</strong> Ensure it's a supported format (MP3, AAC, OGG)</li>
+                <li><strong>Check logs:</strong> Look at /home/fpp/media/logs/fpp-plugin-BackgroundMusic.log for errors</li>
+                <li><strong>Firewall:</strong> Verify outbound connections are allowed on the stream port</li>
+            </ul>
+            
+            <h3>Stream Keeps Disconnecting</h3>
+            <p><strong>Problem:</strong> Stream audio cuts out periodically</p>
+            <p><strong>Solution:</strong></p>
+            <ul>
+                <li><strong>Network stability:</strong> Check WiFi/Ethernet connection quality</li>
+                <li><strong>Bandwidth:</strong> Ensure sufficient bandwidth for the stream quality</li>
+                <li><strong>Stream reliability:</strong> Some streams may have intermittent issues - try a different source</li>
+                <li><strong>Auto-reconnect:</strong> Plugin will automatically reconnect after 3 seconds on disconnect</li>
+                <li><strong>Check logs:</strong> Review logs for reconnection attempts and error messages</li>
             </ul>
             
             <h3>Transition Not Smooth</h3>

@@ -103,8 +103,15 @@ start_music() {
         return 1
     fi
     
+    # Read source type (playlist or stream)
+    local bg_source=$(grep "^BackgroundMusicSource=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
+    bg_source=$(strip_quotes "$bg_source")
+    bg_source=${bg_source:-playlist}  # Default to playlist for backward compatibility
+    
     local bg_playlist=$(grep "^BackgroundMusicPlaylist=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
     bg_playlist=$(strip_quotes "$bg_playlist")
+    local bg_stream_url=$(grep "^BackgroundMusicStreamURL=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
+    bg_stream_url=$(strip_quotes "$bg_stream_url")
     local shuffle_mode=$(grep "^ShuffleMusic=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
     shuffle_mode=$(strip_quotes "$shuffle_mode")
     local volume_level=$(grep "^BackgroundMusicVolume=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
@@ -119,14 +126,24 @@ start_music() {
     # Default volume to 70 if not set
     volume_level=${volume_level:-70}
     
-    if [ -z "$bg_playlist" ]; then
-        echo "ERROR: BackgroundMusicPlaylist not configured"
-        return 1
-    fi
-    
-    # Create playlist file
-    if ! create_audio_playlist "$bg_playlist"; then
-        return 1
+    # Validate configuration based on source type
+    if [ "$bg_source" = "stream" ]; then
+        if [ -z "$bg_stream_url" ]; then
+            echo "ERROR: BackgroundMusicStreamURL not configured"
+            return 1
+        fi
+        echo "Using internet stream: $bg_stream_url"
+    else
+        # Playlist mode
+        if [ -z "$bg_playlist" ]; then
+            echo "ERROR: BackgroundMusicPlaylist not configured"
+            return 1
+        fi
+        
+        # Create playlist file
+        if ! create_audio_playlist "$bg_playlist"; then
+            return 1
+        fi
     fi
     
     # Get audio device
@@ -149,21 +166,86 @@ start_music() {
     fi
     
     echo "Starting background music player..."
-    echo "Playlist: $bg_playlist"
+    echo "Source Type: $bg_source"
+    if [ "$bg_source" = "stream" ]; then
+        echo "Stream URL: $bg_stream_url"
+    else
+        echo "Playlist: $bg_playlist"
+        echo "Shuffle Mode: ${shuffle_mode:-0}"
+    fi
     echo "Audio Device: $audio_device"
     echo "System Volume (ALSA): ${volume_level}%"
     echo "ffplay Volume: 100% (controlled by ALSA)"
-    echo "Shuffle Mode: ${shuffle_mode:-0}"
     
-    # Start ffplay in background with loop
-    # -nodisp: no video display
-    # -autoexit: exit when playback finished
-    # -volume: volume level (0-100)
-    # -loglevel error: only show errors
-    # Note: ffplay doesn't support -playlist with -loop, so we use a wrapper approach
+    # Set ALSA volume to BackgroundMusicVolume via FPP API
+    echo "Setting system volume to ${volume_level}% via FPP API"
+    curl -s -X POST -H "Content-Type: application/json" \
+         -d "{\"volume\": ${volume_level}}" \
+         "http://localhost/api/system/volume" > /dev/null 2>&1
     
-    # Create a simple looping script with shuffle support
-    cat > /tmp/bg_music_loop.sh << LOOPSCRIPT
+    # Handle stream vs playlist
+    if [ "$bg_source" = "stream" ]; then
+        # Stream mode - simple ffplay with reconnect logic
+        cat > /tmp/bg_music_loop.sh << 'STREAMSCRIPT'
+#!/bin/bash
+STREAM_URL="$STREAM_URL_PLACEHOLDER"
+AUDIO_DEVICE="$AUDIO_DEVICE_PLACEHOLDER"
+STATUS_FILE="/tmp/bg_music_status.txt"
+STATE_FILE="/tmp/bg_music_state.txt"
+FFPLAY_PID_FILE="/tmp/bg_music_ffplay.pid"
+
+# Initialize state
+echo "playing" > "$STATE_FILE"
+
+# Initial status
+cat > "$STATUS_FILE" << EOF
+state=playing
+source=stream
+stream_url=$STREAM_URL
+EOF
+
+# Loop to handle reconnection if stream drops
+while true; do
+    # Check if we should stop
+    if [ ! -f "$STATUS_FILE" ]; then
+        break
+    fi
+    
+    # Play the stream
+    SDL_AUDIODRIVER=alsa AUDIODEV="$AUDIO_DEVICE" ffplay -nodisp -autoexit \
+        -volume 100 -loglevel error -reconnect 1 -reconnect_streamed 1 \
+        -reconnect_delay_max 5 "$STREAM_URL" &
+    
+    ffplay_pid=$!
+    echo $ffplay_pid > "$FFPLAY_PID_FILE"
+    
+    # Wait for ffplay to exit
+    wait $ffplay_pid
+    exit_code=$?
+    
+    rm -f "$FFPLAY_PID_FILE"
+    
+    # If exit code is 0, it was a clean exit (user stopped it)
+    if [ $exit_code -eq 0 ] || [ ! -f "$STATUS_FILE" ]; then
+        break
+    fi
+    
+    # Otherwise, stream dropped - wait a bit and reconnect
+    echo "Stream disconnected (exit code: $exit_code), reconnecting in 3 seconds..." >&2
+    sleep 3
+done
+
+# Cleanup
+rm -f "$STATUS_FILE" "$STATE_FILE" "$FFPLAY_PID_FILE"
+STREAMSCRIPT
+        
+        # Replace placeholders
+        sed -i "s|\$STREAM_URL_PLACEHOLDER|$bg_stream_url|g" /tmp/bg_music_loop.sh
+        sed -i "s|\$AUDIO_DEVICE_PLACEHOLDER|$audio_device|g" /tmp/bg_music_loop.sh
+        
+    else
+        # Playlist mode - original complex script
+        cat > /tmp/bg_music_loop.sh << LOOPSCRIPT
 #!/bin/bash
 PLAYLIST_FILE="/tmp/background_music_playlist.m3u"
 SHUFFLE_MODE="${shuffle_mode:-0}"
@@ -433,15 +515,9 @@ while true; do
     sleep 0.1
 done
 LOOPSCRIPT
+    fi  # End of if stream vs playlist
     
     chmod +x /tmp/bg_music_loop.sh
-    
-    # Set ALSA volume to BackgroundMusicVolume via FPP API
-    # This ensures the system volume matches what the user configured
-    echo "Setting system volume to ${volume_level}% via FPP API"
-    curl -s -X POST -H "Content-Type: application/json" \
-         -d "{\"volume\": ${volume_level}}" \
-         "http://localhost/api/system/volume" > /dev/null 2>&1
     
     # Start the looping script in background
     nohup /bin/bash /tmp/bg_music_loop.sh > /tmp/background_music_player.log 2>&1 &

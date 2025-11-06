@@ -36,6 +36,14 @@ rm -f /tmp/bg_music_status.txt
 rm -f /tmp/announcement_player.pid
 rm -f /tmp/announcement_status.txt
 
+# Remove header indicator symlink
+echo "Removing header indicator..."
+WEB_JS_LINK="/opt/fpp/www/js/fpp-plugin-backgroundmusic-indicator.js"
+if [ -L "$WEB_JS_LINK" ]; then
+    rm -f "$WEB_JS_LINK"
+    echo "Header indicator removed"
+fi
+
 # Handle ALSA configuration restoration
 echo ""
 echo "============================================"

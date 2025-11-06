@@ -99,6 +99,13 @@ get_audio_device() {
         fi
     fi
     
+    # If audio_device is just a number (card number), convert to ALSA device format
+    if [[ "$audio_device" =~ ^[0-9]+$ ]]; then
+        # It's a card number - convert to plughw format
+        local card_num="$audio_device"
+        audio_device="plughw:${card_num},0"
+    fi
+    
     if [ -z "$audio_device" ]; then
         audio_device="sysdefault"
     fi
@@ -110,7 +117,8 @@ AUDIO_DEVICE=$(get_audio_device)
 
 # Wrap device in plug: for software mixing support
 # The plug plugin provides automatic sample rate/format conversion and software mixing
-if [[ ! "$AUDIO_DEVICE" =~ ^plug: ]] && [[ ! "$AUDIO_DEVICE" =~ ^dmix: ]]; then
+# Don't wrap if already using plughw, plug, or dmix (they already have plugin/mixing support)
+if [[ ! "$AUDIO_DEVICE" =~ ^plug: ]] && [[ ! "$AUDIO_DEVICE" =~ ^dmix: ]] && [[ ! "$AUDIO_DEVICE" =~ ^plughw: ]]; then
     AUDIO_DEVICE="plug:$AUDIO_DEVICE"
 fi
 

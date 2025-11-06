@@ -26,8 +26,16 @@ get_audio_device() {
         fi
     fi
     
-    # If still empty or just a number (like "0"), use default
-    if [ -z "$audio_device" ] || [[ "$audio_device" =~ ^[0-9]+$ ]]; then
+    # If audio_device is just a number (card number), convert to ALSA device format
+    if [[ "$audio_device" =~ ^[0-9]+$ ]]; then
+        # It's a card number - convert to plughw format
+        local card_num="$audio_device"
+        audio_device="plughw:${card_num},0"
+        echo "Converted card number $card_num to ALSA device: $audio_device" >&2
+    fi
+    
+    # If still empty, use default detection
+    if [ -z "$audio_device" ]; then
         # Try to detect available ALSA devices
         if aplay -L | grep -q "^sysdefault:CARD="; then
             audio_device="sysdefault"
@@ -161,7 +169,8 @@ start_music() {
     
     # Wrap device in plug: for software mixing support (allows PSA announcements to play concurrently)
     # The plug plugin provides automatic sample rate/format conversion and software mixing
-    if [[ ! "$audio_device" =~ ^plug: ]] && [[ ! "$audio_device" =~ ^dmix: ]]; then
+    # Don't wrap if already using plughw, plug, or dmix (they already have plugin/mixing support)
+    if [[ ! "$audio_device" =~ ^plug: ]] && [[ ! "$audio_device" =~ ^dmix: ]] && [[ ! "$audio_device" =~ ^plughw: ]]; then
         audio_device="plug:$audio_device"
     fi
     

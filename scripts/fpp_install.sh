@@ -229,3 +229,25 @@ if command -v setSetting &> /dev/null; then
     setSetting restartFlag 1
 fi
 
+# Create symlink for header indicator JavaScript
+echo "Setting up header indicator..."
+HEADER_JS="${PLUGIN_DIR}/header-indicator.js"
+WEB_JS_DIR="/opt/fpp/www/js"
+WEB_JS_LINK="${WEB_JS_DIR}/fpp-plugin-backgroundmusic-indicator.js"
+
+# Create the js directory if it doesn't exist
+if [ ! -d "$WEB_JS_DIR" ]; then
+    mkdir -p "$WEB_JS_DIR"
+fi
+
+# Create symlink if it doesn't exist or update it
+if [ -L "$WEB_JS_LINK" ]; then
+    rm -f "$WEB_JS_LINK"
+fi
+
+if [ -f "$HEADER_JS" ]; then
+    ln -s "$HEADER_JS" "$WEB_JS_LINK"
+    echo "Header indicator installed: $WEB_JS_LINK"
+else
+    echo "Warning: header-indicator.js not found at $HEADER_JS"
+fi

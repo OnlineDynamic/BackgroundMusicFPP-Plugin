@@ -325,11 +325,33 @@ function fppBackgroundMusicStartBackground() {
 // POST /api/plugin/fpp-plugin-BackgroundMusic/stop-background
 function fppBackgroundMusicStopBackground() {
     // Stop the independent background music player
-    // This does NOT stop any FPP playlists (sequences continue running)
     $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
     $output = array();
     $returnCode = 0;
     exec("/bin/bash " . escapeshellarg($scriptPath) . " stop 2>&1", $output, $returnCode);
+    
+    // Also stop any FPP playlist that might be playing background music
+    // Check if a background music playlist is currently playing
+    global $settings;
+    $pluginConfigFile = $settings['configDirectory'] . "/plugin.fpp-plugin-BackgroundMusic";
+    
+    if (file_exists($pluginConfigFile)) {
+        $pluginSettings = parse_ini_file($pluginConfigFile);
+        $bgMusicPlaylist = isset($pluginSettings['BackgroundMusicPlaylist']) ? $pluginSettings['BackgroundMusicPlaylist'] : '';
+        
+        // Get current FPP status
+        $fppStatus = @file_get_contents('http://localhost/api/fppd/status');
+        if ($fppStatus) {
+            $statusData = json_decode($fppStatus, true);
+            $currentPlaylist = isset($statusData['current_playlist']['playlist']) ? $statusData['current_playlist']['playlist'] : '';
+            
+            // If the current FPP playlist matches our background music playlist, stop it
+            if (!empty($bgMusicPlaylist) && $currentPlaylist === $bgMusicPlaylist) {
+                // Stop the FPP playlist
+                @file_get_contents('http://localhost/api/playlists/stop');
+            }
+        }
+    }
     
     return json(array('status' => 'OK', 'message' => 'Background music stopped'));
 }

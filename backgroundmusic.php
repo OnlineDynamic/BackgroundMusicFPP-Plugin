@@ -1420,4 +1420,7 @@
             setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL);
         });
     </script>
+    
+    <!-- Header Indicator - Shows music status in FPP header -->
+    <script src="/plugin.php?plugin=fpp-plugin-BackgroundMusic&file=header-indicator.js&nopage=1"></script>
 </div>

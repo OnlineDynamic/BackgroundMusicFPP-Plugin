@@ -317,6 +317,26 @@ $audioFiles = getAudioFiles();
                         <small>Select a preset stream or enter your own URL (HTTP/HTTPS)</small>
                     </td>
                 </tr>
+                <tr id="shuffleRow" style="<?php echo ($bgSource == 'stream') ? 'display: none;' : ''; ?>">
+                    <td class="label">Shuffle Music Playlist:</td>
+                    <td class="value">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <input type="checkbox" name="ShuffleMusic" id="ShuffleMusic" value="1"
+                                   <?php echo (isset($pluginSettings['ShuffleMusic']) && $pluginSettings['ShuffleMusic'] == '1') ? 'checked' : ''; ?>>
+                            <label for="ShuffleMusic" style="margin: 0; line-height: 1.4;">
+                                Randomly shuffle background music tracks for variety
+                            </label>
+                        </div>
+                        <small>Playlist is reshuffled each time it loops to avoid gaps</small>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Main Show Configuration -->
+            <h3 style="margin: 30px auto 10px; max-width: 800px; color: #ff9800; border-bottom: 2px solid #ff9800; padding-bottom: 5px;">
+                <i class="fas fa-star"></i> Main Show Configuration
+            </h3>
+            <table class="settingsTable">
                 <tr>
                     <td class="label">Main Show Playlist:</td>
                     <td class="value">
@@ -337,19 +357,6 @@ $audioFiles = getAudioFiles();
                             ?>
                         </select>
                         <small>Main show playlist to start after fade and blackout</small>
-                    </td>
-                </tr>
-                <tr id="shuffleRow" style="<?php echo ($bgSource == 'stream') ? 'display: none;' : ''; ?>">
-                    <td class="label">Shuffle Music Playlist:</td>
-                    <td class="value">
-                        <div style="display: flex; align-items: flex-start; gap: 10px;">
-                            <input type="checkbox" name="ShuffleMusic" id="ShuffleMusic" value="1"
-                                   <?php echo (isset($pluginSettings['ShuffleMusic']) && $pluginSettings['ShuffleMusic'] == '1') ? 'checked' : ''; ?>>
-                            <label for="ShuffleMusic" style="margin: 0; line-height: 1.4;">
-                                Randomly shuffle background music tracks for variety
-                            </label>
-                        </div>
-                        <small>Playlist is reshuffled each time it loops to avoid gaps</small>
                     </td>
                 </tr>
             </table>

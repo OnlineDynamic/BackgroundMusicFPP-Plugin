@@ -487,22 +487,37 @@
                 <ul>
                     <li><code>backgroundMusicRunning</code> - Boolean, true if music playing</li>
                     <li><code>showRunning</code> - Boolean, true if main show active</li>
+                    <li><code>streamSource</code> - Boolean, true if streaming internet radio (false for FPP playlist)</li>
                     <li><code>playbackState</code> - String ("playing", "paused", or "stopped"), current playback state</li>
                     <li><code>brightness</code> - Integer (0-100), current brightness level</li>
                     <li><code>brightnessPluginInstalled</code> - Boolean, fpp-brightness plugin status</li>
                     <li><code>currentPlaylist</code> - String, currently playing FPP playlist</li>
-                    <li><code>currentTrack</code> - String, currently playing music track name</li>
-                    <li><code>currentTrackNumber</code> - Integer, track position in playlist (1-based)</li>
-                    <li><code>totalTracks</code> - Integer, total number of tracks in playlist</li>
-                    <li><code>trackDuration</code> - Integer, track duration in seconds</li>
-                    <li><code>trackElapsed</code> - Integer, elapsed time in seconds</li>
-                    <li><code>trackProgress</code> - Integer (0-100), playback progress percentage</li>
-                    <li><code>config</code> - Object containing all plugin settings including PSA configuration</li>
+                    <li><code>currentTrack</code> - String, currently playing track name (empty for streams)</li>
+                    <li><code>currentTrackNumber</code> - Integer, track position in playlist (0 for streams)</li>
+                    <li><code>totalTracks</code> - Integer, total tracks in playlist (0 for streams)</li>
+                    <li><code>trackDuration</code> - Integer, track duration in seconds (0 for streams)</li>
+                    <li><code>trackElapsed</code> - Integer, elapsed time in seconds (0 for streams)</li>
+                    <li><code>trackProgress</code> - Integer (0-100), playback progress percentage (0 for streams)</li>
+                    <li><code>config</code> - Object containing all plugin settings:
+                        <ul>
+                            <li><code>backgroundMusicSource</code> - String ("playlist" or "stream"), source type</li>
+                            <li><code>backgroundMusicPlaylist</code> - String, FPP playlist name (if using playlist mode)</li>
+                            <li><code>backgroundMusicStreamURL</code> - String, stream URL (if using stream mode)</li>
+                            <li><code>showPlaylist</code> - String, main show playlist name</li>
+                            <li><code>fadeTime</code> - Integer, fade duration in seconds</li>
+                            <li><code>shuffleMusic</code> - String ("0" or "1"), shuffle enabled (playlist mode only)</li>
+                            <li>...and other configuration values including PSA settings</li>
+                        </ul>
+                    </li>
                 </ul>
-                <p><strong>Example Response:</strong></p>
+                <p><strong>Note:</strong> When <code>streamSource</code> is true (internet radio), track-related fields 
+                (<code>currentTrack</code>, <code>currentTrackNumber</code>, <code>totalTracks</code>, <code>trackDuration</code>, 
+                <code>trackElapsed</code>, <code>trackProgress</code>) will be empty or zero since streams are continuous.</p>
+                <p><strong>Example Response (Playlist Mode):</strong></p>
                 <div class="code-block">{
   "backgroundMusicRunning": true,
   "showRunning": false,
+  "streamSource": false,
   "playbackState": "playing",
   "brightness": 100,
   "currentTrack": "Holiday Music 01.mp3",
@@ -510,7 +525,28 @@
   "totalTracks": 12,
   "trackProgress": 45,
   "config": {
+    "backgroundMusicSource": "playlist",
     "backgroundMusicPlaylist": "PreShowMusic",
+    "backgroundMusicStreamURL": "",
+    "fadeTime": "5",
+    ...
+  }
+}</div>
+                <p><strong>Example Response (Stream Mode):</strong></p>
+                <div class="code-block">{
+  "backgroundMusicRunning": true,
+  "showRunning": false,
+  "streamSource": true,
+  "playbackState": "playing",
+  "brightness": 100,
+  "currentTrack": "",
+  "currentTrackNumber": 0,
+  "totalTracks": 0,
+  "trackProgress": 0,
+  "config": {
+    "backgroundMusicSource": "stream",
+    "backgroundMusicPlaylist": "",
+    "backgroundMusicStreamURL": "http://stream.example.com/radio",
     "fadeTime": "5",
     ...
   }
@@ -523,6 +559,7 @@
                     <code class="api-path">playlist-details</code>
                 </div>
                 <p><strong>Description:</strong> Get detailed information about the background music playlist</p>
+                <p><strong>Note:</strong> Only applicable when using FPP Playlist mode. Returns empty/null data when using stream mode.</p>
                 <p><strong>Response includes:</strong></p>
                 <ul>
                     <li><code>playlistName</code> - String, name of playlist</li>
@@ -556,6 +593,10 @@
             </div>
             
             <h3>Media Player Controls</h3>
+            
+            <p><strong>Note:</strong> Media player controls (pause, resume, next, previous, jump-to-track) only work when using 
+            <strong>FPP Playlist mode</strong>. These controls are not available when streaming internet radio, as streams 
+            are continuous and do not have discrete tracks.</p>
             
             <div class="api-endpoint">
                 <div>

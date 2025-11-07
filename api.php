@@ -238,6 +238,7 @@ function fppBackgroundMusicStatus() {
     $result = array(
         'backgroundMusicRunning' => $backgroundMusicRunning,
         'showRunning' => $showRunning,
+        'streamSource' => $streamSource,
         'brightness' => intval($brightness),
         'brightnessPluginInstalled' => $brightnessPluginInstalled,
         'currentPlaylist' => $currentPlaylist,

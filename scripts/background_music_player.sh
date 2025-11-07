@@ -206,7 +206,7 @@ start_music() {
     
     # Handle stream vs playlist
     if [ "$bg_source" = "stream" ]; then
-        # Stream mode - simple ffplay with reconnect logic
+        # Stream mode - simple ffplay with reconnect logic and ICY metadata extraction
         cat > /tmp/bg_music_loop.sh << 'STREAMSCRIPT'
 #!/bin/bash
 STREAM_URL="$STREAM_URL_PLACEHOLDER"
@@ -214,6 +214,7 @@ AUDIO_DEVICE="$AUDIO_DEVICE_PLACEHOLDER"
 STATUS_FILE="/tmp/bg_music_status.txt"
 STATE_FILE="/tmp/bg_music_state.txt"
 FFPLAY_PID_FILE="/tmp/bg_music_ffplay.pid"
+METADATA_PID_FILE="/tmp/bg_music_metadata.pid"
 
 # Initialize state
 echo "playing" > "$STATE_FILE"
@@ -223,7 +224,64 @@ cat > "$STATUS_FILE" << EOF
 state=playing
 source=stream
 stream_url=$STREAM_URL
+stream_title=
+stream_artist=
 EOF
+
+# Function to extract ICY metadata
+extract_metadata() {
+    local script_path="/home/fpp/media/plugins/fpp-plugin-BackgroundMusic/scripts/icy_metadata_reader.py"
+    
+    while [ -f "$STATUS_FILE" ]; do
+        # Use Python script to extract ICY metadata from stream
+        stream_title=$("$script_path" "$STREAM_URL" 2>/dev/null)
+        
+        # If we found a title, parse it for artist/title
+        if [ -n "$stream_title" ]; then
+            # Try to split on common separators: " - ", " – ", " | "
+            if echo "$stream_title" | grep -q " - "; then
+                stream_artist=$(echo "$stream_title" | cut -d'-' -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                stream_song=$(echo "$stream_title" | cut -d'-' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            elif echo "$stream_title" | grep -q " – "; then
+                stream_artist=$(echo "$stream_title" | cut -d'–' -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                stream_song=$(echo "$stream_title" | cut -d'–' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            elif echo "$stream_title" | grep -q " | "; then
+                stream_artist=$(echo "$stream_title" | cut -d'|' -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                stream_song=$(echo "$stream_title" | cut -d'|' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            else
+                # No separator found, use entire title as song name
+                stream_artist=""
+                stream_song="$stream_title"
+            fi
+            
+            # Update status file with metadata
+            # Read current status and update stream fields
+            temp_status=$(mktemp)
+            while IFS='=' read -r key value; do
+                case "$key" in
+                    stream_title)
+                        echo "stream_title=$stream_song"
+                        ;;
+                    stream_artist)
+                        echo "stream_artist=$stream_artist"
+                        ;;
+                    *)
+                        echo "$key=$value"
+                        ;;
+                esac
+            done < "$STATUS_FILE" > "$temp_status"
+            mv "$temp_status" "$STATUS_FILE"
+        fi
+        
+        # Check every 10 seconds for metadata updates
+        sleep 10
+    done
+}
+
+# Start metadata extraction in background
+extract_metadata &
+metadata_pid=$!
+echo $metadata_pid > "$METADATA_PID_FILE"
 
 # Loop to handle reconnection if stream drops
 while true; do
@@ -256,7 +314,11 @@ while true; do
     sleep 3
 done
 
-# Cleanup
+# Cleanup - kill metadata extraction process
+if [ -f "$METADATA_PID_FILE" ]; then
+    kill $(cat "$METADATA_PID_FILE") 2>/dev/null
+    rm -f "$METADATA_PID_FILE"
+fi
 rm -f "$STATUS_FILE" "$STATE_FILE" "$FFPLAY_PID_FILE"
 STREAMSCRIPT
         

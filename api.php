@@ -243,6 +243,8 @@ function fppBackgroundMusicStatus() {
     $currentTrackNumber = 0;
     $totalTracks = 0;
     $streamSource = false;
+    $streamTitle = '';
+    $streamArtist = '';
     
     if ($backgroundMusicRunning) {
         $statusFile = '/tmp/bg_music_status.txt';
@@ -264,8 +266,12 @@ function fppBackgroundMusicStatus() {
                 // Check if this is a stream source
                 $streamSource = isset($statusData['source']) && $statusData['source'] === 'stream';
                 
-                // Only populate track info for playlist mode, not for streams
-                if (!$streamSource) {
+                if ($streamSource) {
+                    // Get stream metadata (ICY info)
+                    $streamTitle = isset($statusData['stream_title']) ? $statusData['stream_title'] : '';
+                    $streamArtist = isset($statusData['stream_artist']) ? $statusData['stream_artist'] : '';
+                } else {
+                    // Only populate track info for playlist mode, not for streams
                     $currentTrack = isset($statusData['filename']) ? $statusData['filename'] : '';
                     $trackDuration = isset($statusData['duration']) ? intval($statusData['duration']) : 0;
                     $trackElapsed = isset($statusData['elapsed']) ? intval($statusData['elapsed']) : 0;
@@ -299,6 +305,8 @@ function fppBackgroundMusicStatus() {
         'playbackState' => $playbackState,
         'currentTrackNumber' => $currentTrackNumber,
         'totalTracks' => $totalTracks,
+        'streamTitle' => $streamTitle,
+        'streamArtist' => $streamArtist,
         'config' => array(
             'backgroundMusicSource' => isset($pluginSettings['BackgroundMusicSource']) ? $pluginSettings['BackgroundMusicSource'] : 'playlist',
             'backgroundMusicPlaylist' => $backgroundMusicPlaylist,

@@ -640,9 +640,26 @@
                     $('#statusShow').text(data.showRunning ? 'Running' : 'Not Running');
                     $('#statusBrightness').text(data.brightness + '%');
                     
-                    // Show current track information (only for playlist mode)
+                    // Show current track information (playlist mode) or stream info (stream mode)
                     var bgSource = data.config.backgroundMusicSource || 'playlist';
-                    if (bgSource === 'playlist' && data.backgroundMusicRunning && data.currentTrack) {
+                    
+                    if (bgSource === 'stream' && data.backgroundMusicRunning) {
+                        // Stream mode - show ICY metadata if available
+                        $('#currentTrackContainer').show();
+                        $('#trackProgressContainer').hide(); // No progress bar for streams
+                        
+                        var streamTitle = data.streamTitle || '';
+                        var streamArtist = data.streamArtist || '';
+                        
+                        if (streamArtist && streamTitle) {
+                            $('#statusCurrentTrack').text(streamArtist + ' - ' + streamTitle);
+                        } else if (streamTitle) {
+                            $('#statusCurrentTrack').text(streamTitle);
+                        } else {
+                            $('#statusCurrentTrack').text('Streaming...');
+                        }
+                    } else if (bgSource === 'playlist' && data.backgroundMusicRunning && data.currentTrack) {
+                        // Playlist mode - show track and progress
                         $('#currentTrackContainer').show();
                         $('#trackProgressContainer').show();
                         $('#statusCurrentTrack').text(data.currentTrack);
@@ -733,21 +750,39 @@
                     
                     // Update playlist details with current track info
                     var currentTrack = data.currentTrack || '';
+                    var bgSource = data.config.backgroundMusicSource || 'playlist';
+                    
+                    // For stream mode, use ICY metadata
+                    var displayTrack = currentTrack;
+                    if (bgSource === 'stream') {
+                        var streamTitle = data.streamTitle || '';
+                        var streamArtist = data.streamArtist || '';
+                        
+                        if (streamArtist && streamTitle) {
+                            displayTrack = streamArtist + ' - ' + streamTitle;
+                        } else if (streamTitle) {
+                            displayTrack = streamTitle;
+                        } else {
+                            displayTrack = 'Streaming...';
+                        }
+                    }
+                    
                     updatePlaylistDetails(currentTrack);
                     
                     // Update player controls
                     if (data.backgroundMusicRunning) {
                         $('#playerControls').show();
-                        $('#nowPlayingTrack').text(currentTrack || '-');
+                        $('#nowPlayingTrack').text(displayTrack || '-');
                         
-                        // Update progress bar
-                        var progress = data.trackProgress || 0;
-                        $('#trackProgressBar').css('width', progress + '%');
-                        
-                        // Update time display
-                        var elapsed = data.trackElapsed || 0;
-                        var duration = data.trackDuration || 0;
-                        $('#trackTime').text(formatTime(elapsed) + ' / ' + formatTime(duration));
+                        // Update progress bar (only for playlist mode)
+                        if (bgSource === 'playlist') {
+                            $('#trackProgressBar').css('width', (data.trackProgress || 0) + '%');
+                            $('#trackTime').text(formatTime(data.trackElapsed || 0) + ' / ' + formatTime(data.trackDuration || 0));
+                        } else {
+                            // Hide progress for streams
+                            $('#trackProgressBar').css('width', '0%');
+                            $('#trackTime').text('');
+                        }
                         
                         // Update pause/resume button
                         if (data.playbackState === 'paused') {

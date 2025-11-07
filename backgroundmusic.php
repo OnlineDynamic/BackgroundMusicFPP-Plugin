@@ -361,12 +361,12 @@
             </div>
             <div class="statusItem">
                 <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
-                    <span style="font-size: 24px;">🔈</span>
+                    <span style="font-size: 24px; cursor: pointer;" onclick="decreaseVolume()" title="Decrease volume">🔈</span>
                     <input type="range" id="volumeSlider" min="0" max="100" value="70" 
                            style="flex: 1; height: 8px; cursor: pointer;" 
                            oninput="updateVolumeDisplay(this.value)" 
                            onchange="setVolume(this.value)">
-                    <span style="font-size: 24px;">🔊</span>
+                    <span style="font-size: 24px; cursor: pointer;" onclick="increaseVolume()" title="Increase volume">🔊</span>
                 </div>
                 <div style="text-align: center; margin-top: 8px; font-size: 12px; color: #6c757d;">
                     <span>Adjust FPP system volume (affects all audio output)</span>
@@ -575,6 +575,22 @@
         
         function updateVolumeDisplay(volume) {
             $('#statusVolume').text(volume + '%');
+        }
+        
+        function decreaseVolume() {
+            var currentVolume = parseInt($('#volumeSlider').val());
+            var newVolume = Math.max(0, currentVolume - 5);
+            $('#volumeSlider').val(newVolume);
+            updateVolumeDisplay(newVolume);
+            setVolume(newVolume);
+        }
+        
+        function increaseVolume() {
+            var currentVolume = parseInt($('#volumeSlider').val());
+            var newVolume = Math.min(100, currentVolume + 5);
+            $('#volumeSlider').val(newVolume);
+            updateVolumeDisplay(newVolume);
+            setVolume(newVolume);
         }
         
         function setVolume(volume) {

@@ -194,18 +194,33 @@ $audioFiles = getAudioFiles();
         border: 1px solid #b0d4f1;
         border-radius: 5px;
     }
+    .config-header {
+        position: sticky;
+        top: 60px;
+        z-index: 100;
+        background-color: #fff;
+        padding: 15px 0;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #e0e0e0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
 </style>
 
 <div id="global" class="settings">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h1 style="margin: 0;">Background Music Configuration</h1>
-        <div>
-            <a href="plugin.php?_menu=status&plugin=fpp-plugin-BackgroundMusic&page=backgroundmusic.php" class="btn btn-outline-secondary" style="margin-right: 5px;">
-                <i class="fas fa-arrow-left"></i> Controller
-            </a>
-            <a href="plugin.php?plugin=fpp-plugin-BackgroundMusic&page=help%2Fbackgroundmusic-help.php" class="btn btn-outline-info">
-                <i class="fas fa-question-circle"></i> Help
-            </a>
+    <div class="config-header">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1 style="margin: 0;">Background Music Configuration</h1>
+            <div>
+                <button type="submit" form="settingsForm" class="btn btn-success" style="margin-right: 5px;">
+                    <i class="fas fa-save"></i> Save Settings
+                </button>
+                <a href="plugin.php?_menu=status&plugin=fpp-plugin-BackgroundMusic&page=backgroundmusic.php" class="btn btn-outline-secondary" style="margin-right: 5px;">
+                    <i class="fas fa-arrow-left"></i> Controller
+                </a>
+                <a href="plugin.php?plugin=fpp-plugin-BackgroundMusic&page=help%2Fbackgroundmusic-help.php" class="btn btn-outline-info">
+                    <i class="fas fa-question-circle"></i> Help
+                </a>
+            </div>
         </div>
     </div>
     
@@ -727,10 +742,6 @@ $audioFiles = getAudioFiles();
                 <div id="voicesList" style="margin-top: 10px;">
                     <p><i class="fas fa-spinner fa-spin"></i> Loading available voices...</p>
                 </div>
-            </div>
-            
-            <div class="buttonRow">
-                <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Save Settings</button>
             </div>
         </form>
     </div>

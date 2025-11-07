@@ -1,7 +1,6 @@
 # A Backlog of Enhancement Ideas for the plugin
 
 * Integration with the VASTFMT plugin
-* Display track names from internet streams if available
 * RDS Output of playing info (using RDS plugin?)
 * Add a music Icon into the FPP header when background music plugin is active - need to add new hooks in core fpp for fully functionality
 * make volume slider wider again

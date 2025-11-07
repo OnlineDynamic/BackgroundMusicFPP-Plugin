@@ -232,6 +232,7 @@ $audioFiles = getAudioFiles();
         <li><strong>Return to Pre-Show:</strong> After the show completes, background music (playlist or stream) automatically restarts. Your scheduler will handle restarting the pre-show sequence.</li>
         <li><strong>Playlist Mode:</strong> Supports shuffle, track control, and playlist management.</li>
         <li><strong>Stream Mode:</strong> Plays a continuous audio stream (no shuffle or track control). Auto-reconnects if the stream drops.</li>
+        <li><strong>Seamless Track Transitions:</strong> Enable crossfading to eliminate silence between tracks. The next track starts playing before the current one ends, creating smooth, continuous playback perfect for maintaining atmosphere.</li>
     </ul>
     <p><strong>Expected Setup:</strong> Your pre-show sequence (or non media playlist) should already be running (looping) via FPP's scheduler. This plugin adds background music on top.</p>
 </div>        <form id="settingsForm" onsubmit="return saveSettings();">
@@ -328,6 +329,28 @@ $audioFiles = getAudioFiles();
                             </label>
                         </div>
                         <small>Playlist is reshuffled each time it loops to avoid gaps</small>
+                    </td>
+                </tr>
+                <tr id="crossfadeRow" style="<?php echo ($bgSource == 'stream') ? 'display: none;' : ''; ?>">
+                    <td class="label">Seamless Track Transitions:</td>
+                    <td class="value">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <input type="checkbox" name="EnableCrossfade" id="EnableCrossfade" value="1"
+                                   onchange="toggleCrossfadeOptions()"
+                                   <?php echo (isset($pluginSettings['EnableCrossfade']) && $pluginSettings['EnableCrossfade'] == '1') ? 'checked' : ''; ?>>
+                            <label for="EnableCrossfade" style="margin: 0; line-height: 1.4;">
+                                Enable crossfading to eliminate silence between tracks
+                            </label>
+                        </div>
+                        <small>Smoothly blend tracks together for continuous playback</small>
+                    </td>
+                </tr>
+                <tr id="crossfadeDurationRow" style="<?php echo ($bgSource == 'stream' || !isset($pluginSettings['EnableCrossfade']) || $pluginSettings['EnableCrossfade'] != '1') ? 'display: none;' : ''; ?>">
+                    <td class="label">Crossfade Duration (seconds):</td>
+                    <td class="value">
+                        <input type="number" name="CrossfadeDuration" id="CrossfadeDuration" min="1" max="10" step="0.5"
+                               value="<?php echo isset($pluginSettings['CrossfadeDuration']) ? $pluginSettings['CrossfadeDuration'] : '3'; ?>">
+                        <small>Length of overlap between tracks (1-10 seconds). Recommended: 3-4 seconds</small>
                     </td>
                 </tr>
             </table>
@@ -607,7 +630,7 @@ $audioFiles = getAudioFiles();
                 
                 function removePSAButton(buttonNum) {
                     if (buttonNum === 1) {
-                        $.jGrowl('Cannot remove button 1', {themeState: 'error'});
+                        $.jGrowl('Cannot remove button 1', {themeState: 'danger'});
                         return;
                     }
                     
@@ -700,10 +723,22 @@ $audioFiles = getAudioFiles();
                 $('#playlistRow').show();
                 $('#streamRow').hide();
                 $('#shuffleRow').show();
+                $('#crossfadeRow').show();
+                toggleCrossfadeOptions();
             } else {
                 $('#playlistRow').hide();
                 $('#streamRow').show();
                 $('#shuffleRow').hide();
+                $('#crossfadeRow').hide();
+                $('#crossfadeDurationRow').hide();
+            }
+        }
+        
+        function toggleCrossfadeOptions() {
+            if ($('#EnableCrossfade').is(':checked')) {
+                $('#crossfadeDurationRow').show();
+            } else {
+                $('#crossfadeDurationRow').hide();
             }
         }
         
@@ -743,6 +778,8 @@ $audioFiles = getAudioFiles();
                 'PostShowDelay': $('#PostShowDelay').val(),
                 'PostShowBackgroundVolume': $('#PostShowBackgroundVolume').val(),
                 'ShuffleMusic': $('#ShuffleMusic').is(':checked') ? '1' : '0',
+                'EnableCrossfade': $('#EnableCrossfade').is(':checked') ? '1' : '0',
+                'CrossfadeDuration': $('#CrossfadeDuration').val(),
                 'BackgroundMusicVolume': $('#BackgroundMusicVolume').val(),
                 'ShowPlaylistVolume': $('#ShowPlaylistVolume').val(),
                 'VolumeLevel': $('#BackgroundMusicVolume').val() || '70',  // Maintain backward compatibility
@@ -773,11 +810,11 @@ $audioFiles = getAudioFiles();
                     if (data.status === 'OK') {
                         $.jGrowl('Settings saved successfully', {themeState: 'success'});
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'danger'});
                     }
                 },
                 error: function() {
-                    $.jGrowl('Failed to save settings', {themeState: 'error'});
+                    $.jGrowl('Failed to save settings', {themeState: 'danger'});
                 }
             });
             
@@ -839,12 +876,12 @@ $audioFiles = getAudioFiles();
                         // Auto-check status after 30 seconds
                         setTimeout(checkTTSStatus, 30000);
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'Installation failed'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'Installation failed'), {themeState: 'danger'});
                         checkTTSStatus();
                     }
                 },
                 error: function() {
-                    $.jGrowl('Failed to start installation', {themeState: 'error'});
+                    $.jGrowl('Failed to start installation', {themeState: 'danger'});
                     checkTTSStatus();
                 }
             });
@@ -856,17 +893,17 @@ $audioFiles = getAudioFiles();
             var voiceId = $('#ttsVoiceSelect').val();
             
             if (!text) {
-                $.jGrowl('Please enter text to convert', {themeState: 'error'});
+                $.jGrowl('Please enter text to convert', {themeState: 'danger'});
                 return;
             }
             
             if (!filename) {
-                $.jGrowl('Please enter a filename', {themeState: 'error'});
+                $.jGrowl('Please enter a filename', {themeState: 'danger'});
                 return;
             }
             
             if (!voiceId) {
-                $.jGrowl('Please select a voice', {themeState: 'error'});
+                $.jGrowl('Please select a voice', {themeState: 'danger'});
                 return;
             }
             
@@ -901,12 +938,12 @@ $audioFiles = getAudioFiles();
                             location.reload();
                         }, 2000);
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'Generation failed'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'Generation failed'), {themeState: 'danger'});
                         $('#ttsGenerateStatus').html('<i class="fas fa-times-circle" style="color: red;"></i> Failed');
                     }
                 },
                 error: function() {
-                    $.jGrowl('Failed to generate TTS audio', {themeState: 'error'});
+                    $.jGrowl('Failed to generate TTS audio', {themeState: 'danger'});
                     $('#ttsGenerateStatus').html('<i class="fas fa-times-circle" style="color: red;"></i> Error');
                 }
             });
@@ -1009,7 +1046,7 @@ $audioFiles = getAudioFiles();
         }
         
         function installVoice(voiceId) {
-            $.jGrowl('Installing voice: ' + voiceId, {themeState: 'info'});
+            $.jGrowl('Installing voice: ' + voiceId, {themeState: 'success'});
             
             $.ajax({
                 url: '/api/plugin/fpp-plugin-BackgroundMusic/install-voice',
@@ -1022,11 +1059,11 @@ $audioFiles = getAudioFiles();
                         loadVoices();
                         checkTTSStatus();
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'Installation failed'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'Installation failed'), {themeState: 'danger'});
                     }
                 },
                 error: function() {
-                    $.jGrowl('Failed to install voice', {themeState: 'error'});
+                    $.jGrowl('Failed to install voice', {themeState: 'danger'});
                 }
             });
         }
@@ -1043,11 +1080,11 @@ $audioFiles = getAudioFiles();
                         loadVoices();
                         checkTTSStatus();
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'Failed to set default'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'Failed to set default'), {themeState: 'danger'});
                     }
                 },
                 error: function() {
-                    $.jGrowl('Failed to set default voice', {themeState: 'error'});
+                    $.jGrowl('Failed to set default voice', {themeState: 'danger'});
                 }
             });
         }
@@ -1068,11 +1105,11 @@ $audioFiles = getAudioFiles();
                         loadVoices();
                         checkTTSStatus();
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'Failed to delete'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'Failed to delete'), {themeState: 'danger'});
                     }
                 },
                 error: function() {
-                    $.jGrowl('Failed to delete voice', {themeState: 'error'});
+                    $.jGrowl('Failed to delete voice', {themeState: 'danger'});
                 }
             });
         }

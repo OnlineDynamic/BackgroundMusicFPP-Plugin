@@ -309,6 +309,8 @@ function fppBackgroundMusicStatus() {
             'returnToPreShow' => $returnToPreShow,
             'postShowDelay' => isset($pluginSettings['PostShowDelay']) ? $pluginSettings['PostShowDelay'] : 0,
             'shuffleMusic' => $shuffleMusic,
+            'enableCrossfade' => isset($pluginSettings['EnableCrossfade']) && $pluginSettings['EnableCrossfade'] == '1' ? true : false,
+            'crossfadeDuration' => isset($pluginSettings['CrossfadeDuration']) ? floatval($pluginSettings['CrossfadeDuration']) : 3,
             'volumeLevel' => $volumeLevel,
             'backgroundMusicVolume' => $backgroundMusicVolume,
             'showPlaylistVolume' => $showPlaylistVolume,
@@ -373,7 +375,7 @@ function fppBackgroundMusicStopBackground() {
     $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
     $output = array();
     $returnCode = 0;
-    exec("/bin/bash " . escapeshellarg($scriptPath) . " stop 2>&1", $output, $returnCode);
+    exec("sudo /bin/bash " . escapeshellarg($scriptPath) . " stop 2>&1", $output, $returnCode);
     
     // Also stop any FPP playlist that might be playing background music
     // Check if a background music playlist is currently playing
@@ -406,7 +408,7 @@ function fppBackgroundMusicPauseBackground() {
     $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
     $output = array();
     $returnCode = 0;
-    exec("/bin/bash " . escapeshellarg($scriptPath) . " pause 2>&1", $output, $returnCode);
+    exec("sudo /bin/bash " . escapeshellarg($scriptPath) . " pause 2>&1", $output, $returnCode);
     
     if ($returnCode === 0) {
         return json(array('status' => 'OK', 'message' => 'Background music paused'));
@@ -420,7 +422,7 @@ function fppBackgroundMusicResumeBackground() {
     $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
     $output = array();
     $returnCode = 0;
-    exec("/bin/bash " . escapeshellarg($scriptPath) . " resume 2>&1", $output, $returnCode);
+    exec("sudo /bin/bash " . escapeshellarg($scriptPath) . " resume 2>&1", $output, $returnCode);
     
     if ($returnCode === 0) {
         return json(array('status' => 'OK', 'message' => 'Background music resumed'));
@@ -434,7 +436,7 @@ function fppBackgroundMusicNextTrack() {
     $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
     $output = array();
     $returnCode = 0;
-    exec("/bin/bash " . escapeshellarg($scriptPath) . " next 2>&1", $output, $returnCode);
+    exec("sudo /bin/bash " . escapeshellarg($scriptPath) . " next 2>&1", $output, $returnCode);
     
     if ($returnCode === 0) {
         return json(array('status' => 'OK', 'message' => 'Skipped to next track'));
@@ -448,7 +450,7 @@ function fppBackgroundMusicPreviousTrack() {
     $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
     $output = array();
     $returnCode = 0;
-    exec("/bin/bash " . escapeshellarg($scriptPath) . " previous 2>&1", $output, $returnCode);
+    exec("sudo /bin/bash " . escapeshellarg($scriptPath) . " previous 2>&1", $output, $returnCode);
     
     if ($returnCode === 0) {
         return json(array('status' => 'OK', 'message' => 'Went to previous track'));
@@ -469,7 +471,7 @@ function fppBackgroundMusicJumpToTrack() {
     $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
     $output = array();
     $returnCode = 0;
-    exec("/bin/bash " . escapeshellarg($scriptPath) . " jump " . escapeshellarg($trackNumber) . " 2>&1", $output, $returnCode);
+    exec("sudo /bin/bash " . escapeshellarg($scriptPath) . " jump " . escapeshellarg($trackNumber) . " 2>&1", $output, $returnCode);
     
     if ($returnCode === 0) {
         return json(array('status' => 'OK', 'message' => 'Jumped to track ' . $trackNumber));

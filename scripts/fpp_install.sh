@@ -220,9 +220,18 @@ fi
 
 if [ ! -f "$PLAYER_LOG" ]; then
     touch "$PLAYER_LOG"
-    chmod 666 "$PLAYER_LOG"
+    chown fpp:fpp "$PLAYER_LOG"
+    chmod 664 "$PLAYER_LOG"
     echo "Created player log file: $PLAYER_LOG"
+else
+    # Fix ownership if file exists but has wrong owner
+    chown fpp:fpp "$PLAYER_LOG" 2>/dev/null
+    chmod 664 "$PLAYER_LOG" 2>/dev/null
 fi
+
+# Clean up any temp files with wrong permissions (from older versions or manual testing)
+echo "Cleaning up temporary files..."
+rm -f /tmp/bg_music_jump.txt /tmp/bg_music_next.txt /tmp/bg_music_previous.txt 2>/dev/null
 
 # Set restart flag if setSetting function is available
 if command -v setSetting &> /dev/null; then

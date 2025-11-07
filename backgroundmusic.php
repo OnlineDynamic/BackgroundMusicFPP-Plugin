@@ -626,7 +626,7 @@
                 $('#statusVolume').text(volume + '%');
             })
             .fail(function() {
-                $.jGrowl('Failed to set volume', {themeState: 'error'});
+                $.jGrowl('Failed to set volume', {themeState: 'danger'});
             });
         }
         
@@ -1023,13 +1023,13 @@
                     if (data.status === 'OK') {
                         $.jGrowl('Background music started successfully', {themeState: 'success'});
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'danger'});
                     }
                     $('#btnStartBackground').removeClass('loading');
                     updateStatus();
                 },
                 error: function() {
-                    $.jGrowl('Failed to start background music', {themeState: 'error'});
+                    $.jGrowl('Failed to start background music', {themeState: 'danger'});
                     $('#btnStartBackground').removeClass('loading');
                 }
             });
@@ -1045,13 +1045,13 @@
                     if (data.status === 'OK') {
                         $.jGrowl('Background music stopped successfully', {themeState: 'success'});
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'danger'});
                     }
                     $('#btnStopBackground').removeClass('loading');
                     updateStatus();
                 },
                 error: function() {
-                    $.jGrowl('Failed to stop background music', {themeState: 'error'});
+                    $.jGrowl('Failed to stop background music', {themeState: 'danger'});
                     $('#btnStopBackground').removeClass('loading');
                 }
             });
@@ -1072,13 +1072,13 @@
                     if (data.status === 'OK') {
                         $.jGrowl('Background music ' + action, {themeState: 'success', life: 1000});
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'danger'});
                     }
                     $btn.prop('disabled', false);
                     updateStatus();
                 },
                 error: function() {
-                    $.jGrowl('Failed to ' + (isPaused ? 'resume' : 'pause') + ' background music', {themeState: 'error'});
+                    $.jGrowl('Failed to ' + (isPaused ? 'resume' : 'pause') + ' background music', {themeState: 'danger'});
                     $btn.prop('disabled', false);
                 }
             });
@@ -1093,12 +1093,12 @@
                     if (data.status === 'OK') {
                         $.jGrowl('Skipping to next track', {themeState: 'success', life: 1000});
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'danger'});
                     }
                     updateStatus();
                 },
                 error: function() {
-                    $.jGrowl('Failed to skip track', {themeState: 'error'});
+                    $.jGrowl('Failed to skip track', {themeState: 'danger'});
                 }
             });
         }
@@ -1112,12 +1112,12 @@
                     if (data.status === 'OK') {
                         $.jGrowl('Going to previous track', {themeState: 'success', life: 1000});
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'danger'});
                     }
                     updateStatus();
                 },
                 error: function() {
-                    $.jGrowl('Failed to go to previous track', {themeState: 'error'});
+                    $.jGrowl('Failed to go to previous track', {themeState: 'danger'});
                 }
             });
         }
@@ -1133,12 +1133,12 @@
                     if (data.status === 'OK') {
                         $.jGrowl('Jumping to track ' + trackNumber, {themeState: 'success', life: 1000});
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'danger'});
                     }
                     updateStatus();
                 },
                 error: function() {
-                    $.jGrowl('Failed to jump to track', {themeState: 'error'});
+                    $.jGrowl('Failed to jump to track', {themeState: 'danger'});
                 }
             });
         }
@@ -1226,11 +1226,11 @@
                             updateStatus();
                         }, 500);
                     } else {
-                        $.jGrowl('Error saving playlist order: ' + (data.message || 'Unknown error'), {themeState: 'error'});
+                        $.jGrowl('Error saving playlist order: ' + (data.message || 'Unknown error'), {themeState: 'danger'});
                     }
                 },
                 error: function() {
-                    $.jGrowl('Failed to save playlist order', {themeState: 'error'});
+                    $.jGrowl('Failed to save playlist order', {themeState: 'danger'});
                 }
             });
         }
@@ -1249,13 +1249,13 @@
                     if (data.status === 'OK') {
                         $.jGrowl('Starting show transition...', {themeState: 'success'});
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'danger'});
                     }
                     $('#btnStartShow').removeClass('loading');
                     updateStatus();
                 },
                 error: function() {
-                    $.jGrowl('Failed to start show', {themeState: 'error'});
+                    $.jGrowl('Failed to start show', {themeState: 'danger'});
                     $('#btnStartShow').removeClass('loading');
                 }
             });
@@ -1316,12 +1316,12 @@
                         // Monitor announcement status
                         monitorAnnouncement(buttonNumber);
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'Failed to play announcement'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'Failed to play announcement'), {themeState: 'danger'});
                         resetPSAButton(buttonNumber);
                     }
                 },
                 error: function() {
-                    $.jGrowl('Failed to play announcement', {themeState: 'error'});
+                    $.jGrowl('Failed to play announcement', {themeState: 'danger'});
                     resetPSAButton(buttonNumber);
                 }
             });
@@ -1340,7 +1340,7 @@
                     resetPSAButton(buttonNumber);
                 },
                 error: function() {
-                    $.jGrowl('Failed to stop announcement', {themeState: 'error'});
+                    $.jGrowl('Failed to stop announcement', {themeState: 'danger'});
                 }
             });
         }
@@ -1349,7 +1349,7 @@
             var text = $('#realtimeTTSText').val().trim();
             
             if (!text) {
-                $.jGrowl('Please enter text to announce', {themeState: 'error'});
+                $.jGrowl('Please enter text to announce', {themeState: 'danger'});
                 return;
             }
             
@@ -1358,7 +1358,7 @@
                 return;
             }
             
-            $.jGrowl('Generating and playing TTS...', {themeState: 'info'});
+            $.jGrowl('Generating and playing TTS...', {themeState: 'success'});
             
             $.ajax({
                 url: '/api/plugin/fpp-plugin-BackgroundMusic/play-tts',
@@ -1372,11 +1372,11 @@
                         // Clear the text box
                         $('#realtimeTTSText').val('');
                     } else {
-                        $.jGrowl('Error: ' + (data.message || 'TTS failed'), {themeState: 'error'});
+                        $.jGrowl('Error: ' + (data.message || 'TTS failed'), {themeState: 'danger'});
                     }
                 },
                 error: function() {
-                    $.jGrowl('Failed to play TTS announcement. Make sure Piper is installed.', {themeState: 'error'});
+                    $.jGrowl('Failed to play TTS announcement. Make sure Piper is installed.', {themeState: 'danger'});
                 }
             });
         }

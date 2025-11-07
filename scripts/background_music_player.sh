@@ -105,6 +105,14 @@ start_music() {
         fi
     fi
     
+    # Clean up any stale control files from previous session
+    rm -f /tmp/bg_music_jump.txt /tmp/bg_music_next.txt /tmp/bg_music_previous.txt 2>/dev/null
+    
+    # Ensure log file has correct permissions
+    if [ -f "/tmp/background_music_player.log" ]; then
+        chown fpp:fpp /tmp/background_music_player.log 2>/dev/null
+    fi
+    
     # Read configuration
     if [ ! -f "$PLUGIN_CONFIG" ]; then
         echo "ERROR: Plugin configuration not found"
@@ -122,6 +130,10 @@ start_music() {
     bg_stream_url=$(strip_quotes "$bg_stream_url")
     local shuffle_mode=$(grep "^ShuffleMusic=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
     shuffle_mode=$(strip_quotes "$shuffle_mode")
+    local enable_crossfade=$(grep "^EnableCrossfade=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
+    enable_crossfade=$(strip_quotes "$enable_crossfade")
+    local crossfade_duration=$(grep "^CrossfadeDuration=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
+    crossfade_duration=$(strip_quotes "$crossfade_duration")
     local volume_level=$(grep "^BackgroundMusicVolume=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
     volume_level=$(strip_quotes "$volume_level")
     
@@ -258,11 +270,14 @@ STREAMSCRIPT
 #!/bin/bash
 PLAYLIST_FILE="/tmp/background_music_playlist.m3u"
 SHUFFLE_MODE="${shuffle_mode:-0}"
+ENABLE_CROSSFADE="${enable_crossfade:-0}"
+CROSSFADE_DURATION="${crossfade_duration:-3}"
 VOLUME_LEVEL="100"
 AUDIO_DEVICE="${audio_device}"
 STATUS_FILE="/tmp/bg_music_status.txt"
 STATE_FILE="/tmp/bg_music_state.txt"
 FFPLAY_PID_FILE="/tmp/bg_music_ffplay.pid"
+FFPLAY_NEXT_PID_FILE="/tmp/bg_music_ffplay_next.pid"
 JUMP_FILE="/tmp/bg_music_jump.txt"
 PREVIOUS_FILE="/tmp/bg_music_previous.txt"
 NEXT_FILE="/tmp/bg_music_next.txt"
@@ -281,6 +296,81 @@ shuffle_array() {
         playlist_files[i]=\${playlist_files[rand]}
         playlist_files[rand]=\$tmp
     done
+}
+
+# Function to play track with crossfade support
+# Returns: 0 = normal completion with crossfade, 1 = normal completion without crossfade, 2 = skipped/interrupted
+play_track_with_crossfade() {
+    local media_file="\$1"
+    local track_name="\$2"
+    local duration="\$3"
+    local track_number="\$4"
+    local total_tracks="\$5"
+    local next_media_file="\$6"
+    
+    # Calculate when to start crossfade (duration - crossfade_duration seconds)
+    local crossfade_start_time=0
+    if [ "\$ENABLE_CROSSFADE" = "1" ] && [ -n "\$next_media_file" ] && [ "\$duration" -gt "\$CROSSFADE_DURATION" ]; then
+        crossfade_start_time=\$((duration - CROSSFADE_DURATION))
+    fi
+    
+    # Update status before starting
+    update_status "\$track_name" "\$duration" 0 "\$track_number" "\$total_tracks"
+    
+    # Start ffplay in background
+    SDL_AUDIODRIVER=alsa AUDIODEV="\$AUDIO_DEVICE" ffplay -nodisp -autoexit -volume "\$VOLUME_LEVEL" -loglevel error "\$media_file" &
+    local player_pid=\$!
+    echo "\$player_pid" > "\$FFPLAY_PID_FILE"
+    
+    # Track progress while playing
+    local elapsed=0
+    local crossfade_started=0
+    local next_player_pid=0
+    
+    while kill -0 \$player_pid 2>/dev/null; do
+        sleep 1
+        
+        # Only increment elapsed time if not paused
+        local current_state="playing"
+        if [ -f "\$STATE_FILE" ]; then
+            current_state=\$(cat "\$STATE_FILE")
+        fi
+        
+        if [ "\$current_state" != "paused" ]; then
+            elapsed=\$((elapsed + 1))
+        fi
+        
+        update_status "\$track_name" "\$duration" "\$elapsed" "\$track_number" "\$total_tracks"
+        
+        # Start crossfade if enabled and time reached
+        if [ \$crossfade_started -eq 0 ] && [ \$crossfade_start_time -gt 0 ] && [ \$elapsed -ge \$crossfade_start_time ]; then
+            crossfade_started=1
+            # Start next track - it will play in full
+            SDL_AUDIODRIVER=alsa AUDIODEV="\$AUDIO_DEVICE" ffplay -nodisp -autoexit -volume "\$VOLUME_LEVEL" -loglevel error "\$next_media_file" &
+            next_player_pid=\$!
+            echo "\$next_player_pid" > "\$FFPLAY_NEXT_PID_FILE"
+            echo "\$(date +%s.%N) [CROSSFADE] Started next PID=\$next_player_pid file='\$(basename "\$next_media_file")'" >&2
+        fi
+        
+        # Check for jump/skip/previous commands
+        if [ -f "\$JUMP_FILE" ] || [ -f "\$NEXT_FILE" ] || [ -f "\$PREVIOUS_FILE" ]; then
+            kill \$player_pid 2>/dev/null
+            [ \$next_player_pid -gt 0 ] && kill \$next_player_pid 2>/dev/null
+            return 2  # Interrupted
+        fi
+    done
+    
+    # Wait for player to fully exit
+    wait \$player_pid 2>/dev/null
+    rm -f "\$FFPLAY_PID_FILE"
+    
+    # If crossfade was started, the next track is now the current player
+    if [ \$crossfade_started -eq 1 ] && [ \$next_player_pid -gt 0 ]; then
+        echo "\$next_player_pid" > "\$FFPLAY_PID_FILE"
+        return 0  # Crossfade completed - next track already playing
+    fi
+    
+    return 1  # Normal completion without crossfade
 }
 
 # Function to get track duration in seconds using ffprobe
@@ -418,58 +508,126 @@ while true; do
     duration=\$(get_duration "\$media_file")
     [ -z "\$duration" ] && duration=0
     
-    # Update status before starting
-    update_status "\$track_name" "\$duration" 0 "\$track_number" "\$total_tracks"
+    # Determine next track for crossfade
+    next_track_index=\$((current_track_index + 1))
+    if [ \$next_track_index -ge \$total_tracks ]; then
+        next_track_index=0
+    fi
+    next_media_file="\${playlist_files[\$next_track_index]}"
     
-    # Start ffplay in background so we can track progress
-    # Use SDL audio driver with ALSA and specify the device
-    SDL_AUDIODRIVER=alsa AUDIODEV="\$AUDIO_DEVICE" ffplay -nodisp -autoexit -volume "\$VOLUME_LEVEL" -loglevel error "\$media_file" &
+    # Use crossfade playback if enabled, otherwise standard playback
+    crossfade_happened=0
+    if [ "\$ENABLE_CROSSFADE" = "1" ]; then
+        # Crossfade playback
+        play_track_with_crossfade "\$media_file" "\$track_name" "\$duration" "\$track_number" "\$total_tracks" "\$next_media_file"
+        result=\$?
+        if [ \$result -eq 0 ]; then
+            # Crossfade completed - next track is already playing and we need to wait for it
+            crossfade_happened=1
+            track_was_skipped=0
+            
+            # The next track is now playing - we need to monitor it
+            # Advance index to reflect the track that's actually playing
+            current_track_index=\$next_track_index
+            
+            # Now monitor the NEXT track (which is actually playing) until completion
+            # Get info about the track that's actually playing
+            media_file="\${playlist_files[\$current_track_index]}"
+            track_name=\$(basename "\$media_file")
+            track_number=\$((current_track_index + 1))
+            duration=\$(get_duration "\$media_file")
+            [ -z "\$duration" ] && duration=0
+            
+            # Read the PID of the currently playing track (set by crossfade function)
+            if [ -f "\$FFPLAY_PID_FILE" ]; then
+                player_pid=\$(cat "\$FFPLAY_PID_FILE")
+                
+                # Monitor this track as it plays
+                elapsed=0
+                while kill -0 \$player_pid 2>/dev/null; do
+                    sleep 1
+                    
+                    current_state="playing"
+                    if [ -f "\$STATE_FILE" ]; then
+                        current_state=\$(cat "\$STATE_FILE")
+                    fi
+                    
+                    if [ "\$current_state" != "paused" ]; then
+                        elapsed=\$((elapsed + 1))
+                    fi
+                    
+                    update_status "\$track_name" "\$duration" "\$elapsed" "\$track_number" "\$total_tracks"
+                    
+                    # Check for skip commands
+                    if [ -f "\$JUMP_FILE" ] || [ -f "\$NEXT_FILE" ] || [ -f "\$PREVIOUS_FILE" ]; then
+                        kill \$player_pid 2>/dev/null
+                        track_was_skipped=1
+                        break
+                    fi
+                done
+                
+                wait \$player_pid 2>/dev/null
+                rm -f "\$FFPLAY_PID_FILE"
+            fi
+            
+            # After crossfade, we've already played this track in full.
+            # Skip the rest of the loop iteration (don't execute normal playback code)
+            # and go directly to the next loop iteration which will advance index normally.
+            continue
+        elif [ \$result -eq 1 ]; then
+            # Normal completion without crossfade
+            track_was_skipped=0
+        else
+            # Interrupted/skipped
+            track_was_skipped=1
+        fi
+    else
+        # Standard playback (original code)
+        update_status "\$track_name" "\$duration" 0 "\$track_number" "\$total_tracks"
+        
+        echo "\$(date +%s.%N) [START] Starting track: \$track_name file='\$media_file'" >&2
+        SDL_AUDIODRIVER=alsa AUDIODEV="\$AUDIO_DEVICE" ffplay -nodisp -autoexit -volume "\$VOLUME_LEVEL" -loglevel error "\$media_file" &
     player_pid=\$!
     echo "\$player_pid" > "\$FFPLAY_PID_FILE"
-    
-    # Track progress while playing
-    elapsed=0
-    track_was_skipped=0
-    while kill -0 \$player_pid 2>/dev/null; do
-        sleep 1
         
-        # Only increment elapsed time if not paused
-        current_state="playing"
-        if [ -f "\$STATE_FILE" ]; then
-            current_state=\$(cat "\$STATE_FILE")
-        fi
+        elapsed=0
+        track_was_skipped=0
+        while kill -0 \$player_pid 2>/dev/null; do
+            sleep 1
+            
+            current_state="playing"
+            if [ -f "\$STATE_FILE" ]; then
+                current_state=\$(cat "\$STATE_FILE")
+            fi
+            
+            if [ "\$current_state" != "paused" ]; then
+                elapsed=\$((elapsed + 1))
+            fi
+            
+            update_status "\$track_name" "\$duration" "\$elapsed" "\$track_number" "\$total_tracks"
+            
+            if [ -f "\$JUMP_FILE" ]; then
+                kill \$player_pid 2>/dev/null
+                track_was_skipped=1
+                break
+            fi
+            
+            if [ -f "\$PREVIOUS_FILE" ]; then
+                kill \$player_pid 2>/dev/null
+                track_was_skipped=1
+                break
+            fi
+            
+            if [ -f "\$NEXT_FILE" ]; then
+                kill \$player_pid 2>/dev/null
+                track_was_skipped=1
+                break
+            fi
+        done
         
-        if [ "\$current_state" != "paused" ]; then
-            elapsed=\$((elapsed + 1))
-        fi
-        
-        update_status "\$track_name" "\$duration" "\$elapsed" "\$track_number" "\$total_tracks"
-        
-        # Check for jump command while playing
-        if [ -f "\$JUMP_FILE" ]; then
-            kill \$player_pid 2>/dev/null
-            track_was_skipped=1
-            break
-        fi
-        
-        # Check for previous command while playing
-        if [ -f "\$PREVIOUS_FILE" ]; then
-            kill \$player_pid 2>/dev/null
-            track_was_skipped=1
-            break
-        fi
-        
-        # Check for next command while playing
-        if [ -f "\$NEXT_FILE" ]; then
-            kill \$player_pid 2>/dev/null
-            track_was_skipped=1
-            break
-        fi
-    done
-    
-    # Wait for ffplay to fully exit
-    wait \$player_pid 2>/dev/null
-    rm -f "\$FFPLAY_PID_FILE"
+        wait \$player_pid 2>/dev/null
+        rm -f "\$FFPLAY_PID_FILE"
+    fi
     
     # Check what caused the track to end and handle navigation
     previous_pressed=0
@@ -504,8 +662,10 @@ while true; do
     previous_track_index=\$current_track_index
     
     # Move to next track (unless previous was pressed, which already set the correct index)
+    # Note: If crossfade happened, we already advanced the index during monitoring, so just increment by 1
     if [ \$previous_pressed -eq 0 ]; then
         current_track_index=\$((current_track_index + 1))
+        
         # Check if we would wrap around - if so, check for pending reorder first
         if [ \$current_track_index -ge \$total_tracks ]; then
             # If playlist was reordered, don't wrap - let reorder detection handle it
@@ -607,6 +767,7 @@ jump_to_track() {
     
     # Write the target track number to a control file
     echo "$track_number" > /tmp/bg_music_jump.txt
+    chown fpp:fpp /tmp/bg_music_jump.txt 2>/dev/null
     
     # Stop current ffplay if running
     if [ -f "$FFPLAY_PID_FILE" ]; then
@@ -625,6 +786,7 @@ jump_to_track() {
 next_track() {
     # Write a signal file to indicate we want to move forward
     echo "1" > /tmp/bg_music_next.txt
+    chown fpp:fpp /tmp/bg_music_next.txt 2>/dev/null
     
     # Kill current ffplay
     if [ -f "$FFPLAY_PID_FILE" ]; then
@@ -643,6 +805,7 @@ next_track() {
 previous_track() {
     # Write a signal file to indicate we want to go back
     echo "1" > /tmp/bg_music_previous.txt
+    chown fpp:fpp /tmp/bg_music_previous.txt 2>/dev/null
     
     # Kill current ffplay
     if [ -f "$FFPLAY_PID_FILE" ]; then

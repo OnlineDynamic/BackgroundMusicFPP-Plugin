@@ -119,6 +119,54 @@ function getEndpointsfpppluginBackgroundMusic() {
         'endpoint' => 'reorder-playlist',
         'callback' => 'fppBackgroundMusicReorderPlaylist');
     array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'GET',
+        'endpoint' => 'tts-status',
+        'callback' => 'fppBackgroundMusicTTSStatus');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'POST',
+        'endpoint' => 'install-tts',
+        'callback' => 'fppBackgroundMusicInstallTTS');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'POST',
+        'endpoint' => 'generate-tts',
+        'callback' => 'fppBackgroundMusicGenerateTTS');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'POST',
+        'endpoint' => 'play-tts',
+        'callback' => 'fppBackgroundMusicPlayTTS');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'GET',
+        'endpoint' => 'tts-voices',
+        'callback' => 'fppBackgroundMusicTTSVoices');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'POST',
+        'endpoint' => 'install-voice',
+        'callback' => 'fppBackgroundMusicInstallVoice');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'POST',
+        'endpoint' => 'set-default-voice',
+        'callback' => 'fppBackgroundMusicSetDefaultVoice');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'POST',
+        'endpoint' => 'delete-voice',
+        'callback' => 'fppBackgroundMusicDeleteVoice');
+    array_push($result, $ep);
 
     return $result;
 }
@@ -1061,6 +1109,380 @@ function fppBackgroundMusicGetCommitHistory() {
         'commits' => $commits,
         'count' => count($commits)
     ));
+}
+
+// GET /api/plugin/fpp-plugin-BackgroundMusic/tts-status
+function fppBackgroundMusicTTSStatus() {
+    $pluginDir = dirname(__FILE__);
+    $piperDir = $pluginDir . '/piper';
+    $piperBin = $piperDir . '/piper';
+    $statusFile = $piperDir . '/status.txt';
+    
+    $status = array(
+        'installed' => false,
+        'version' => '',
+        'architecture' => '',
+        'installDate' => '',
+        'voices' => array(),
+        'defaultVoice' => ''
+    );
+    
+    if (file_exists($piperBin)) {
+        $status['installed'] = true;
+        
+        // Read status file if it exists
+        if (file_exists($statusFile)) {
+            $statusLines = file($statusFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            foreach ($statusLines as $line) {
+                if (strpos($line, 'version:') === 0) {
+                    $status['version'] = trim(substr($line, 8));
+                } elseif (strpos($line, 'architecture:') === 0) {
+                    $status['architecture'] = trim(substr($line, 13));
+                } elseif (preg_match('/^\d{4}-\d{2}-\d{2}/', $line)) {
+                    $status['installDate'] = trim($line);
+                }
+            }
+        }
+        
+        // List available voices
+        $voicesDir = $piperDir . '/voices';
+        if (is_dir($voicesDir)) {
+            $voices = glob($voicesDir . '/*.onnx');
+            foreach ($voices as $voice) {
+                $voiceName = basename($voice, '.onnx');
+                $status['voices'][] = $voiceName;
+            }
+        }
+        
+        // Check default voice
+        if (file_exists($piperDir . '/default_voice.onnx')) {
+            $defaultLink = readlink($piperDir . '/default_voice.onnx');
+            if ($defaultLink) {
+                $status['defaultVoice'] = basename($defaultLink, '.onnx');
+            }
+        }
+    }
+    
+    return json($status);
+}
+
+// POST /api/plugin/fpp-plugin-BackgroundMusic/install-tts
+function fppBackgroundMusicInstallTTS() {
+    $pluginDir = dirname(__FILE__);
+    $installScript = $pluginDir . '/scripts/install_piper.sh';
+    
+    if (!file_exists($installScript)) {
+        return json(array('status' => 'ERROR', 'message' => 'Installation script not found'));
+    }
+    
+    // Run installation in background
+    $logFile = '/tmp/piper_install.log';
+    $cmd = "bash " . escapeshellarg($installScript) . " > " . escapeshellarg($logFile) . " 2>&1 &";
+    exec($cmd);
+    
+    return json(array(
+        'status' => 'OK', 
+        'message' => 'Piper TTS installation started. This may take several minutes.',
+        'logFile' => $logFile
+    ));
+}
+
+// POST /api/plugin/fpp-plugin-BackgroundMusic/generate-tts
+function fppBackgroundMusicGenerateTTS() {
+    $pluginDir = dirname(__FILE__);
+    $piperBin = $pluginDir . '/piper/piper';
+    
+    // Check if Piper is installed
+    if (!file_exists($piperBin)) {
+        return json(array(
+            'status' => 'ERROR', 
+            'message' => 'Piper TTS not installed. Please install it first.'
+        ));
+    }
+    
+    // Get POST data
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (!isset($data['text']) || empty($data['text'])) {
+        return json(array('status' => 'ERROR', 'message' => 'No text provided'));
+    }
+    
+    if (!isset($data['filename']) || empty($data['filename'])) {
+        return json(array('status' => 'ERROR', 'message' => 'No filename provided'));
+    }
+    
+    $text = $data['text'];
+    $filename = $data['filename'];
+    $voice = isset($data['voice']) ? $data['voice'] : '';
+    
+    // Sanitize filename
+    $filename = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $filename);
+    if (!preg_match('/\.mp3$/', $filename)) {
+        $filename .= '.mp3';
+    }
+    
+    // Build command
+    $generateScript = $pluginDir . '/scripts/generate_tts.sh';
+    $cmd = "bash " . escapeshellarg($generateScript) . " " . 
+           escapeshellarg($text) . " " . 
+           escapeshellarg($filename);
+    
+    if (!empty($voice)) {
+        $cmd .= " " . escapeshellarg($voice);
+    }
+    
+    $cmd .= " 2>&1";
+    
+    $output = array();
+    $returnVar = 0;
+    exec($cmd, $output, $returnVar);
+    
+    if ($returnVar === 0) {
+        return json(array(
+            'status' => 'OK',
+            'message' => 'TTS audio generated successfully',
+            'filename' => $filename,
+            'path' => '/home/fpp/media/music/' . $filename
+        ));
+    } else {
+        return json(array(
+            'status' => 'ERROR',
+            'message' => 'Failed to generate TTS audio',
+            'details' => implode("\n", $output)
+        ));
+    }
+}
+
+// POST /api/plugin/fpp-plugin-BackgroundMusic/play-tts
+function fppBackgroundMusicPlayTTS() {
+    $pluginDir = dirname(__FILE__);
+    $piperBin = $pluginDir . '/piper/piper';
+    
+    // Check if Piper is installed
+    if (!file_exists($piperBin)) {
+        return json(array(
+            'status' => 'ERROR',
+            'message' => 'Piper TTS not installed. Please install it first.'
+        ));
+    }
+    
+    // Get POST data
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (!isset($data['text']) || empty($data['text'])) {
+        return json(array('status' => 'ERROR', 'message' => 'No text provided'));
+    }
+    
+    $text = $data['text'];
+    $voice = isset($data['voice']) ? $data['voice'] : '';
+    
+    // Build command
+    $playScript = $pluginDir . '/scripts/play_tts_announcement.sh';
+    $cmd = "bash " . escapeshellarg($playScript) . " " . escapeshellarg($text);
+    
+    if (!empty($voice)) {
+        $cmd .= " " . escapeshellarg($voice);
+    }
+    
+    $cmd .= " > /dev/null 2>&1 &";
+    
+    exec($cmd);
+    
+    return json(array(
+        'status' => 'OK',
+        'message' => 'TTS announcement started'
+    ));
+}
+
+// GET /api/plugin/fpp-plugin-BackgroundMusic/tts-voices
+function fppBackgroundMusicTTSVoices() {
+    $pluginDir = dirname(__FILE__);
+    $piperDir = $pluginDir . '/piper';
+    $voicesDir = $piperDir . '/voices';
+    $availableVoicesFile = $piperDir . '/available_voices.json';
+    
+    // Load available voices catalog
+    $availableVoices = array();
+    if (file_exists($availableVoicesFile)) {
+        $jsonContent = file_get_contents($availableVoicesFile);
+        $voicesData = json_decode($jsonContent, true);
+        if ($voicesData && isset($voicesData['voices'])) {
+            $availableVoices = $voicesData['voices'];
+        }
+    }
+    
+    // Get installed voices
+    $installedVoices = array();
+    if (is_dir($voicesDir)) {
+        $voiceFiles = glob($voicesDir . '/*.onnx');
+        foreach ($voiceFiles as $voiceFile) {
+            $voiceId = basename($voiceFile, '.onnx');
+            $installedVoices[] = $voiceId;
+        }
+    }
+    
+    // Get default voice
+    $defaultVoice = '';
+    if (file_exists($piperDir . '/default_voice.onnx')) {
+        $defaultLink = readlink($piperDir . '/default_voice.onnx');
+        if ($defaultLink) {
+            $defaultVoice = basename($defaultLink, '.onnx');
+        }
+    }
+    
+    // Merge installed status with available voices
+    foreach ($availableVoices as &$voice) {
+        $voice['installed'] = in_array($voice['id'], $installedVoices);
+        $voice['is_default'] = ($voice['id'] === $defaultVoice);
+    }
+    
+    return json(array(
+        'status' => 'OK',
+        'voices' => $availableVoices,
+        'installed_count' => count($installedVoices),
+        'default_voice' => $defaultVoice
+    ));
+}
+
+// POST /api/plugin/fpp-plugin-BackgroundMusic/install-voice
+function fppBackgroundMusicInstallVoice() {
+    $pluginDir = dirname(__FILE__);
+    $installScript = $pluginDir . '/scripts/install_voice.sh';
+    
+    if (!file_exists($installScript)) {
+        return json(array('status' => 'ERROR', 'message' => 'Voice installation script not found'));
+    }
+    
+    // Get POST data
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (!isset($data['voice_id']) || empty($data['voice_id'])) {
+        return json(array('status' => 'ERROR', 'message' => 'No voice ID provided'));
+    }
+    
+    $voiceId = $data['voice_id'];
+    
+    // Run installation
+    $cmd = "bash " . escapeshellarg($installScript) . " " . escapeshellarg($voiceId) . " 2>&1";
+    $output = array();
+    $returnVar = 0;
+    exec($cmd, $output, $returnVar);
+    
+    if ($returnVar === 0) {
+        return json(array(
+            'status' => 'OK',
+            'message' => 'Voice installed successfully',
+            'voice_id' => $voiceId
+        ));
+    } else {
+        return json(array(
+            'status' => 'ERROR',
+            'message' => 'Failed to install voice',
+            'details' => implode("\n", $output)
+        ));
+    }
+}
+
+// POST /api/plugin/fpp-plugin-BackgroundMusic/set-default-voice
+function fppBackgroundMusicSetDefaultVoice() {
+    $pluginDir = dirname(__FILE__);
+    $piperDir = $pluginDir . '/piper';
+    $voicesDir = $piperDir . '/voices';
+    
+    // Get POST data
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (!isset($data['voice_id']) || empty($data['voice_id'])) {
+        return json(array('status' => 'ERROR', 'message' => 'No voice ID provided'));
+    }
+    
+    $voiceId = $data['voice_id'];
+    $voiceFile = $voicesDir . '/' . $voiceId . '.onnx';
+    $voiceConfigFile = $voicesDir . '/' . $voiceId . '.onnx.json';
+    
+    // Check if voice exists
+    if (!file_exists($voiceFile)) {
+        return json(array('status' => 'ERROR', 'message' => 'Voice not installed'));
+    }
+    
+    $defaultVoiceLink = $piperDir . '/default_voice.onnx';
+    $defaultVoiceConfigLink = $piperDir . '/default_voice.onnx.json';
+    
+    // Remove old symlinks (check is_link first, not file_exists)
+    if (is_link($defaultVoiceLink)) {
+        unlink($defaultVoiceLink);
+    }
+    if (is_link($defaultVoiceConfigLink)) {
+        unlink($defaultVoiceConfigLink);
+    }
+    
+    // Create new symlinks
+    $symlinkResult1 = symlink($voiceFile, $defaultVoiceLink);
+    $symlinkResult2 = symlink($voiceConfigFile, $defaultVoiceConfigLink);
+    
+    if ($symlinkResult1 && $symlinkResult2) {
+        return json(array(
+            'status' => 'OK',
+            'message' => 'Default voice set successfully',
+            'voice_id' => $voiceId
+        ));
+    } else {
+        return json(array(
+            'status' => 'ERROR',
+            'message' => 'Failed to create symlinks. Check permissions.'
+        ));
+    }
+}
+
+// POST /api/plugin/fpp-plugin-BackgroundMusic/delete-voice
+function fppBackgroundMusicDeleteVoice() {
+    $pluginDir = dirname(__FILE__);
+    $piperDir = $pluginDir . '/piper';
+    $voicesDir = $piperDir . '/voices';
+    
+    // Get POST data
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (!isset($data['voice_id']) || empty($data['voice_id'])) {
+        return json(array('status' => 'ERROR', 'message' => 'No voice ID provided'));
+    }
+    
+    $voiceId = $data['voice_id'];
+    $voiceFile = $voicesDir . '/' . $voiceId . '.onnx';
+    $voiceConfigFile = $voicesDir . '/' . $voiceId . '.onnx.json';
+    
+    // Check if this is the default voice
+    $defaultVoice = '';
+    if (file_exists($piperDir . '/default_voice.onnx')) {
+        $defaultLink = readlink($piperDir . '/default_voice.onnx');
+        if ($defaultLink) {
+            $defaultVoice = basename($defaultLink, '.onnx');
+        }
+    }
+    
+    if ($defaultVoice === $voiceId) {
+        return json(array(
+            'status' => 'ERROR',
+            'message' => 'Cannot delete default voice. Set a different default voice first.'
+        ));
+    }
+    
+    // Delete voice files
+    $deleted1 = @unlink($voiceFile);
+    $deleted2 = @unlink($voiceConfigFile);
+    
+    if ($deleted1 || $deleted2) {
+        return json(array(
+            'status' => 'OK',
+            'message' => 'Voice deleted successfully',
+            'voice_id' => $voiceId
+        ));
+    } else {
+        return json(array(
+            'status' => 'ERROR',
+            'message' => 'Failed to delete voice files'
+        ));
+    }
 }
 
 ?>

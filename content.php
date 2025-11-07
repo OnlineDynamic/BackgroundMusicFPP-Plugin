@@ -519,6 +519,71 @@ $audioFiles = getAudioFiles();
                 <?php endif; ?>
                 <?php endfor; ?>
             </table>
+
+            <!-- Text-to-Speech (TTS) Settings -->
+            <h3 style="margin: 30px auto 10px; max-width: 800px; color: #3f51b5; border-bottom: 2px solid #3f51b5; padding-bottom: 5px;">
+                <i class="fas fa-robot"></i> Text-to-Speech (TTS) Announcements
+            </h3>
+            <div class="description" style="margin-top: 15px;">
+                <p><strong>About TTS:</strong> Generate AI-powered voice announcements using Piper TTS. Create MP3 files 
+                from text for future use, or play announcements in real-time. TTS uses minimal storage (~10MB) and runs 
+                efficiently on Raspberry Pi.</p>
+            </div>
+            
+            <div id="ttsStatusPanel" style="max-width: 800px; margin: 20px auto; padding: 15px; border: 2px solid #ddd; border-radius: 8px; background-color: #f9f9f9;">
+                <h4 style="margin-top: 0;"><i class="fas fa-info-circle"></i> TTS Engine Status</h4>
+                <div id="ttsStatus">
+                    <p><i class="fas fa-spinner fa-spin"></i> Checking TTS engine status...</p>
+                </div>
+            </div>
+            
+            <div id="ttsGeneratorPanel" style="max-width: 800px; margin: 20px auto; padding: 15px; border: 2px solid #3f51b5; border-radius: 8px; background-color: #f0f4ff; display: none;">
+                <h4 style="margin-top: 0; color: #3f51b5;"><i class="fas fa-magic"></i> Generate TTS Audio File</h4>
+                <table class="settingsTable" style="margin: 0;">
+                    <tr>
+                        <td class="label" style="width: 200px;">Voice:</td>
+                        <td class="value">
+                            <select id="ttsVoiceSelect" style="width: 100%; padding: 8px;">
+                                <option value="">Loading voices...</option>
+                            </select>
+                            <small>Select the voice to use for generation</small>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="label" style="width: 200px;">Text to Speak:</td>
+                        <td class="value">
+                            <textarea id="ttsText" rows="3" style="width: 100%; font-family: sans-serif; font-size: 14px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" 
+                                placeholder="Enter text to convert to speech, e.g., 'Welcome to our holiday light show! Please stay in your vehicle and tune to 87.9 FM.'"></textarea>
+                            <small>Enter the text you want to convert to speech</small>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="label">Filename:</td>
+                        <td class="value">
+                            <input type="text" id="ttsFilename" placeholder="e.g., welcome_message" style="width: 300px;">
+                            <small>Filename (without extension) - will be saved as MP3 in /home/fpp/media/music/</small>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="label"></td>
+                        <td class="value">
+                            <button type="button" class="btn btn-primary" onclick="generateTTS()" style="background-color: #3f51b5;">
+                                <i class="fas fa-magic"></i> Generate MP3 File
+                            </button>
+                            <span id="ttsGenerateStatus" style="margin-left: 10px;"></span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <!-- Voice Management Panel -->
+            <div id="voiceManagementPanel" style="max-width: 800px; margin: 20px auto; padding: 15px; border: 2px solid #673ab7; border-radius: 8px; background-color: #f3e5f5; display: none;">
+                <h4 style="margin-top: 0; color: #673ab7;"><i class="fas fa-microphone"></i> Voice Management</h4>
+                <p style="margin-bottom: 15px; font-size: 13px;">Install additional voices for different accents, genders, and qualities. Click on a voice to see details and install.</p>
+                <div id="voicesList" style="margin-top: 10px;">
+                    <p><i class="fas fa-spinner fa-spin"></i> Loading available voices...</p>
+                </div>
+            </div>
             
             <div class="buttonRow">
                 <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Save Settings</button>
@@ -614,5 +679,304 @@ $audioFiles = getAudioFiles();
             
             return false;
         }
+        
+        // TTS Functions
+        function checkTTSStatus() {
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/tts-status',
+                type: 'GET',
+                success: function(data) {
+                    if (data.installed) {
+                        $('#ttsStatus').html(
+                            '<p style="color: green;"><i class="fas fa-check-circle"></i> <strong>Piper TTS Installed</strong></p>' +
+                            '<ul style="margin: 5px 0; padding-left: 20px;">' +
+                            '<li>Version: ' + (data.version || 'Unknown') + '</li>' +
+                            '<li>Architecture: ' + (data.architecture || 'Unknown') + '</li>' +
+                            '<li>Voices: ' + (data.voices.length > 0 ? data.voices.join(', ') : 'None') + '</li>' +
+                            '<li>Default Voice: ' + (data.defaultVoice || 'None') + '</li>' +
+                            '</ul>'
+                        );
+                        $('#ttsGeneratorPanel').show();
+                        $('#voiceManagementPanel').show();
+                        loadVoices();
+                    } else {
+                        $('#ttsStatus').html(
+                            '<p style="color: #ff9800;"><i class="fas fa-exclamation-triangle"></i> <strong>Piper TTS Not Installed</strong></p>' +
+                            '<p>Piper TTS provides AI-powered text-to-speech with minimal storage requirements (~10MB).</p>' +
+                            '<button type="button" class="btn btn-primary" onclick="installTTS()" style="background-color: #3f51b5;">' +
+                            '<i class="fas fa-download"></i> Install Piper TTS</button>' +
+                            '<p style="margin-top: 10px; font-size: 12px; color: #666;">Installation takes 2-5 minutes depending on your internet speed.</p>'
+                        );
+                        $('#ttsGeneratorPanel').hide();
+                    }
+                },
+                error: function() {
+                    $('#ttsStatus').html('<p style="color: red;"><i class="fas fa-times-circle"></i> Error checking TTS status</p>');
+                }
+            });
+        }
+        
+        function installTTS() {
+            $('#ttsStatus').html('<p><i class="fas fa-spinner fa-spin"></i> Installing Piper TTS... This may take several minutes.</p>');
+            
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/install-tts',
+                type: 'POST',
+                success: function(data) {
+                    if (data.status === 'OK') {
+                        $.jGrowl('Piper TTS installation started', {themeState: 'success'});
+                        $('#ttsStatus').html(
+                            '<p><i class="fas fa-spinner fa-spin"></i> Installing Piper TTS...</p>' +
+                            '<p style="font-size: 12px;">Downloading ~10MB. Please wait 2-5 minutes then refresh this page.</p>' +
+                            '<button type="button" class="btn btn-info" onclick="checkTTSStatus()" style="margin-top: 10px;">' +
+                            '<i class="fas fa-sync"></i> Check Status</button>'
+                        );
+                        
+                        // Auto-check status after 30 seconds
+                        setTimeout(checkTTSStatus, 30000);
+                    } else {
+                        $.jGrowl('Error: ' + (data.message || 'Installation failed'), {themeState: 'error'});
+                        checkTTSStatus();
+                    }
+                },
+                error: function() {
+                    $.jGrowl('Failed to start installation', {themeState: 'error'});
+                    checkTTSStatus();
+                }
+            });
+        }
+        
+        function generateTTS() {
+            var text = $('#ttsText').val().trim();
+            var filename = $('#ttsFilename').val().trim();
+            var voiceId = $('#ttsVoiceSelect').val();
+            
+            if (!text) {
+                $.jGrowl('Please enter text to convert', {themeState: 'error'});
+                return;
+            }
+            
+            if (!filename) {
+                $.jGrowl('Please enter a filename', {themeState: 'error'});
+                return;
+            }
+            
+            if (!voiceId) {
+                $.jGrowl('Please select a voice', {themeState: 'error'});
+                return;
+            }
+            
+            $('#ttsGenerateStatus').html('<i class="fas fa-spinner fa-spin"></i> Generating...');
+            
+            var requestData = {
+                text: text,
+                filename: filename
+            };
+            
+            // Only add voice if it's not the default
+            if (voiceId !== 'default') {
+                requestData.voice = voiceId;
+            }
+            
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/generate-tts',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(requestData),
+                success: function(data) {
+                    if (data.status === 'OK') {
+                        $.jGrowl('TTS audio generated: ' + data.filename, {themeState: 'success', life: 3000});
+                        $('#ttsGenerateStatus').html('<i class="fas fa-check-circle" style="color: green;"></i> Generated: ' + data.filename);
+                        
+                        // Clear inputs
+                        $('#ttsText').val('');
+                        $('#ttsFilename').val('');
+                        
+                        // Reload page after 2 seconds to update PSA file dropdowns
+                        setTimeout(function() {
+                            location.reload();
+                        }, 2000);
+                    } else {
+                        $.jGrowl('Error: ' + (data.message || 'Generation failed'), {themeState: 'error'});
+                        $('#ttsGenerateStatus').html('<i class="fas fa-times-circle" style="color: red;"></i> Failed');
+                    }
+                },
+                error: function() {
+                    $.jGrowl('Failed to generate TTS audio', {themeState: 'error'});
+                    $('#ttsGenerateStatus').html('<i class="fas fa-times-circle" style="color: red;"></i> Error');
+                }
+            });
+        }
+        
+        function loadVoices() {
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/tts-voices',
+                type: 'GET',
+                success: function(data) {
+                    if (data.status === 'OK') {
+                        displayVoices(data.voices, data.default_voice);
+                        populateVoiceSelect(data.voices, data.default_voice);
+                    } else {
+                        $('#voicesList').html('<p style="color: red;">Error loading voices</p>');
+                    }
+                },
+                error: function() {
+                    $('#voicesList').html('<p style="color: red;">Failed to load voices</p>');
+                }
+            });
+        }
+        
+        function populateVoiceSelect(voices, defaultVoice) {
+            var select = $('#ttsVoiceSelect');
+            select.empty();
+            
+            // Add default option
+            select.append('<option value="default">Use Default Voice (' + defaultVoice + ')</option>');
+            
+            // Add installed voices
+            voices.forEach(function(voice) {
+                if (voice.installed) {
+                    var label = voice.name + ' - ' + voice.gender + ' (' + voice.quality + ')';
+                    select.append('<option value="' + voice.id + '">' + label + '</option>');
+                }
+            });
+            
+            // Select default
+            select.val('default');
+        }
+        
+        function displayVoices(voices, defaultVoice) {
+            var html = '';
+            
+            // Group by language
+            var grouped = {};
+            voices.forEach(function(voice) {
+                if (!grouped[voice.language]) {
+                    grouped[voice.language] = [];
+                }
+                grouped[voice.language].push(voice);
+            });
+            
+            // Display each language group
+            Object.keys(grouped).sort().forEach(function(language) {
+                html += '<h5 style="margin: 15px 0 10px 0; color: #673ab7; border-bottom: 1px solid #673ab7;">' + language + '</h5>';
+                html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px;">';
+                
+                grouped[language].forEach(function(voice) {
+                    var isDefault = voice.id === defaultVoice;
+                    var borderColor = isDefault ? '#4caf50' : (voice.installed ? '#2196f3' : '#ccc');
+                    var bgColor = isDefault ? '#e8f5e9' : (voice.installed ? '#e3f2fd' : '#fafafa');
+                    
+                    html += '<div style="border: 2px solid ' + borderColor + '; border-radius: 6px; padding: 12px; background-color: ' + bgColor + ';">';
+                    html += '<div style="font-weight: bold; font-size: 14px; margin-bottom: 5px;">';
+                    html += '<i class="fas fa-' + getGenderIcon(voice.gender) + '"></i> ' + voice.name;
+                    if (isDefault) html += ' <span style="color: #4caf50; font-size: 11px;">(DEFAULT)</span>';
+                    html += '</div>';
+                    html += '<div style="font-size: 12px; color: #666; margin-bottom: 8px;">' + voice.description + '</div>';
+                    html += '<div style="font-size: 11px; color: #999; margin-bottom: 8px;">';
+                    html += 'Gender: ' + voice.gender + ' | Quality: ' + voice.quality + ' | Size: ' + voice.size_mb + 'MB';
+                    html += '</div>';
+                    
+                    if (voice.installed) {
+                        html += '<button onclick="setDefaultVoice(\'' + voice.id + '\')" class="btn btn-sm btn-success" style="font-size: 11px; padding: 4px 8px; margin-right: 5px;">';
+                        html += '<i class="fas fa-star"></i> Set Default</button>';
+                        if (!isDefault) {
+                            html += '<button onclick="deleteVoice(\'' + voice.id + '\')" class="btn btn-sm btn-danger" style="font-size: 11px; padding: 4px 8px;">';
+                            html += '<i class="fas fa-trash"></i> Delete</button>';
+                        }
+                    } else {
+                        html += '<button onclick="installVoice(\'' + voice.id + '\')" class="btn btn-sm btn-primary" style="font-size: 11px; padding: 4px 8px; background-color: #673ab7;">';
+                        html += '<i class="fas fa-download"></i> Install (' + voice.size_mb + 'MB)</button>';
+                    }
+                    
+                    html += '</div>';
+                });
+                
+                html += '</div>';
+            });
+            
+            $('#voicesList').html(html);
+        }
+        
+        function getGenderIcon(gender) {
+            if (gender === 'male') return 'mars';
+            if (gender === 'female') return 'venus';
+            return 'genderless';
+        }
+        
+        function installVoice(voiceId) {
+            $.jGrowl('Installing voice: ' + voiceId, {themeState: 'info'});
+            
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/install-voice',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({voice_id: voiceId}),
+                success: function(data) {
+                    if (data.status === 'OK') {
+                        $.jGrowl('Voice installed successfully', {themeState: 'success'});
+                        loadVoices();
+                        checkTTSStatus();
+                    } else {
+                        $.jGrowl('Error: ' + (data.message || 'Installation failed'), {themeState: 'error'});
+                    }
+                },
+                error: function() {
+                    $.jGrowl('Failed to install voice', {themeState: 'error'});
+                }
+            });
+        }
+        
+        function setDefaultVoice(voiceId) {
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/set-default-voice',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({voice_id: voiceId}),
+                success: function(data) {
+                    if (data.status === 'OK') {
+                        $.jGrowl('Default voice set successfully', {themeState: 'success'});
+                        loadVoices();
+                        checkTTSStatus();
+                    } else {
+                        $.jGrowl('Error: ' + (data.message || 'Failed to set default'), {themeState: 'error'});
+                    }
+                },
+                error: function() {
+                    $.jGrowl('Failed to set default voice', {themeState: 'error'});
+                }
+            });
+        }
+        
+        function deleteVoice(voiceId) {
+            if (!confirm('Are you sure you want to delete this voice?')) {
+                return;
+            }
+            
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/delete-voice',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({voice_id: voiceId}),
+                success: function(data) {
+                    if (data.status === 'OK') {
+                        $.jGrowl('Voice deleted successfully', {themeState: 'success'});
+                        loadVoices();
+                        checkTTSStatus();
+                    } else {
+                        $.jGrowl('Error: ' + (data.message || 'Failed to delete'), {themeState: 'error'});
+                    }
+                },
+                error: function() {
+                    $.jGrowl('Failed to delete voice', {themeState: 'error'});
+                }
+            });
+        }
+        
+        // Check TTS status on page load
+        $(document).ready(function() {
+            toggleBackgroundSource();
+            checkTTSStatus();
+        });
     </script>
 </div>

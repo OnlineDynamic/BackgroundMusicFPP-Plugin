@@ -30,3 +30,16 @@
 *.exe
 *.out
 *.app
+# Piper TTS installation files (installed by scripts/install_piper.sh)
+piper/piper
+piper/espeak-ng
+piper/espeak-ng-data/
+piper/lib*.so*
+piper/piper_phonemize
+piper/pkgconfig/
+piper/*.ort
+piper/voices/*.onnx
+piper/voices/*.json
+piper/default_voice.onnx
+piper/default_voice.onnx.json
+piper/status.txt

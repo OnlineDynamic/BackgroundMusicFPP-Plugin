@@ -281,6 +281,24 @@
                     <i class="fas fa-info-circle"></i> Configure PSA buttons in settings
                 </p>
             </div>
+            
+            <!-- Real-time TTS Section -->
+            <div style="margin-top: 20px; padding: 15px; border: 2px solid #3f51b5; border-radius: 8px; background-color: #f0f4ff;">
+                <h3 style="margin-top: 0; color: #3f51b5; font-size: 16px;">
+                    <i class="fas fa-robot"></i> Real-Time TTS Announcement
+                </h3>
+                <div style="margin-bottom: 10px;">
+                    <textarea id="realtimeTTSText" rows="2" 
+                        style="width: 100%; font-size: 13px; padding: 8px; border: 1px solid #3f51b5; border-radius: 4px; font-family: sans-serif;"
+                        placeholder="Type announcement text and click Play..."></textarea>
+                </div>
+                <button onclick="playRealtimeTTS()" class="controlButton" style="width: 100%; background: linear-gradient(135deg, #3f51b5 0%, #5c6bc0 100%);">
+                    <i class="fas fa-play"></i> Play TTS Announcement
+                </button>
+                <p style="font-size: 11px; color: #666; margin: 8px 0 0 0; text-align: center;">
+                    Generates and plays AI voice instantly
+                </p>
+            </div>
         </div>
         
         <!-- Main Show Column -->
@@ -1322,6 +1340,42 @@
                 },
                 error: function() {
                     $.jGrowl('Failed to stop announcement', {themeState: 'error'});
+                }
+            });
+        }
+        
+        function playRealtimeTTS() {
+            var text = $('#realtimeTTSText').val().trim();
+            
+            if (!text) {
+                $.jGrowl('Please enter text to announce', {themeState: 'error'});
+                return;
+            }
+            
+            if (currentlyPlayingPSA !== 0) {
+                $.jGrowl('An announcement is already playing', {themeState: 'warning'});
+                return;
+            }
+            
+            $.jGrowl('Generating and playing TTS...', {themeState: 'info'});
+            
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/play-tts',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({text: text}),
+                dataType: 'json',
+                success: function(data) {
+                    if (data.status === 'OK') {
+                        $.jGrowl('TTS announcement started', {themeState: 'success'});
+                        // Clear the text box
+                        $('#realtimeTTSText').val('');
+                    } else {
+                        $.jGrowl('Error: ' + (data.message || 'TTS failed'), {themeState: 'error'});
+                    }
+                },
+                error: function() {
+                    $.jGrowl('Failed to play TTS announcement. Make sure Piper is installed.', {themeState: 'error'});
                 }
             });
         }

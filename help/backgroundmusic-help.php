@@ -253,8 +253,16 @@
             
             <h3>Public Service Announcements (PSA)</h3>
             <p>
-                Play pre-recorded announcements over background music with automatic volume ducking. 
-                Configure up to 5 announcement buttons with custom labels and smooth audio mixing.
+                Play pre-recorded announcements or generate Text-to-Speech announcements over background music with automatic volume ducking. 
+                Configure up to 20 announcement buttons with custom labels and smooth audio mixing. TTS announcements use Piper TTS engine
+                for natural-sounding speech generation in real-time or pre-recorded TTS audio files.
+            </p>
+            
+            <h3>Crossfade Between Tracks</h3>
+            <p>
+                Enable optional crossfading to eliminate silence between tracks when using FPP Playlist mode. Configure crossfade 
+                duration from 1-10 seconds for smooth, professional transitions. The next track begins playing before the current 
+                track ends, creating a seamless listening experience similar to DJ mixing or streaming services.
             </p>
             
             <h3>Shuffle Mode</h3>
@@ -342,6 +350,9 @@
                         <li>Configure volume levels for different states</li>
                         <li>Enable "Return to Pre-Show" if you want music to auto-restart after show</li>
                         <li>Enable "Shuffle Music" if using FPP Playlist (not available for streams)</li>
+                        <li>Enable "Crossfade Between Tracks" to eliminate silence between songs (playlist mode only, 1-10 seconds)</li>
+                        <li>Configure up to 20 PSA announcement buttons with custom labels and audio files</li>
+                        <li>Optionally install Piper TTS for real-time Text-to-Speech announcements</li>
                         <li>Save Settings</li>
                     </ul>
                 </li>
@@ -506,7 +517,9 @@
                             <li><code>showPlaylist</code> - String, main show playlist name</li>
                             <li><code>fadeTime</code> - Integer, fade duration in seconds</li>
                             <li><code>shuffleMusic</code> - String ("0" or "1"), shuffle enabled (playlist mode only)</li>
-                            <li>...and other configuration values including PSA settings</li>
+                            <li><code>enableCrossfade</code> - String ("0" or "1"), crossfade enabled (playlist mode only)</li>
+                            <li><code>crossfadeDuration</code> - Float (1.0-10.0), crossfade overlap in seconds</li>
+                            <li>...and other configuration values including PSA settings and TTS configuration</li>
                         </ul>
                     </li>
                 </ul>
@@ -702,11 +715,28 @@
                 <div class="code-block">{"buttonNumber": 1}</div>
                 <p><strong>Parameters:</strong></p>
                 <ul>
-                    <li><code>buttonNumber</code> - Integer (1-5), which PSA button to trigger</li>
+                    <li><code>buttonNumber</code> - Integer (1-20), which PSA button to trigger</li>
                 </ul>
                 <p><strong>Behavior:</strong> Ducks music volume, plays announcement, restores volume</p>
                 <p><strong>Response:</strong></p>
                 <div class="code-block">{"status": "OK", "message": "Announcement started"}</div>
+            </div>
+            
+            <div class="api-endpoint">
+                <div>
+                    <span class="api-method post">POST</span>
+                    <code class="api-path">play-tts</code>
+                </div>
+                <p><strong>Description:</strong> Generate and play a Text-to-Speech announcement with volume ducking (requires Piper TTS)</p>
+                <p><strong>Request Body:</strong></p>
+                <div class="code-block">{"text": "Your announcement text here"}</div>
+                <p><strong>Parameters:</strong></p>
+                <ul>
+                    <li><code>text</code> - String, text to convert to speech and play</li>
+                </ul>
+                <p><strong>Behavior:</strong> Generates TTS audio, ducks music volume, plays announcement, restores volume</p>
+                <p><strong>Response:</strong></p>
+                <div class="code-block">{"status": "OK", "message": "TTS announcement started"}</div>
             </div>
             
             <div class="api-endpoint">
@@ -1081,9 +1111,11 @@
                 <li><strong>Independent Audio Playback:</strong> Background music runs separately from FPP playlists</li>
                 <li><strong>Smooth Transitions:</strong> Professional fade-out with synchronized brightness dimming</li>
                 <li><strong>MultiSync Support:</strong> Brightness fades synchronized across all controllers</li>
+                <li><strong>Crossfade Between Tracks:</strong> Optional seamless transitions with configurable overlap (1-10 seconds)</li>
                 <li><strong>Continuous Looping:</strong> Music never stops during pre-show</li>
                 <li><strong>Shuffle Mode:</strong> Randomize track order for variety</li>
-                <li><strong>PSA System:</strong> Play announcements with automatic volume ducking</li>
+                <li><strong>PSA System:</strong> Play announcements with automatic volume ducking (up to 20 configurable buttons)</li>
+                <li><strong>Text-to-Speech:</strong> Real-time TTS announcements using Piper TTS engine</li>
                 <li><strong>Auto Return:</strong> Optionally return to pre-show after main show completes</li>
                 <li><strong>Real-time Status:</strong> Track-level playback information and progress</li>
                 <li><strong>REST API:</strong> Full API for automation and integration</li>

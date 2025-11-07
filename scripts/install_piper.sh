@@ -34,6 +34,8 @@ mkdir -p "${PIPER_DIR}"
 cd "${PIPER_DIR}" || exit 1
 
 # Download Piper - get latest version
+# Note: Using rhasspy/piper repo (2023.11.14-2) which provides pre-compiled binaries.
+# The new OHF-Voice/piper1-gpl v1.3.0+ is Python-based and would require different installation.
 echo "Fetching latest Piper version..."
 PIPER_VERSION=$(curl -s https://api.github.com/repos/rhasspy/piper/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 

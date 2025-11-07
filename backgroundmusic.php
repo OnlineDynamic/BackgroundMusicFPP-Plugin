@@ -1275,7 +1275,8 @@
             var buttonsHtml = '';
             var hasButtons = false;
             
-            for (var i = 1; i <= 5; i++) {
+            // Scan for up to 20 buttons (dynamic from settings)
+            for (var i = 1; i <= 20; i++) {
                 var label = config['PSAButton' + i + 'Label'] || '';
                 var file = config['PSAButton' + i + 'File'] || '';
                 

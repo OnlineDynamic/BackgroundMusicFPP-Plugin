@@ -478,18 +478,42 @@ $audioFiles = getAudioFiles();
                 </tr>
             </table>
             
-            <h4 style="margin: 20px auto 10px; max-width: 800px; color: #555;">Configure Announcement Buttons:</h4>
-            <table class="settingsTable">
-                <?php for ($i = 1; $i <= 5; $i++): ?>
-                <tr>
-                    <td class="label">Button <?php echo $i; ?> Label:</td>
+            <h4 style="margin: 20px auto 10px; max-width: 800px; color: #555;">
+                Configure Announcement Buttons:
+                <button type="button" onclick="addPSAButton()" style="float: right; padding: 5px 15px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    <i class="fas fa-plus"></i> Add Button
+                </button>
+            </h4>
+            <table class="settingsTable" id="psaButtonsTable">
+                <?php 
+                // Determine how many buttons are configured (default to 1)
+                $buttonCount = 1;
+                for ($i = 1; $i <= 20; $i++) {
+                    if (isset($pluginSettings['PSAButton'.$i.'Label']) || isset($pluginSettings['PSAButton'.$i.'File'])) {
+                        $buttonCount = $i;
+                    }
+                }
+                if ($buttonCount < 1) $buttonCount = 1; // Always show at least 1
+                
+                for ($i = 1; $i <= $buttonCount; $i++): 
+                ?>
+                <tr class="psa-button-row" data-button-num="<?php echo $i; ?>">
+                    <td class="label">
+                        Button <?php echo $i; ?> Label:
+                        <?php if ($i > 1): ?>
+                        <button type="button" onclick="removePSAButton(<?php echo $i; ?>)" 
+                                style="margin-left: 10px; padding: 2px 8px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <?php endif; ?>
+                    </td>
                     <td class="value">
                         <input type="text" name="PSAButton<?php echo $i; ?>Label" id="PSAButton<?php echo $i; ?>Label" 
                                placeholder="e.g. Welcome Message" 
                                value="<?php echo isset($pluginSettings['PSAButton'.$i.'Label']) ? htmlspecialchars($pluginSettings['PSAButton'.$i.'Label']) : ''; ?>">
                     </td>
                 </tr>
-                <tr>
+                <tr class="psa-button-row" data-button-num="<?php echo $i; ?>">
                     <td class="label">Button <?php echo $i; ?> MP3 File:</td>
                     <td class="value">
                         <select name="PSAButton<?php echo $i; ?>File" id="PSAButton<?php echo $i; ?>File">
@@ -514,11 +538,82 @@ $audioFiles = getAudioFiles();
                         <small>Select audio file from /home/fpp/media/music/</small>
                     </td>
                 </tr>
-                <?php if ($i < 5): ?>
-                <tr><td colspan="2" style="height: 10px;"></td></tr>
-                <?php endif; ?>
+                <tr class="psa-button-row psa-spacer" data-button-num="<?php echo $i; ?>"><td colspan="2" style="height: 10px;"></td></tr>
                 <?php endfor; ?>
             </table>
+            
+            <script>
+                // Track available audio files for dynamic button creation
+                var availableAudioFiles = <?php echo json_encode($audioFiles); ?>;
+                var nextButtonNum = <?php echo $buttonCount + 1; ?>;
+                
+                function addPSAButton() {
+                    var buttonNum = nextButtonNum++;
+                    var table = document.getElementById('psaButtonsTable');
+                    
+                    // Create label row
+                    var labelRow = table.insertRow(-1);
+                    labelRow.className = 'psa-button-row';
+                    labelRow.setAttribute('data-button-num', buttonNum);
+                    labelRow.innerHTML = 
+                        '<td class="label">' +
+                        'Button ' + buttonNum + ' Label:' +
+                        '<button type="button" onclick="removePSAButton(' + buttonNum + ')" ' +
+                        'style="margin-left: 10px; padding: 2px 8px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">' +
+                        '<i class="fas fa-trash"></i>' +
+                        '</button>' +
+                        '</td>' +
+                        '<td class="value">' +
+                        '<input type="text" name="PSAButton' + buttonNum + 'Label" id="PSAButton' + buttonNum + 'Label" ' +
+                        'placeholder="e.g. Welcome Message" value="">' +
+                        '</td>';
+                    
+                    // Create file row
+                    var fileRow = table.insertRow(-1);
+                    fileRow.className = 'psa-button-row';
+                    fileRow.setAttribute('data-button-num', buttonNum);
+                    
+                    var options = '<option value="">-- Select Audio File --</option>';
+                    availableAudioFiles.forEach(function(audioFile) {
+                        var fullPath = '/home/fpp/media/music/' + audioFile;
+                        options += '<option value="' + fullPath.replace(/"/g, '&quot;') + '">' + 
+                                   audioFile.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</option>';
+                    });
+                    
+                    fileRow.innerHTML = 
+                        '<td class="label">Button ' + buttonNum + ' MP3 File:</td>' +
+                        '<td class="value">' +
+                        '<select name="PSAButton' + buttonNum + 'File" id="PSAButton' + buttonNum + 'File">' +
+                        options +
+                        '</select>' +
+                        '<small>Select audio file from /home/fpp/media/music/</small>' +
+                        '</td>';
+                    
+                    // Create spacer row
+                    var spacerRow = table.insertRow(-1);
+                    spacerRow.className = 'psa-button-row psa-spacer';
+                    spacerRow.setAttribute('data-button-num', buttonNum);
+                    spacerRow.innerHTML = '<td colspan="2" style="height: 10px;"></td>';
+                    
+                    $.jGrowl('Button ' + buttonNum + ' added', {themeState: 'success'});
+                }
+                
+                function removePSAButton(buttonNum) {
+                    if (buttonNum === 1) {
+                        $.jGrowl('Cannot remove button 1', {themeState: 'error'});
+                        return;
+                    }
+                    
+                    if (confirm('Remove button ' + buttonNum + '? This will delete the configuration.')) {
+                        // Remove all rows with this button number
+                        var rows = document.querySelectorAll('.psa-button-row[data-button-num="' + buttonNum + '"]');
+                        rows.forEach(function(row) {
+                            row.remove();
+                        });
+                        $.jGrowl('Button ' + buttonNum + ' removed', {themeState: 'success'});
+                    }
+                }
+            </script>
 
             <!-- Text-to-Speech (TTS) Settings -->
             <h3 style="margin: 30px auto 10px; max-width: 800px; color: #3f51b5; border-bottom: 2px solid #3f51b5; padding-bottom: 5px;">
@@ -646,18 +741,20 @@ $audioFiles = getAudioFiles();
                 'VolumeLevel': $('#BackgroundMusicVolume').val() || '70',  // Maintain backward compatibility
                 // PSA settings
                 'PSAAnnouncementVolume': $('#PSAAnnouncementVolume').val(),
-                'PSADuckVolume': $('#PSADuckVolume').val(),
-                'PSAButton1Label': $('#PSAButton1Label').val(),
-                'PSAButton1File': $('#PSAButton1File').val(),
-                'PSAButton2Label': $('#PSAButton2Label').val(),
-                'PSAButton2File': $('#PSAButton2File').val(),
-                'PSAButton3Label': $('#PSAButton3Label').val(),
-                'PSAButton3File': $('#PSAButton3File').val(),
-                'PSAButton4Label': $('#PSAButton4Label').val(),
-                'PSAButton4File': $('#PSAButton4File').val(),
-                'PSAButton5Label': $('#PSAButton5Label').val(),
-                'PSAButton5File': $('#PSAButton5File').val()
+                'PSADuckVolume': $('#PSADuckVolume').val()
             };
+            
+            // Dynamically collect all PSA button settings
+            for (var i = 1; i <= 20; i++) {
+                var labelInput = $('#PSAButton' + i + 'Label');
+                var fileInput = $('#PSAButton' + i + 'File');
+                if (labelInput.length > 0) {
+                    formData['PSAButton' + i + 'Label'] = labelInput.val();
+                }
+                if (fileInput.length > 0) {
+                    formData['PSAButton' + i + 'File'] = fileInput.val();
+                }
+            }
             
             $.ajax({
                 url: '/api/plugin/fpp-plugin-BackgroundMusic/save-settings',

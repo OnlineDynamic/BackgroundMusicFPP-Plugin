@@ -3,7 +3,6 @@
 * Integration with the VASTFMT plugin
 * Display track names from internet streams if available
 * Move "Main Show Playlist" config option into its own config setting section
-* Create auto generated PSA from text input - probably using Piper
 * RDS Output of playing info (using RDS plugin?)
 * Option to mix mp3 audio playlist tracks to stop any quiet spots at end of tracks transisitioning to next track - perhaps with beat matching?
 * Add a music Icon into the FPP header when background music plugin is active - need to add new hooks in core fpp for fully functionality

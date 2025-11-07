@@ -314,19 +314,15 @@ function fppBackgroundMusicStatus() {
             'showPlaylistVolume' => $showPlaylistVolume,
             'postShowBackgroundVolume' => $postShowBackgroundVolume,
             'PSAAnnouncementVolume' => isset($pluginSettings['PSAAnnouncementVolume']) ? $pluginSettings['PSAAnnouncementVolume'] : '90',
-            'PSADuckVolume' => isset($pluginSettings['PSADuckVolume']) ? $pluginSettings['PSADuckVolume'] : '30',
-            'PSAButton1Label' => isset($pluginSettings['PSAButton1Label']) ? $pluginSettings['PSAButton1Label'] : '',
-            'PSAButton1File' => isset($pluginSettings['PSAButton1File']) ? $pluginSettings['PSAButton1File'] : '',
-            'PSAButton2Label' => isset($pluginSettings['PSAButton2Label']) ? $pluginSettings['PSAButton2Label'] : '',
-            'PSAButton2File' => isset($pluginSettings['PSAButton2File']) ? $pluginSettings['PSAButton2File'] : '',
-            'PSAButton3Label' => isset($pluginSettings['PSAButton3Label']) ? $pluginSettings['PSAButton3Label'] : '',
-            'PSAButton3File' => isset($pluginSettings['PSAButton3File']) ? $pluginSettings['PSAButton3File'] : '',
-            'PSAButton4Label' => isset($pluginSettings['PSAButton4Label']) ? $pluginSettings['PSAButton4Label'] : '',
-            'PSAButton4File' => isset($pluginSettings['PSAButton4File']) ? $pluginSettings['PSAButton4File'] : '',
-            'PSAButton5Label' => isset($pluginSettings['PSAButton5Label']) ? $pluginSettings['PSAButton5Label'] : '',
-            'PSAButton5File' => isset($pluginSettings['PSAButton5File']) ? $pluginSettings['PSAButton5File'] : ''
+            'PSADuckVolume' => isset($pluginSettings['PSADuckVolume']) ? $pluginSettings['PSADuckVolume'] : '30'
         )
     );
+    
+    // Dynamically add all PSA button configurations (1-20)
+    for ($i = 1; $i <= 20; $i++) {
+        $result['config']['PSAButton' . $i . 'Label'] = isset($pluginSettings['PSAButton' . $i . 'Label']) ? $pluginSettings['PSAButton' . $i . 'Label'] : '';
+        $result['config']['PSAButton' . $i . 'File'] = isset($pluginSettings['PSAButton' . $i . 'File']) ? $pluginSettings['PSAButton' . $i . 'File'] : '';
+    }
     
     return json($result);
 }

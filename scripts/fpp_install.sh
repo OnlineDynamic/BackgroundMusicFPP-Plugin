@@ -233,6 +233,18 @@ fi
 echo "Cleaning up temporary files..."
 rm -f /tmp/bg_music_jump.txt /tmp/bg_music_next.txt /tmp/bg_music_previous.txt 2>/dev/null
 
+# Copy stream presets example file if it doesn't exist
+STREAM_PRESETS="${PLUGIN_DIR}/stream_presets.json"
+STREAM_PRESETS_EXAMPLE="${PLUGIN_DIR}/stream_presets.json.example"
+
+if [ ! -f "$STREAM_PRESETS" ] && [ -f "$STREAM_PRESETS_EXAMPLE" ]; then
+    echo "Creating stream presets configuration..."
+    cp "$STREAM_PRESETS_EXAMPLE" "$STREAM_PRESETS"
+    chown fpp:fpp "$STREAM_PRESETS"
+    chmod 664 "$STREAM_PRESETS"
+    echo "Stream presets file created: $STREAM_PRESETS"
+fi
+
 # Set restart flag if setSetting function is available
 if command -v setSetting &> /dev/null; then
     setSetting restartFlag 1

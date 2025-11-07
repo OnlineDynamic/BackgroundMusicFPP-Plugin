@@ -285,10 +285,29 @@ $audioFiles = getAudioFiles();
                             $currentStreamURL = isset($pluginSettings['BackgroundMusicStreamURL']) ? $pluginSettings['BackgroundMusicStreamURL'] : '';
                             $isCustom = true;
                             
-                            // Define preset streams
-                            $presets = array(
-                                'https://radio.themillerlights.com:8000/radio.mp3' => 'The Miller Lights Holiday Radio'
-                            );
+                            // Load preset streams from JSON file
+                            $presetsFile = __DIR__ . '/stream_presets.json';
+                            $presets = array();
+                            
+                            if (file_exists($presetsFile)) {
+                                $jsonContent = file_get_contents($presetsFile);
+                                $presetsData = json_decode($jsonContent, true);
+                                
+                                if ($presetsData && isset($presetsData['presets'])) {
+                                    foreach ($presetsData['presets'] as $preset) {
+                                        if (isset($preset['url']) && isset($preset['name'])) {
+                                            $presets[$preset['url']] = $preset['name'];
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Fallback to hardcoded preset if JSON file doesn't exist or is invalid
+                            if (empty($presets)) {
+                                $presets = array(
+                                    'https://radio.themillerlights.com:8000/radio.mp3' => 'The Miller Lights Holiday Radio'
+                                );
+                            }
                             
                             // Check if current URL matches a preset
                             foreach ($presets as $url => $name) {

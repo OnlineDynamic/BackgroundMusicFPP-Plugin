@@ -1,77 +1,77 @@
 {
-  "voices": [
-    {
-      "id": "en_US-lessac-medium",
-      "name": "Lessac (US)",
-      "language": "English (US)",
-      "gender": "male",
-      "quality": "medium",
-      "size_mb": 60,
-      "description": "Clear American male voice, good for announcements",
-      "default": true
-    },
-    {
-      "id": "en_US-amy-medium",
-      "name": "Amy (US)",
-      "language": "English (US)", 
-      "gender": "female",
-      "quality": "medium",
-      "size_mb": 60,
-      "description": "Natural American female voice"
-    },
-    {
-      "id": "en_US-ryan-high",
-      "name": "Ryan (US)",
-      "language": "English (US)",
-      "gender": "male",
-      "quality": "high",
-      "size_mb": 116,
-      "description": "High quality American male voice"
-    },
-    {
-      "id": "en_US-libritts-high",
-      "name": "LibriTTS (US)",
-      "language": "English (US)",
-      "gender": "neutral",
-      "quality": "high",
-      "size_mb": 124,
-      "description": "High quality multi-speaker voice"
-    },
-    {
-      "id": "en_GB-alan-medium",
-      "name": "Alan (British)",
-      "language": "English (GB)",
-      "gender": "male",
-      "quality": "medium",
-      "size_mb": 55,
-      "description": "British English male voice"
-    },
-    {
-      "id": "en_GB-alba-medium",
-      "name": "Alba (British)",
-      "language": "English (GB)",
-      "gender": "female",
-      "quality": "medium",
-      "size_mb": 54,
-      "description": "British English female voice"
-    },
-    {
-      "id": "en_GB-southern_english_female-low",
-      "name": "Southern English (British)",
-      "language": "English (GB)",
-      "gender": "female",
-      "quality": "low",
-      "size_mb": 21,
-      "description": "Lightweight British female voice"
-    },
-    {
-      "id": "en_AU-isabelle-medium",
-      "name": "Isabelle (Australian)",
-      "language": "English (AU)",
-      "gender": "female",
-      "quality": "medium",
-      "size_mb": 45,
-      "description": "Australian English female voice"
-    }
-  ]
+    "voices": [
+        {
+            "id": "en_US-lessac-medium",
+            "name": "Lessac (US)",
+            "language": "English (US)",
+            "gender": "male",
+            "quality": "medium",
+            "size_mb": 60,
+            "description": "Clear American male voice, good for announcements",
+            "default": true
+        },
+        {
+            "id": "en_US-amy-medium",
+            "name": "Amy (US)",
+            "language": "English (US)",
+            "gender": "female",
+            "quality": "medium",
+            "size_mb": 60,
+            "description": "Natural American female voice"
+        },
+        {
+            "id": "en_US-ryan-high",
+            "name": "Ryan (US)",
+            "language": "English (US)",
+            "gender": "male",
+            "quality": "high",
+            "size_mb": 116,
+            "description": "High quality American male voice"
+        },
+        {
+            "id": "en_US-libritts-high",
+            "name": "LibriTTS (US)",
+            "language": "English (US)",
+            "gender": "neutral",
+            "quality": "high",
+            "size_mb": 124,
+            "description": "High quality multi-speaker voice"
+        },
+        {
+            "id": "en_GB-alan-medium",
+            "name": "Alan (British)",
+            "language": "English (GB)",
+            "gender": "male",
+            "quality": "medium",
+            "size_mb": 55,
+            "description": "British English male voice"
+        },
+        {
+            "id": "en_GB-alba-medium",
+            "name": "Alba (British)",
+            "language": "English (GB)",
+            "gender": "female",
+            "quality": "medium",
+            "size_mb": 54,
+            "description": "British English female voice"
+        },
+        {
+            "id": "en_GB-southern_english_female-low",
+            "name": "Southern English (British)",
+            "language": "English (GB)",
+            "gender": "female",
+            "quality": "low",
+            "size_mb": 21,
+            "description": "Lightweight British female voice"
+        },
+        {
+            "id": "en_AU-isabelle-medium",
+            "name": "Isabelle (Australian)",
+            "language": "English (AU)",
+            "gender": "female",
+            "quality": "medium",
+            "size_mb": 45,
+            "description": "Australian English female voice"
+        }
+    ]
 }

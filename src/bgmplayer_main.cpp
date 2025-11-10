@@ -45,7 +45,8 @@ void signalHandler(int signum)
         {
             int currentVol = player->GetVolumeGain();
             int newVol = currentVol - 10;
-            if (newVol < 0) newVol = 0;
+            if (newVol < 0)
+                newVol = 0;
             player->SetVolumeGain(newVol);
             std::cout << "Volume decreased to " << newVol << "%" << std::endl;
         }
@@ -57,7 +58,8 @@ void signalHandler(int signum)
         {
             int currentVol = player->GetVolumeGain();
             int newVol = currentVol + 10;
-            if (newVol > 200) newVol = 200;
+            if (newVol > 200)
+                newVol = 200;
             player->SetVolumeGain(newVol);
             std::cout << "Volume increased to " << newVol << "%" << std::endl;
         }
@@ -68,7 +70,7 @@ int main(int argc, char *argv[])
 {
     // Parse arguments
     std::string filename;
-    int volumePercent = 100;  // Default 100% (no gain)
+    int volumePercent = 100; // Default 100% (no gain)
 
     for (int i = 1; i < argc; i++)
     {
@@ -112,8 +114,8 @@ int main(int argc, char *argv[])
     // Setup signal handlers
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
-    signal(SIGUSR1, signalHandler);  // Volume down
-    signal(SIGUSR2, signalHandler);  // Volume up
+    signal(SIGUSR1, signalHandler); // Volume down
+    signal(SIGUSR2, signalHandler); // Volume up
 
     // Create player
     player = new BGMusicPlayer();
@@ -143,7 +145,7 @@ int main(int argc, char *argv[])
     {
         std::cout << "Volume: " << volumePercent << "%" << std::endl;
     }
-    
+
     // Setup volume control file (allows external volume changes)
     pid_t myPid = getpid();
     volumeControlFile = "/tmp/bgmplayer_" + std::to_string(myPid) + "_volume.txt";
@@ -155,7 +157,7 @@ int main(int argc, char *argv[])
     {
         sleep(1);
         checkCount++;
-        
+
         // Check for volume control file every second
         struct stat buffer;
         if (stat(volumeControlFile.c_str(), &buffer) == 0)
@@ -166,13 +168,13 @@ int main(int argc, char *argv[])
                 int newVolume;
                 volumeFile >> newVolume;
                 volumeFile.close();
-                
+
                 if (newVolume >= 0 && newVolume <= 400)
                 {
                     player->SetVolumeGain(newVolume);
                     std::cout << "Volume adjusted to " << newVolume << "%" << std::endl;
                 }
-                
+
                 // Remove the control file after reading
                 unlink(volumeControlFile.c_str());
             }
@@ -185,7 +187,7 @@ int main(int argc, char *argv[])
     }
 
     std::cout << "\nPlayback finished" << std::endl;
-    
+
     // Cleanup volume control file
     unlink(volumeControlFile.c_str());
 

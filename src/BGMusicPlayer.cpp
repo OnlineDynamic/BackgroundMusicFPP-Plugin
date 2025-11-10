@@ -474,17 +474,19 @@ bool BGMusicPlayer::DecodeAudioPacket()
             if (volumeGain != 1.0f)
             {
                 // Assuming 16-bit signed integer samples (AUDIO_S16SYS)
-                int16_t *samplePtr = reinterpret_cast<int16_t*>(tempBuffer);
+                int16_t *samplePtr = reinterpret_cast<int16_t *>(tempBuffer);
                 int numSamples = dataSize / sizeof(int16_t);
-                
+
                 for (int i = 0; i < numSamples; i++)
                 {
                     float sample = static_cast<float>(samplePtr[i]) * volumeGain;
-                    
+
                     // Clamp to prevent overflow
-                    if (sample > 32767.0f) sample = 32767.0f;
-                    if (sample < -32768.0f) sample = -32768.0f;
-                    
+                    if (sample > 32767.0f)
+                        sample = 32767.0f;
+                    if (sample < -32768.0f)
+                        sample = -32768.0f;
+
                     samplePtr[i] = static_cast<int16_t>(sample);
                 }
             }
@@ -558,8 +560,10 @@ bool BGMusicPlayer::IsPaused() const
 // Set volume gain (percent: 100 = normal, 200 = 2x, etc.)
 void BGMusicPlayer::SetVolumeGain(int percent)
 {
-    if (percent < 0) percent = 0;
-    if (percent > 400) percent = 400;  // Max 4x gain to prevent excessive distortion
+    if (percent < 0)
+        percent = 0;
+    if (percent > 400)
+        percent = 400; // Max 4x gain to prevent excessive distortion
     volumeGain = static_cast<float>(percent) / 100.0f;
 }
 

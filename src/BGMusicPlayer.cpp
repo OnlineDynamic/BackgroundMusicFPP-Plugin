@@ -22,6 +22,7 @@ BGMusicPlayer::BGMusicPlayer() : formatContext(nullptr),
                                  currentPositionMs(0),
                                  totalDurationMs(0),
                                  decodeThread(nullptr),
+                                 volumeGain(1.0f),
                                  audioBuffer(nullptr),
                                  audioBufferSize(0),
                                  audioBufferMaxSize(0)
@@ -469,6 +470,25 @@ bool BGMusicPlayer::DecodeAudioPacket()
         {
             int dataSize = samples * audioInfo.channels * audioInfo.bytesPerSample;
 
+            // Apply volume gain if not 1.0
+            if (volumeGain != 1.0f)
+            {
+                // Assuming 16-bit signed integer samples (AUDIO_S16SYS)
+                int16_t *samplePtr = reinterpret_cast<int16_t*>(tempBuffer);
+                int numSamples = dataSize / sizeof(int16_t);
+                
+                for (int i = 0; i < numSamples; i++)
+                {
+                    float sample = static_cast<float>(samplePtr[i]) * volumeGain;
+                    
+                    // Clamp to prevent overflow
+                    if (sample > 32767.0f) sample = 32767.0f;
+                    if (sample < -32768.0f) sample = -32768.0f;
+                    
+                    samplePtr[i] = static_cast<int16_t>(sample);
+                }
+            }
+
             // Queue audio directly to SDL
             if (SDL_QueueAudio(audioDevice, tempBuffer, dataSize) < 0)
             {
@@ -533,4 +553,18 @@ void BGMusicPlayer::Resume()
 bool BGMusicPlayer::IsPaused() const
 {
     return paused;
+}
+
+// Set volume gain (percent: 100 = normal, 200 = 2x, etc.)
+void BGMusicPlayer::SetVolumeGain(int percent)
+{
+    if (percent < 0) percent = 0;
+    if (percent > 400) percent = 400;  // Max 4x gain to prevent excessive distortion
+    volumeGain = static_cast<float>(percent) / 100.0f;
+}
+
+// Get volume gain as percent
+int BGMusicPlayer::GetVolumeGain() const
+{
+    return static_cast<int>(volumeGain * 100.0f);
 }

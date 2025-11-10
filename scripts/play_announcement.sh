@@ -57,32 +57,34 @@ log_message "Original volume: ${ORIGINAL_VOLUME}%, ducking to: ${DUCK_VOLUME}%, 
 
 # Check if background music is playing
 BG_MUSIC_PLAYING=false
-if [ -f "/tmp/background_music_player.pid" ]; then
-    BG_PID=$(cat /tmp/background_music_player.pid)
-    if ps -p "$BG_PID" > /dev/null 2>&1; then
+BG_PLAYER_PID=""
+if [ -f "/tmp/bg_music_bgmplayer.pid" ]; then
+    BG_PLAYER_PID=$(cat /tmp/bg_music_bgmplayer.pid)
+    if ps -p "$BG_PLAYER_PID" > /dev/null 2>&1; then
         BG_MUSIC_PLAYING=true
-        log_message "Background music detected, applying ducking"
-        
-        # Smoothly fade down the background music volume over 1 second
-        FADE_STEPS=10
-        VOLUME_DIFF=$((ORIGINAL_VOLUME - DUCK_VOLUME))
-        STEP_SIZE=$((VOLUME_DIFF / FADE_STEPS))
-        
-        for i in $(seq 1 $FADE_STEPS); do
-            NEW_VOLUME=$((ORIGINAL_VOLUME - (STEP_SIZE * i)))
-            if [ $i -eq $FADE_STEPS ]; then
-                NEW_VOLUME=$DUCK_VOLUME  # Ensure we hit exact target
-            fi
-            
-            curl -s -X POST -H "Content-Type: application/json" \
-                -d "{\"volume\": ${NEW_VOLUME}}" \
-                "http://localhost/api/system/volume" > /dev/null 2>&1
-            
-            sleep 0.1
-        done
-        
-        log_message "Volume ducked from ${ORIGINAL_VOLUME}% to ${DUCK_VOLUME}%"
+        log_message "Background music detected (PID: $BG_PLAYER_PID)"
     fi
+fi
+
+# Ducking strategy using bgmplayer's runtime volume control:
+# 1. Send volume control command to background music player to reduce its volume
+# 2. Play PSA at normal volume (both use same system volume)
+# 3. After PSA, restore background music volume
+
+if [ "$BG_MUSIC_PLAYING" = true ]; then
+    # Calculate what percentage the background music should play at relative to current
+    # Example: if DUCK_VOLUME=30% and ORIGINAL_VOLUME=70%, bg should be at 43% (30/70*100)
+    BG_RELATIVE_VOLUME=$(echo "scale=0; ($DUCK_VOLUME * 100) / $ORIGINAL_VOLUME" | bc)
+    
+    log_message "Ducking background music to ${BG_RELATIVE_VOLUME}% via runtime volume control"
+    
+    # Send volume control command to bgmplayer
+    echo "$BG_RELATIVE_VOLUME" > "/tmp/bgmplayer_${BG_PLAYER_PID}_volume.txt"
+    
+    # Give it a moment to apply
+    sleep 0.3
+    
+    log_message "Background music ducked (continues playing at reduced volume)"
 fi
 
 # Get FPP audio device
@@ -146,24 +148,31 @@ EOF
 
 # Play announcement in background
 (
-    # Set announcement volume via ALSA system volume
-    log_message "Setting system volume to ${ANNOUNCEMENT_VOLUME}% for announcement"
+    # System volume stays at ORIGINAL_VOLUME
+    # Background music is now at reduced internal volume
+    # PSA plays at 100% = full system volume
     
-    curl -s -X POST -H "Content-Type: application/json" \
-        -d "{\"volume\": ${ANNOUNCEMENT_VOLUME}}" \
-        "http://localhost/api/system/volume" > /dev/null 2>&1
-    
-    sleep 0.2  # Brief delay for volume change
-    
-    log_message "Playing announcement with bgmplayer"
-    
-    # Use bgmplayer for consistent audio handling
     PLUGIN_DIR="/home/fpp/media/plugins/fpp-plugin-BackgroundMusic"
-    SDL_AUDIODRIVER=alsa "$PLUGIN_DIR/bgmplayer" -nodisp -autoexit \
-        -loglevel error "$ANNOUNCEMENT_FILE" >> "$LOG_FILE" 2>&1
     
+    log_message "Playing announcement at 100% (system volume is ${ORIGINAL_VOLUME}%)"
+    
+    # Play announcement at normal volume
+    SDL_AUDIODRIVER=alsa "$PLUGIN_DIR/bgmplayer" -nodisp -autoexit -loglevel error "$ANNOUNCEMENT_FILE" >> "$LOG_FILE" 2>&1 &
+    BGMPLAYER_PID=$!
+    
+    # Monitor playback and update status
+    START_TIME=$(date +%s)
+    while kill -0 $BGMPLAYER_PID 2>/dev/null; do
+        # Update status file with current elapsed time
+        sed -i "s/^startTime=.*/startTime=$START_TIME/" "$ANNOUNCEMENT_STATUS_FILE" 2>/dev/null
+        sleep 0.5
+    done
+    
+    # Wait for bgmplayer to finish
+    wait $BGMPLAYER_PID
     PLAY_RESULT=$?
-    log_message "DEBUG: bgmplayer exit code: $PLAY_RESULT"
+    
+    log_message "DEBUG: announcement playback exit code: $PLAY_RESULT"
     
     if [ $PLAY_RESULT -eq 0 ]; then
         log_message "Announcement completed successfully"
@@ -171,29 +180,18 @@ EOF
         log_message "ERROR: Announcement playback failed with code: $PLAY_RESULT"
     fi
     
-    # Restore background music volume if it was playing
+    # Restore background music to normal volume
     if [ "$BG_MUSIC_PLAYING" = true ]; then
-        log_message "Restoring background music volume to ${ORIGINAL_VOLUME}%"
+        log_message "Restoring background music to 100% volume"
         
-        # Smoothly fade up the background music volume over 1 second
-        FADE_STEPS=10
-        VOLUME_DIFF=$((ORIGINAL_VOLUME - DUCK_VOLUME))
-        STEP_SIZE=$((VOLUME_DIFF / FADE_STEPS))
-        
-        for i in $(seq 1 $FADE_STEPS); do
-            NEW_VOLUME=$((DUCK_VOLUME + (STEP_SIZE * i)))
-            if [ $i -eq $FADE_STEPS ]; then
-                NEW_VOLUME=$ORIGINAL_VOLUME  # Ensure we hit exact target
+        # Send volume restore command to bgmplayer
+        if [ -f "/tmp/bg_music_bgmplayer.pid" ]; then
+            CURRENT_BG_PID=$(cat /tmp/bg_music_bgmplayer.pid)
+            if ps -p "$CURRENT_BG_PID" > /dev/null 2>&1; then
+                echo "100" > "/tmp/bgmplayer_${CURRENT_BG_PID}_volume.txt"
+                log_message "Background music volume restored"
             fi
-            
-            curl -s -X POST -H "Content-Type: application/json" \
-                -d "{\"volume\": ${NEW_VOLUME}}" \
-                "http://localhost/api/system/volume" > /dev/null 2>&1
-            
-            sleep 0.1
-        done
-        
-        log_message "Volume restored to ${ORIGINAL_VOLUME}%"
+        fi
     fi
     
     # Clean up PID and status files

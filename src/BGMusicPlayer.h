@@ -58,6 +58,10 @@ public:
     void Resume();
     bool IsPaused() const;
 
+    // Volume control (0-100, where 100 is system volume)
+    void SetVolumeGain(int percent);
+    int GetVolumeGain() const;
+
 private:
     // Audio format info
     struct AudioInfo
@@ -92,6 +96,9 @@ private:
     // Threading
     std::thread *decodeThread;
     std::mutex stateMutex;
+
+    // Volume control
+    float volumeGain;  // 1.0 = 100%, 2.0 = 200%, etc.
 
     // Audio buffer
     uint8_t *audioBuffer;

@@ -93,14 +93,23 @@ fi
 NEEDS_UPDATE=0
 if [ -f "/etc/asound.conf" ]; then
     if grep -q "Background Music Plugin" /etc/asound.conf; then
-        # Check if the audio card matches
-        CURRENT_CARD=$(grep "card ${AUDIO_CARD}" /etc/asound.conf)
-        if [ -z "$CURRENT_CARD" ]; then
-            echo "Audio card changed or config outdated, updating..."
+        # Validate the config structure
+        if ! grep -q "pcm.!default" /etc/asound.conf || ! grep -q "pcm.dmixer" /etc/asound.conf; then
+            echo "ALSA config appears corrupted or incomplete, regenerating..."
+            sudo cp /etc/asound.conf /etc/asound.conf.broken-$(date +%Y%m%d-%H%M%S)
+            echo "Backed up broken config"
             NEEDS_UPDATE=1
         else
-            echo "ALSA config already exists and is up to date"
-            NEEDS_UPDATE=0
+            # Check if the audio card matches
+            CURRENT_CARD=$(grep "card ${AUDIO_CARD}" /etc/asound.conf)
+            if [ -z "$CURRENT_CARD" ]; then
+                echo "Audio card changed or config outdated, updating..."
+                sudo cp /etc/asound.conf /etc/asound.conf.old-$(date +%Y%m%d-%H%M%S)
+                NEEDS_UPDATE=1
+            else
+                echo "ALSA config already exists and is up to date"
+                NEEDS_UPDATE=0
+            fi
         fi
     else
         # Backup non-plugin config

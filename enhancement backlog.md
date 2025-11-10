@@ -7,5 +7,5 @@
 * add link to https://www.internet-radio.com/stations/christmas/ for streaming url's
 * work out how to handle immediate start of fpp sequence with media whilst background music playing
 * make css not inline - need change to core fpp to allow exposing css/js.images folders to apache
-*
+* need to figure out volume control for K16 type capes with PCM on pcm5102
 *

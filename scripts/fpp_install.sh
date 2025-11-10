@@ -14,13 +14,18 @@ if [ -f "/etc/asound.conf" ] && grep -q "Background Music Plugin" /etc/asound.co
     echo "=========================================="
     echo "Upgrading Background Music Plugin"
     echo "=========================================="
+    
+    # Clean up old ffplay processes and PID files from previous version
+    echo "Cleaning up old processes..."
+    pkill -f "ffplay" 2>/dev/null || true
+    rm -f /tmp/bg_music_ffplay.pid 2>/dev/null || true
+    rm -f /tmp/bg_music_ffplay_next.pid 2>/dev/null || true
+    echo "Old processes cleaned up"
 else
     echo "=========================================="
     echo "Installing Background Music Plugin"
     echo "=========================================="
 fi
-
-make "SRCDIR=${SRCDIR}"
 
 # Source FPP common functions if available
 if [ -f "${FPPDIR}/scripts/common" ]; then
@@ -29,14 +34,40 @@ elif [ -f "/opt/fpp/scripts/common" ]; then
     . /opt/fpp/scripts/common
 fi
 
-# install jq utility for PSU Control script to work
+# Install dependencies
+echo "=========================================="
+echo "Installing Dependencies"
+echo "=========================================="
+
+# Install jq utility for PSU Control script to work
 sudo apt-get -y install jq
 
-#install mpg123 for playing mp3 audio tracks
-sudo apt-get -y install mpg123
+# Install build tools and libraries for custom audio player
+echo "Installing build dependencies for bgmplayer..."
+sudo apt-get -y install g++ make
+sudo apt-get -y install libsdl2-dev
+sudo apt-get -y install libavformat-dev libavcodec-dev libavutil-dev libswresample-dev
+
+# Compile custom audio player
+echo ""
+echo "=========================================="
+echo "Compiling Background Music Player"
+echo "=========================================="
+cd "$PLUGIN_DIR"
+if make; then
+    echo "✓ bgmplayer compiled successfully"
+    # Make it executable
+    chmod +x bgmplayer
+else
+    echo "⚠ WARNING: Failed to compile bgmplayer"
+    echo "   Plugin requires bgmplayer for proper operation"
+    echo "   Volume control will not work without it"
+fi
+echo "=========================================="
 
 # Configure ALSA for software mixing (dmix) to allow concurrent audio streams
 # This enables background music and PSA announcements to play simultaneously
+echo ""
 echo "=========================================="
 echo "Configuring ALSA for software mixing support..."
 echo "=========================================="

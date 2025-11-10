@@ -30,6 +30,11 @@
 *.exe
 *.out
 *.app
+
+# Custom compiled audio player
+bgmplayer
+src/*.o
+
 # Piper TTS installation files (installed by scripts/install_piper.sh)
 piper/piper
 piper/espeak-ng

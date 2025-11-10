@@ -1,13 +1,28 @@
 #!/bin/bash
 # Background Music Player - plays audio files independently from FPP playlists
-# Uses ffplay to ensure no conflict with FPP's playlist system
+# Uses custom bgmplayer for proper volume control support
+
+# Force SDL to use ALSA driver for reliable audio output
+export SDL_AUDIODRIVER=alsa
 
 PLUGIN_DIR="/home/fpp/media/plugins/fpp-plugin-BackgroundMusic"
 PLUGIN_CONFIG="/home/fpp/media/config/plugin.fpp-plugin-BackgroundMusic"
 PID_FILE="/tmp/background_music_player.pid"
 PLAYLIST_FILE="/tmp/background_music_playlist.m3u"
 STATE_FILE="/tmp/bg_music_state.txt"
-FFPLAY_PID_FILE="/tmp/bg_music_ffplay.pid"
+BGMPLAYER_PID_FILE="/tmp/bg_music_bgmplayer.pid"
+
+# Use bgmplayer for local files (proper volume control)
+# bgmplayer uses SDL default device, respects ALSA configuration
+PLAYER_CMD="${PLUGIN_DIR}/bgmplayer"
+
+# Function to check if running on PocketBeagle (needs softvol)
+is_pocketbeagle() {
+    if [ -f /proc/device-tree/model ]; then
+        grep -qi "pocketbeagle" /proc/device-tree/model 2>/dev/null && return 0
+    fi
+    return 1
+}
 
 # Function to get FPP audio device
 get_audio_device() {
@@ -194,9 +209,8 @@ start_music() {
         echo "Playlist: $bg_playlist"
         echo "Shuffle Mode: ${shuffle_mode:-0}"
     fi
-    echo "Audio Device: $audio_device"
     echo "System Volume (ALSA): ${volume_level}%"
-    echo "ffplay Volume: 100% (controlled by ALSA)"
+    echo "Player: bgmplayer (integrated volume control)"
     
     # Set ALSA volume to BackgroundMusicVolume via FPP API
     echo "Setting system volume to ${volume_level}% via FPP API"
@@ -206,14 +220,14 @@ start_music() {
     
     # Handle stream vs playlist
     if [ "$bg_source" = "stream" ]; then
-        # Stream mode - simple ffplay with reconnect logic and ICY metadata extraction
+        # Stream mode - use bgmplayer with reconnect logic and ICY metadata extraction
         cat > /tmp/bg_music_loop.sh << 'STREAMSCRIPT'
 #!/bin/bash
 STREAM_URL="$STREAM_URL_PLACEHOLDER"
-AUDIO_DEVICE="$AUDIO_DEVICE_PLACEHOLDER"
+PLAYER_CMD="$PLAYER_CMD_PLACEHOLDER"
 STATUS_FILE="/tmp/bg_music_status.txt"
 STATE_FILE="/tmp/bg_music_state.txt"
-FFPLAY_PID_FILE="/tmp/bg_music_ffplay.pid"
+BGMPLAYER_PID_FILE="/tmp/bg_music_bgmplayer.pid"
 METADATA_PID_FILE="/tmp/bg_music_metadata.pid"
 
 # Initialize state
@@ -290,19 +304,18 @@ while true; do
         break
     fi
     
-    # Play the stream
-    SDL_AUDIODRIVER=alsa AUDIODEV="$AUDIO_DEVICE" ffplay -nodisp -autoexit \
-        -volume 100 -loglevel error -reconnect 1 -reconnect_streamed 1 \
-        -reconnect_delay_max 5 "$STREAM_URL" &
+    # Play the stream with bgmplayer
+    SDL_AUDIODRIVER=alsa "$PLAYER_CMD" -nodisp -autoexit \
+        -loglevel error "$STREAM_URL" &
     
-    ffplay_pid=$!
-    echo $ffplay_pid > "$FFPLAY_PID_FILE"
+    bgplayer_pid=$!
+    echo $bgplayer_pid > "$BGMPLAYER_PID_FILE"
     
-    # Wait for ffplay to exit
-    wait $ffplay_pid
+    # Wait for bgmplayer to exit
+    wait $bgplayer_pid
     exit_code=$?
     
-    rm -f "$FFPLAY_PID_FILE"
+    rm -f "$BGMPLAYER_PID_FILE"
     
     # If exit code is 0, it was a clean exit (user stopped it)
     if [ $exit_code -eq 0 ] || [ ! -f "$STATUS_FILE" ]; then
@@ -319,15 +332,15 @@ if [ -f "$METADATA_PID_FILE" ]; then
     kill $(cat "$METADATA_PID_FILE") 2>/dev/null
     rm -f "$METADATA_PID_FILE"
 fi
-rm -f "$STATUS_FILE" "$STATE_FILE" "$FFPLAY_PID_FILE"
+rm -f "$STATUS_FILE" "$STATE_FILE" "$BGMPLAYER_PID_FILE"
 STREAMSCRIPT
         
         # Replace placeholders
         sed -i "s|\$STREAM_URL_PLACEHOLDER|$bg_stream_url|g" /tmp/bg_music_loop.sh
-        sed -i "s|\$AUDIO_DEVICE_PLACEHOLDER|$audio_device|g" /tmp/bg_music_loop.sh
+        sed -i "s|\$PLAYER_CMD_PLACEHOLDER|$PLAYER_CMD|g" /tmp/bg_music_loop.sh
         
     else
-        # Playlist mode - original complex script
+        # Playlist mode - use bgmplayer for proper volume control
         cat > /tmp/bg_music_loop.sh << LOOPSCRIPT
 #!/bin/bash
 PLAYLIST_FILE="/tmp/background_music_playlist.m3u"
@@ -335,11 +348,11 @@ SHUFFLE_MODE="${shuffle_mode:-0}"
 ENABLE_CROSSFADE="${enable_crossfade:-0}"
 CROSSFADE_DURATION="${crossfade_duration:-3}"
 VOLUME_LEVEL="100"
-AUDIO_DEVICE="${audio_device}"
+PLAYER_CMD="${PLAYER_CMD}"
 STATUS_FILE="/tmp/bg_music_status.txt"
 STATE_FILE="/tmp/bg_music_state.txt"
-FFPLAY_PID_FILE="/tmp/bg_music_ffplay.pid"
-FFPLAY_NEXT_PID_FILE="/tmp/bg_music_ffplay_next.pid"
+BGMPLAYER_PID_FILE="/tmp/bg_music_bgmplayer.pid"
+BGMPLAYER_NEXT_PID_FILE="/tmp/bg_music_bgmplayer_next.pid"
 JUMP_FILE="/tmp/bg_music_jump.txt"
 PREVIOUS_FILE="/tmp/bg_music_previous.txt"
 NEXT_FILE="/tmp/bg_music_next.txt"
@@ -379,10 +392,10 @@ play_track_with_crossfade() {
     # Update status before starting
     update_status "\$track_name" "\$duration" 0 "\$track_number" "\$total_tracks"
     
-    # Start ffplay in background
-    SDL_AUDIODRIVER=alsa AUDIODEV="\$AUDIO_DEVICE" ffplay -nodisp -autoexit -volume "\$VOLUME_LEVEL" -loglevel error "\$media_file" &
+    # Start bgmplayer in background
+    "\$PLAYER_CMD" -nodisp -autoexit -loglevel error "\$media_file" &
     local player_pid=\$!
-    echo "\$player_pid" > "\$FFPLAY_PID_FILE"
+    echo "\$player_pid" > "\$BGMPLAYER_PID_FILE"
     
     # Track progress while playing
     local elapsed=0
@@ -407,10 +420,10 @@ play_track_with_crossfade() {
         # Start crossfade if enabled and time reached
         if [ \$crossfade_started -eq 0 ] && [ \$crossfade_start_time -gt 0 ] && [ \$elapsed -ge \$crossfade_start_time ]; then
             crossfade_started=1
-            # Start next track - it will play in full
-            SDL_AUDIODRIVER=alsa AUDIODEV="\$AUDIO_DEVICE" ffplay -nodisp -autoexit -volume "\$VOLUME_LEVEL" -loglevel error "\$next_media_file" &
+            # Start next track with bgmplayer
+            "\$PLAYER_CMD" -nodisp -autoexit -loglevel error "\$next_media_file" &
             next_player_pid=\$!
-            echo "\$next_player_pid" > "\$FFPLAY_NEXT_PID_FILE"
+            echo "\$next_player_pid" > "\$BGMPLAYER_NEXT_PID_FILE"
             echo "\$(date +%s.%N) [CROSSFADE] Started next PID=\$next_player_pid file='\$(basename "\$next_media_file")'" >&2
         fi
         
@@ -424,11 +437,11 @@ play_track_with_crossfade() {
     
     # Wait for player to fully exit
     wait \$player_pid 2>/dev/null
-    rm -f "\$FFPLAY_PID_FILE"
+    rm -f "\$BGMPLAYER_PID_FILE"
     
     # If crossfade was started, the next track is now the current player
     if [ \$crossfade_started -eq 1 ] && [ \$next_player_pid -gt 0 ]; then
-        echo "\$next_player_pid" > "\$FFPLAY_PID_FILE"
+        echo "\$next_player_pid" > "\$BGMPLAYER_PID_FILE"
         return 0  # Crossfade completed - next track already playing
     fi
     
@@ -601,8 +614,8 @@ while true; do
             [ -z "\$duration" ] && duration=0
             
             # Read the PID of the currently playing track (set by crossfade function)
-            if [ -f "\$FFPLAY_PID_FILE" ]; then
-                player_pid=\$(cat "\$FFPLAY_PID_FILE")
+            if [ -f "\$BGMPLAYER_PID_FILE" ]; then
+                player_pid=\$(cat "\$BGMPLAYER_PID_FILE")
                 
                 # Monitor this track as it plays
                 elapsed=0
@@ -629,7 +642,7 @@ while true; do
                 done
                 
                 wait \$player_pid 2>/dev/null
-                rm -f "\$FFPLAY_PID_FILE"
+                rm -f "\$BGMPLAYER_PID_FILE"
             fi
             
             # After crossfade, we've already played this track in full.
@@ -648,9 +661,9 @@ while true; do
         update_status "\$track_name" "\$duration" 0 "\$track_number" "\$total_tracks"
         
         echo "\$(date +%s.%N) [START] Starting track: \$track_name file='\$media_file'" >&2
-        SDL_AUDIODRIVER=alsa AUDIODEV="\$AUDIO_DEVICE" ffplay -nodisp -autoexit -volume "\$VOLUME_LEVEL" -loglevel error "\$media_file" &
+        "\$PLAYER_CMD" -nodisp -autoexit -loglevel error "\$media_file" &
     player_pid=\$!
-    echo "\$player_pid" > "\$FFPLAY_PID_FILE"
+    echo "\$player_pid" > "\$BGMPLAYER_PID_FILE"
         
         elapsed=0
         track_was_skipped=0
@@ -688,7 +701,7 @@ while true; do
         done
         
         wait \$player_pid 2>/dev/null
-        rm -f "\$FFPLAY_PID_FILE"
+        rm -f "\$BGMPLAYER_PID_FILE"
     fi
     
     # Check what caused the track to end and handle navigation
@@ -770,15 +783,15 @@ LOOPSCRIPT
 
 # Function to pause background music
 pause_music() {
-    if [ ! -f "$FFPLAY_PID_FILE" ]; then
+    if [ ! -f "$BGMPLAYER_PID_FILE" ]; then
         echo "No active playback to pause"
         return 1
     fi
     
-    local ffplay_pid=$(cat "$FFPLAY_PID_FILE")
+    local bgmplayer_pid=$(cat "$BGMPLAYER_PID_FILE")
     
-    if ps -p "$ffplay_pid" > /dev/null 2>&1; then
-        kill -STOP "$ffplay_pid" 2>/dev/null
+    if ps -p "$bgmplayer_pid" > /dev/null 2>&1; then
+        kill -STOP "$bgmplayer_pid" 2>/dev/null
         if [ $? -eq 0 ]; then
             echo "paused" > "$STATE_FILE"
             echo "Background music paused"
@@ -795,15 +808,15 @@ pause_music() {
 
 # Function to resume background music
 resume_music() {
-    if [ ! -f "$FFPLAY_PID_FILE" ]; then
+    if [ ! -f "$BGMPLAYER_PID_FILE" ]; then
         echo "No paused playback to resume"
         return 1
     fi
     
-    local ffplay_pid=$(cat "$FFPLAY_PID_FILE")
+    local bgmplayer_pid=$(cat "$BGMPLAYER_PID_FILE")
     
-    if ps -p "$ffplay_pid" > /dev/null 2>&1; then
-        kill -CONT "$ffplay_pid" 2>/dev/null
+    if ps -p "$bgmplayer_pid" > /dev/null 2>&1; then
+        kill -CONT "$bgmplayer_pid" 2>/dev/null
         if [ $? -eq 0 ]; then
             echo "playing" > "$STATE_FILE"
             echo "Background music resumed"
@@ -831,12 +844,12 @@ jump_to_track() {
     echo "$track_number" > /tmp/bg_music_jump.txt
     chown fpp:fpp /tmp/bg_music_jump.txt 2>/dev/null
     
-    # Stop current ffplay if running
-    if [ -f "$FFPLAY_PID_FILE" ]; then
-        local ffplay_pid=$(cat "$FFPLAY_PID_FILE")
-        if ps -p "$ffplay_pid" > /dev/null 2>&1; then
-            kill "$ffplay_pid" 2>/dev/null
-            wait "$ffplay_pid" 2>/dev/null
+    # Stop current bgmplayer if running
+    if [ -f "$BGMPLAYER_PID_FILE" ]; then
+        local bgmplayer_pid=$(cat "$BGMPLAYER_PID_FILE")
+        if ps -p "$bgmplayer_pid" > /dev/null 2>&1; then
+            kill "$bgmplayer_pid" 2>/dev/null
+            wait "$bgmplayer_pid" 2>/dev/null
         fi
     fi
     
@@ -850,11 +863,11 @@ next_track() {
     echo "1" > /tmp/bg_music_next.txt
     chown fpp:fpp /tmp/bg_music_next.txt 2>/dev/null
     
-    # Kill current ffplay
-    if [ -f "$FFPLAY_PID_FILE" ]; then
-        local ffplay_pid=$(cat "$FFPLAY_PID_FILE")
-        if ps -p "$ffplay_pid" > /dev/null 2>&1; then
-            kill "$ffplay_pid" 2>/dev/null
+    # Kill current bgmplayer
+    if [ -f "$BGMPLAYER_PID_FILE" ]; then
+        local bgmplayer_pid=$(cat "$BGMPLAYER_PID_FILE")
+        if ps -p "$bgmplayer_pid" > /dev/null 2>&1; then
+            kill "$bgmplayer_pid" 2>/dev/null
             echo "Skipping to next track"
             return 0
         fi
@@ -869,11 +882,11 @@ previous_track() {
     echo "1" > /tmp/bg_music_previous.txt
     chown fpp:fpp /tmp/bg_music_previous.txt 2>/dev/null
     
-    # Kill current ffplay
-    if [ -f "$FFPLAY_PID_FILE" ]; then
-        local ffplay_pid=$(cat "$FFPLAY_PID_FILE")
-        if ps -p "$ffplay_pid" > /dev/null 2>&1; then
-            kill "$ffplay_pid" 2>/dev/null
+    # Kill current bgmplayer
+    if [ -f "$BGMPLAYER_PID_FILE" ]; then
+        local bgmplayer_pid=$(cat "$BGMPLAYER_PID_FILE")
+        if ps -p "$bgmplayer_pid" > /dev/null 2>&1; then
+            kill "$bgmplayer_pid" 2>/dev/null
             echo "Going to previous track"
             return 0
         fi
@@ -894,7 +907,7 @@ stop_music() {
     if ps -p "$pid" > /dev/null 2>&1; then
         echo "Stopping background music player (PID: $pid)..."
         
-        # Kill the main script and all its children (including ffplay processes)
+        # Kill the main script and all its children (including bgmplayer processes)
         pkill -P "$pid" 2>/dev/null
         kill "$pid" 2>/dev/null
         
@@ -912,8 +925,8 @@ stop_music() {
             kill -9 "$pid" 2>/dev/null
         fi
         
-        # Also kill any remaining ffplay processes that might be orphaned
-        pkill -f "ffplay.*background_music" 2>/dev/null
+        # Also kill any remaining bgmplayer processes that might be orphaned
+        pkill -f "bgmplayer" 2>/dev/null
         pkill -f "bg_music_loop.sh" 2>/dev/null
         
         echo "Background music stopped"
@@ -927,14 +940,14 @@ stop_music() {
     # Keep status file for resume functionality - only delete if explicitly requested
     # rm -f /tmp/bg_music_status.txt
     rm -f "$STATE_FILE"
-    rm -f "$FFPLAY_PID_FILE"
+    rm -f "$BGMPLAYER_PID_FILE"
     rm -f /tmp/bg_music_jump.txt
     rm -f /tmp/bg_music_previous.txt
     rm -f /tmp/bg_music_next.txt
     rm -f /tmp/bg_music_reorder.txt
     
     # Note: We do NOT manipulate ALSA volume. FPP controls ALSA via its volume slider.
-    # Background music uses ffplay's -volume parameter which multiplies with ALSA.
+    # Background music uses bgmplayer with system volume control via ALSA.
     
     return 0
 }

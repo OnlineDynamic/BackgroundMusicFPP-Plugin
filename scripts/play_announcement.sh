@@ -146,23 +146,24 @@ EOF
 
 # Play announcement in background
 (
-    # Set announcement volume (ALSA will mix with background music)
-    # Calculate ffplay volume (0-100 scale)
-    FFPLAY_VOLUME=$((ANNOUNCEMENT_VOLUME))
+    # Set announcement volume via ALSA system volume
+    log_message "Setting system volume to ${ANNOUNCEMENT_VOLUME}% for announcement"
     
-    log_message "Playing announcement on device: $AUDIO_DEVICE at volume: ${FFPLAY_VOLUME}%"
+    curl -s -X POST -H "Content-Type: application/json" \
+        -d "{\"volume\": ${ANNOUNCEMENT_VOLUME}}" \
+        "http://localhost/api/system/volume" > /dev/null 2>&1
     
-    # Play the announcement file using ffplay with ALSA plug device for software mixing
-    # The plug: device allows concurrent audio streams through ALSA
-    VOLUME_FILTER="volume=$(echo "scale=2; $FFPLAY_VOLUME / 100" | bc)"
+    sleep 0.2  # Brief delay for volume change
     
-    # Use the detected audio device (already wrapped with plug: prefix)
-    SDL_AUDIODRIVER=alsa AUDIODEV="$AUDIO_DEVICE" ffplay -nodisp -autoexit \
-        -af "$VOLUME_FILTER" \
-        "$ANNOUNCEMENT_FILE" >> "$LOG_FILE" 2>&1
+    log_message "Playing announcement with bgmplayer"
+    
+    # Use bgmplayer for consistent audio handling
+    PLUGIN_DIR="/home/fpp/media/plugins/fpp-plugin-BackgroundMusic"
+    SDL_AUDIODRIVER=alsa "$PLUGIN_DIR/bgmplayer" -nodisp -autoexit \
+        -loglevel error "$ANNOUNCEMENT_FILE" >> "$LOG_FILE" 2>&1
     
     PLAY_RESULT=$?
-    log_message "DEBUG: ffplay exit code: $PLAY_RESULT"
+    log_message "DEBUG: bgmplayer exit code: $PLAY_RESULT"
     
     if [ $PLAY_RESULT -eq 0 ]; then
         log_message "Announcement completed successfully"

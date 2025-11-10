@@ -73,10 +73,10 @@ else
     log_message "No background music PID file found, checking for orphaned processes"
 fi
 
-# Kill any remaining ffplay processes (orphaned or not properly stopped)
-if pgrep -f "ffplay.*\.mp3" > /dev/null 2>&1; then
-    log_message "Found running ffplay processes - killing them"
-    pkill -f "ffplay.*\.mp3" 2>/dev/null
+# Kill any remaining bgmplayer processes (orphaned or not properly stopped)
+if pgrep -f "bgmplayer" > /dev/null 2>&1; then
+    log_message "Found running bgmplayer processes - killing them"
+    pkill -f "bgmplayer" 2>/dev/null
     sleep 1
 fi
 

@@ -1,5 +1,19 @@
 [
     {
+        "name": "BackgroundMusic - Start Show",
+        "description": "Starts a show with background music integration (fade out, brightness transition). Uses configured ShowPlaylist if no argument provided.",
+        "script": "start-show.sh",
+        "args": [
+            {
+                "name": "playlistName",
+                "description": "Name of playlist/sequence to start (optional - uses configured ShowPlaylist if omitted)",
+                "type": "string",
+                "contentListUrl": "api/playlists/playable",
+                "optional": true
+            }
+        ]
+    },
+    {
         "name": "BackgroundMusic - Start Main Show",
         "description": "Triggers the main show transition (stops background music, fades out, starts show playlist)",
         "script": "start-main-show.sh",

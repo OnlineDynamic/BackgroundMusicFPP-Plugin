@@ -3,7 +3,6 @@
 <head>
     <title>Background Music Plugin - Help & About</title>
     <link rel="stylesheet" href="/css/fpp.css" />
-    <?php include_once(__DIR__ . '/../logo_base64.php'); ?>
     <style>
         /* Tab Navigation */
         .tab-navigation {
@@ -1210,7 +1209,7 @@
                 
                 <!-- Dynamic Pixels Logo -->
                 <div style="text-align: center; margin: 20px 0;">
-                    <img src="<?php echo $logoBase64; ?>" 
+                    <img src="/plugin.php?plugin=fpp-plugin-BackgroundMusic&file=logo.jpg&nopage=1" 
                          alt="Dynamic Pixels Logo" 
                          style="max-width: 100%; height: auto; max-height: 120px;">
                 </div>

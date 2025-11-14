@@ -211,6 +211,79 @@
         padding: 5px;
         margin: -5px;
     }
+    
+    /* Advanced Show Section Styling */
+    .advanced-show-section {
+        margin-top: 25px;
+        border-top: 2px solid #e0e0e0;
+        padding-top: 20px;
+    }
+    
+    .advanced-header {
+        font-size: 13px;
+        font-weight: 600;
+        color: #2196F3;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 15px;
+        text-align: left;
+        padding-left: 5px;
+    }
+    
+    .advanced-content {
+        text-align: left;
+        padding: 0 5px;
+    }
+    
+    .advanced-select {
+        width: 100%;
+        padding: 8px 12px;
+        font-size: 14px;
+        border: 2px solid #ddd;
+        border-radius: 4px;
+        background-color: #fff;
+        margin-bottom: 12px;
+        transition: border-color 0.2s;
+    }
+    
+    .advanced-select:focus {
+        outline: none;
+        border-color: #2196F3;
+        box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+    }
+    
+    .advanced-start-btn {
+        width: 100%;
+        padding: 10px 20px;
+        font-size: 14px;
+        font-weight: 600;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 10px;
+    }
+    
+    .advanced-start-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
+    }
+    
+    .advanced-hint {
+        font-size: 11px;
+        color: #777;
+        margin: 0;
+        padding: 8px 10px;
+        background-color: #f9f9f9;
+        border-left: 3px solid #2196F3;
+        border-radius: 3px;
+        line-height: 1.4;
+    }
+    
+    .advanced-hint i {
+        margin-right: 5px;
+        color: #2196F3;
+    }
 </style>
 
 <div id="global" class="settings">
@@ -270,6 +343,32 @@
                     <i class="fas fa-stop"></i> Stop Background Music
                 </button>
             </div>
+            
+            <!-- Volume Control -->
+            <div style="margin-top: 25px; border-top: 2px solid #e0e0e0; padding-top: 20px;">
+                <div style="text-align: left; padding: 0 10px;">
+                    <div style="font-size: 13px; font-weight: 600; color: #4CAF50; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+                        <i class="fas fa-volume-up"></i> Volume Control
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 12px; color: #666;">Current Level:</span>
+                            <span id="statusVolume" style="font-weight: bold; font-size: 16px; color: #4CAF50;">70%</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 20px; cursor: pointer; user-select: none;" onclick="decreaseVolume()" title="Decrease volume">🔈</span>
+                            <input type="range" id="volumeSlider" min="0" max="100" value="70" 
+                                   style="flex: 1; height: 6px; cursor: pointer;" 
+                                   oninput="updateVolumeDisplay(this.value)" 
+                                   onchange="setVolume(this.value)">
+                            <span style="font-size: 20px; cursor: pointer; user-select: none;" onclick="increaseVolume()" title="Increase volume">🔊</span>
+                        </div>
+                    </div>
+                    <p style="font-size: 10px; color: #777; margin: 0; padding: 6px 8px; background-color: #f9f9f9; border-left: 3px solid #4CAF50; border-radius: 3px; line-height: 1.3;">
+                        <i class="fas fa-info-circle" style="color: #4CAF50;"></i> Adjusts FPP system volume (affects all audio)
+                    </p>
+                </div>
+            </div>
         </div>
         
         <!-- PSA Column -->
@@ -308,6 +407,30 @@
                 <button id="btnStartShow" class="controlButton btn-show" onclick="startShow()">
                     <i class="fas fa-rocket"></i> Start Main Show
                 </button>
+            </div>
+            
+            <!-- Advanced: Start Specific Show -->
+            <div class="advanced-show-section">
+                <div class="advanced-header">
+                    <i class="fas fa-sliders-h"></i> Advanced Options
+                </div>
+                <div class="advanced-content">
+                    <label for="advancedPlaylistSelect" style="display: block; margin-bottom: 8px; font-weight: 600; color: #555; text-align: left;">
+                        Choose Playlist/Sequence:
+                    </label>
+                    <select id="advancedPlaylistSelect" class="form-control advanced-select">
+                        <option value="">Loading playlists...</option>
+                    </select>
+                    <button class="btn btn-sm btn-show advanced-start-btn" onclick="startShowWithPlaylist()">
+                        <i class="fas fa-play-circle"></i> Start Selected Show
+                    </button>
+                    <p class="advanced-hint">
+                        <i class="fas fa-info-circle"></i> Manually start a different show instead of the configured default
+                    </p>
+                    <p class="advanced-hint" style="margin-top: 8px; border-left-color: #4CAF50;">
+                        <i class="fas fa-calendar-alt" style="color: #4CAF50;"></i> <strong>Tip:</strong> Use the FPP Command "BackgroundMusic - Start Show" in your scheduler to automate different shows at different times
+                    </p>
+                </div>
             </div>
         </div>
     </div>
@@ -363,33 +486,6 @@
             <div class="statusItem">
                 <span class="statusLabel" style="font-style: italic;">Note:</span>
                 <span style="font-size: 14px;">Pre-show sequence controlled by FPP scheduler</span>
-            </div>
-        </div>
-
-        <!-- Volume Control Panel -->
-        <div class="statusPanel">
-            <h2 style="cursor: pointer; user-select: none;" onclick="toggleSection('volumeControl')" data-tooltip="Click to expand/collapse">
-                <i class="fas fa-volume-up"></i> Volume Control 
-                <i id="volumeControlIcon" class="fas fa-chevron-down" style="float: right; font-size: 14px; transition: transform 0.3s;"></i>
-            </h2>
-            <div id="volumeControl" class="collapsible-section">
-            <div class="statusItem">
-                <span class="statusLabel">Current Volume:</span>
-                <span id="statusVolume" style="font-weight: bold; font-size: 18px; color: #007bff;">70%</span>
-            </div>
-            <div class="statusItem">
-                <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
-                    <span style="font-size: 24px; cursor: pointer;" onclick="decreaseVolume()" title="Decrease volume">🔈</span>
-                    <input type="range" id="volumeSlider" min="0" max="100" value="70" 
-                           style="flex: 1; height: 8px; cursor: pointer;" 
-                           oninput="updateVolumeDisplay(this.value)" 
-                           onchange="setVolume(this.value)">
-                    <span style="font-size: 24px; cursor: pointer;" onclick="increaseVolume()" title="Increase volume">🔊</span>
-                </div>
-                <div style="text-align: center; margin-top: 8px; font-size: 12px; color: #6c757d;">
-                    <span>Adjust FPP system volume (affects all audio output)</span>
-                </div>
-            </div>
             </div>
         </div>
 
@@ -1296,6 +1392,69 @@
             });
         }
         
+        // Advanced: Start show with specific playlist
+        function startShowWithPlaylist() {
+            var selectedPlaylist = $('#advancedPlaylistSelect').val();
+            
+            if (!selectedPlaylist) {
+                $.jGrowl('Please select a playlist/sequence', {themeState: 'warning'});
+                return;
+            }
+            
+            if (!confirm('This will fade out the background music and animation, then start "' + selectedPlaylist + '". Continue?')) {
+                return;
+            }
+            
+            $('#btnStartShow').addClass('loading');
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/start-show',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    playlist: selectedPlaylist
+                }),
+                dataType: 'json',
+                success: function(data) {
+                    if (data.status === 'OK') {
+                        $.jGrowl('Starting show transition with "' + selectedPlaylist + '"...', {themeState: 'success'});
+                    } else {
+                        $.jGrowl('Error: ' + (data.message || 'Unknown error'), {themeState: 'danger'});
+                    }
+                    $('#btnStartShow').removeClass('loading');
+                    updateStatus();
+                },
+                error: function() {
+                    $.jGrowl('Failed to start show', {themeState: 'danger'});
+                    $('#btnStartShow').removeClass('loading');
+                }
+            });
+        }
+        
+        // Load playable playlists for advanced selector
+        function loadPlayablePlaylistsForAdvanced() {
+            $.ajax({
+                url: '/api/playlists/playable',
+                type: 'GET',
+                dataType: 'json',
+                success: function(playlists) {
+                    var select = $('#advancedPlaylistSelect');
+                    select.empty();
+                    
+                    if (playlists && playlists.length > 0) {
+                        select.append('<option value="">-- Select Playlist/Sequence --</option>');
+                        playlists.forEach(function(playlist) {
+                            select.append('<option value="' + escapeHtml(playlist) + '">' + escapeHtml(playlist) + '</option>');
+                        });
+                    } else {
+                        select.append('<option value="">No playlists available</option>');
+                    }
+                },
+                error: function() {
+                    $('#advancedPlaylistSelect').html('<option value="">Error loading playlists</option>');
+                }
+            });
+        }
+        
         // PSA Functions
         var currentlyPlayingPSA = 0; // 0 = none, 1-5 = button number
         
@@ -1518,6 +1677,9 @@
             
             // Initialize custom tooltips
             initCustomTooltips();
+            
+            // Load playlists for advanced show selector
+            loadPlayablePlaylistsForAdvanced();
             
             // Check for updates on page load (after a short delay)
             setTimeout(checkForUpdates, 5000); // Wait 5 seconds after page load

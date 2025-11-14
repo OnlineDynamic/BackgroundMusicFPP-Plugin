@@ -472,9 +472,9 @@ $audioFiles = getAudioFiles();
                 </tr>
             </table>
 
-            <!-- Post-Show Settings -->
+            <!-- Plugin Behavior Settings -->
             <h3 style="margin: 30px auto 10px; max-width: 800px; color: #9C27B0; border-bottom: 2px solid #9C27B0; padding-bottom: 5px;">
-                <i class="fas fa-redo"></i> Post-Show Settings
+                <i class="fas fa-redo"></i> Plugin Behavior Settings
             </h3>
             <table class="settingsTable">
                 <tr>
@@ -487,7 +487,7 @@ $audioFiles = getAudioFiles();
                                 Automatically restart background music when show playlist ends
                             </label>
                         </div>
-                        <small>Your FPP scheduler should handle restarting the pre-show sequence</small>
+                        <small>Your FPP scheduler should handle restarting the pre-show light sequence</small>
                     </td>
                 </tr>
                 <tr>

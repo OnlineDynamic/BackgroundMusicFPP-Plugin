@@ -349,6 +349,7 @@
                         <li>Set blackout time (pause before show starts, 0-30 seconds, recommended: 2-3s)</li>
                         <li>Configure volume levels for different states</li>
                         <li>Enable "Return to Pre-Show" if you want music to auto-restart after show</li>
+                        <li>Enable "Autostart Background Music on FPP Start" to automatically start music when FPP boots or restarts</li>
                         <li>Enable "Shuffle Music" if using FPP Playlist (not available for streams)</li>
                         <li>Enable "Crossfade Between Tracks" to eliminate silence between songs (playlist mode only, 1-10 seconds)</li>
                         <li>Configure up to 20 PSA announcement buttons with custom labels and audio files</li>
@@ -366,6 +367,37 @@
                 </li>
             </ol>
             
+            <h2>Autostart Feature</h2>
+            <p>
+                The autostart feature allows background music to automatically begin playing when FPP starts or restarts.
+                This is useful for unattended operation or after power loss/reboots.
+            </p>
+            
+            <h3>How It Works</h3>
+            <ul>
+                <li><strong>System Boot:</strong> When FPP starts up (after reboot or power on), background music starts automatically after a 5-second delay</li>
+                <li><strong>FPPD Restart:</strong> When you restart FPPD (via <code>systemctl restart fppd</code>), music starts automatically</li>
+                <li><strong>Configuration:</strong> Enable "Autostart Background Music on FPP Start" in plugin settings</li>
+                <li><strong>Integration:</strong> Works with all background music sources (FPP Playlist or Internet Stream)</li>
+                <li><strong>Continues Playback:</strong> Resumes from where it left off (for playlists) or reconnects (for streams)</li>
+            </ul>
+            
+            <h3>Important Notes</h3>
+            <ul>
+                <li><strong>Scheduler Independence:</strong> FPP's scheduler controls your pre-show sequences separately. Autostart only affects background music.</li>
+                <li><strong>5-Second Delay:</strong> Music waits 5 seconds after FPP starts to ensure all services are fully initialized</li>
+                <li><strong>UI Reload Limitation:</strong> The autostart does NOT trigger when using the "Restart FPPD" button in FPP's UI (which uses systemctl reload). It only works on full restarts/reboots.</li>
+                <li><strong>Manual Control:</strong> You can still manually stop/start background music at any time using the controller UI</li>
+            </ul>
+            
+            <h3>Use Cases</h3>
+            <ul>
+                <li><strong>Unattended Operation:</strong> Display runs automatically after power outages without manual intervention</li>
+                <li><strong>Remote Locations:</strong> Perfect for displays where you can't easily access the controller</li>
+                <li><strong>Set and Forget:</strong> Configure once, music starts automatically every evening</li>
+                <li><strong>Maintenance Friendly:</strong> Background music resumes after system updates or reboots</li>
+            </ul>
+            
             <h2>Tips for Best Results</h2>
             <ul>
                 <li><strong>Fade Time:</strong> 5 seconds provides a smooth, professional transition</li>
@@ -375,6 +407,8 @@
                 <li><strong>Volume Levels:</strong> Set background music slightly lower than show volume</li>
                 <li><strong>Test First:</strong> Always test your transition before the actual event</li>
                 <li><strong>MultiSync:</strong> Verify brightness plugin installed on all controllers for synchronized fades</li>
+                <li><strong>Autostart:</strong> Enable autostart for unattended operation, especially after reboots</li>
+                <li><strong>FPP Commands:</strong> Use "BackgroundMusic - Start Show" command to schedule different playlists throughout the day</li>
             </ul>
         </div>
         
@@ -434,7 +468,30 @@
             </ul>
             
             <h3>FPP Commands Integration</h3>
-            <p>PSA announcements can be triggered from FPP playlists, sequences, or automation using FPP Commands:</p>
+            <p>The plugin provides FPP Commands that can be triggered from playlists, sequences, or automation:</p>
+            
+            <div class="api-endpoint">
+                <h4>Command: BackgroundMusic - Start Show</h4>
+                <p><strong>Description:</strong> Starts a show with background music fade transition</p>
+                <p><strong>Arguments:</strong></p>
+                <ul>
+                    <li><code>playlistName</code> - Dropdown (optional), select which playlist/sequence to start. If not specified, uses configured ShowPlaylist setting</li>
+                </ul>
+                <p><strong>Usage Examples:</strong></p>
+                <ul>
+                    <li><strong>Scheduled Shows:</strong> Schedule different playlists at different times using FPP scheduler</li>
+                    <li><strong>Playlist Items:</strong> Add "Command" item, select "BackgroundMusic - Start Show", choose playlist from dropdown</li>
+                    <li><strong>Default Behavior:</strong> Leave playlist blank to use your configured main show playlist</li>
+                    <li><strong>Multiple Shows:</strong> Create scheduled items for "Morning Show", "Afternoon Show", "Evening Show" with different playlists</li>
+                </ul>
+                <p><strong>Example Use Cases:</strong></p>
+                <ul>
+                    <li>Schedule different shows throughout the day without manual intervention</li>
+                    <li>Automatically trigger show transitions at specific times</li>
+                    <li>Use with FPP scheduler to start shows while maintaining background music integration</li>
+                    <li>Combine with other FPP automation for complex scheduling scenarios</li>
+                </ul>
+            </div>
             
             <div class="api-endpoint">
                 <h4>Command: BackgroundMusic - Play PSA</h4>

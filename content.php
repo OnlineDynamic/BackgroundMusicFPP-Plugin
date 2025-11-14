@@ -512,6 +512,19 @@ $audioFiles = getAudioFiles();
                         <small>Time in seconds to wait after show ends before restarting background music</small>
                     </td>
                 </tr>
+                <tr>
+                    <td class="label">Autostart on FPP Boot:</td>
+                    <td class="value">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <input type="checkbox" name="AutostartEnabled" id="AutostartEnabled" value="1"
+                                   <?php echo (isset($pluginSettings['AutostartEnabled']) && $pluginSettings['AutostartEnabled'] == '1') ? 'checked' : ''; ?>>
+                            <label for="AutostartEnabled" style="margin: 0; line-height: 1.4;">
+                                Automatically start background music when FPP starts or restarts
+                            </label>
+                        </div>
+                        <small>When enabled, background music will resume automatically from where it left off (or start fresh if never played)</small>
+                    </td>
+                </tr>
             </table>
 
             <!-- Public Service Announcement Settings -->
@@ -807,6 +820,7 @@ $audioFiles = getAudioFiles();
                 'ResumeMode': $('#ResumeMode').val(),
                 'PostShowDelay': $('#PostShowDelay').val(),
                 'PostShowBackgroundVolume': $('#PostShowBackgroundVolume').val(),
+                'AutostartEnabled': $('#AutostartEnabled').is(':checked') ? '1' : '0',
                 'ShuffleMusic': $('#ShuffleMusic').is(':checked') ? '1' : '0',
                 'EnableCrossfade': $('#EnableCrossfade').is(':checked') ? '1' : '0',
                 'CrossfadeDuration': $('#CrossfadeDuration').val(),

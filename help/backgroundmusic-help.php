@@ -433,6 +433,32 @@
                 <li>Music volume automatically ducks and restores</li>
             </ul>
             
+            <h3>FPP Commands Integration</h3>
+            <p>PSA announcements can be triggered from FPP playlists, sequences, or automation using FPP Commands:</p>
+            
+            <div class="api-endpoint">
+                <h4>Command: BackgroundMusic - Play PSA</h4>
+                <p><strong>Description:</strong> Triggers a PSA announcement button programmatically</p>
+                <p><strong>Arguments:</strong></p>
+                <ul>
+                    <li><code>buttonNumber</code> - Integer (1-20), which PSA button to trigger</li>
+                </ul>
+                <p><strong>Usage Examples:</strong></p>
+                <ul>
+                    <li><strong>Playlist Items:</strong> Add "Command" item, select "BackgroundMusic - Play PSA", enter button number</li>
+                    <li><strong>Sequence Events:</strong> Add FPP Command effect in xLights/Vixen, set to "BackgroundMusic - Play PSA" with button number</li>
+                    <li><strong>Event Scripts:</strong> Call via FPP event scripts for automated announcements</li>
+                    <li><strong>Automation:</strong> Integrate with timers or external triggers to play announcements</li>
+                </ul>
+                <p><strong>Example Use Cases:</strong></p>
+                <ul>
+                    <li>Play "Show starting in 2 minutes" announcement before each show automatically</li>
+                    <li>Trigger "Thank you" message at end of playlist</li>
+                    <li>Play safety reminders at regular intervals using playlist scheduling</li>
+                    <li>Coordinate announcements with specific songs or display moments in sequences</li>
+                </ul>
+            </div>
+            
             <h3>Example Use Cases</h3>
             <ul>
                 <li><strong>Welcome Message:</strong> "Welcome to our holiday light display!"</li>

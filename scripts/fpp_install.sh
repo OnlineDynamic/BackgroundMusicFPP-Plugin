@@ -93,24 +93,10 @@ fi
 NEEDS_UPDATE=0
 if [ -f "/etc/asound.conf" ]; then
     if grep -q "Background Music Plugin" /etc/asound.conf; then
-        # Validate the config structure
-        if ! grep -q "pcm.!default" /etc/asound.conf || ! grep -q "pcm.dmixer" /etc/asound.conf; then
-            echo "ALSA config appears corrupted or incomplete, regenerating..."
-            sudo cp /etc/asound.conf /etc/asound.conf.broken-$(date +%Y%m%d-%H%M%S)
-            echo "Backed up broken config"
-            NEEDS_UPDATE=1
-        else
-            # Check if the audio card matches
-            CURRENT_CARD=$(grep "card ${AUDIO_CARD}" /etc/asound.conf)
-            if [ -z "$CURRENT_CARD" ]; then
-                echo "Audio card changed or config outdated, updating..."
-                sudo cp /etc/asound.conf /etc/asound.conf.old-$(date +%Y%m%d-%H%M%S)
-                NEEDS_UPDATE=1
-            else
-                echo "ALSA config already exists and is up to date"
-                NEEDS_UPDATE=0
-            fi
-        fi
+        # Always update to ensure correct configuration
+        echo "Updating ALSA configuration to latest version..."
+        sudo cp /etc/asound.conf /etc/asound.conf.old-$(date +%Y%m%d-%H%M%S)
+        NEEDS_UPDATE=1
     else
         # Backup non-plugin config
         sudo cp /etc/asound.conf /etc/asound.conf.backup-$(date +%Y%m%d-%H%M%S)
@@ -132,25 +118,28 @@ if [ $NEEDS_UPDATE -eq 1 ]; then
 # Auto-generated during plugin installation/update
 # Last updated: $(date)
 
-pcm.!default {
-    type plug
-    slave.pcm "dmixer"
-}
-
 pcm.dmixer {
     type dmix
     ipc_key 1024
+    ipc_perm 0666
     slave {
         pcm "hw:${AUDIO_CARD},${AUDIO_DEVICE}"
+        rate 48000
+        channels 2
+        format S16_LE
         period_time 0
         period_size 1024
         buffer_size 4096
-        rate 48000
     }
     bindings {
         0 0
         1 1
     }
+}
+
+pcm.!default {
+    type plug
+    slave.pcm "dmixer"
 }
 
 ctl.!default {

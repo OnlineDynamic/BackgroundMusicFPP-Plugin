@@ -2,8 +2,10 @@
 # Background Music Player - plays audio files independently from FPP playlists
 # Uses custom bgmplayer for proper volume control support
 
-# Force SDL to use ALSA driver for reliable audio output
+# Force SDL to use ALSA driver with direct hardware access
+# Note: dmix (software mixing) doesn't work reliably with SDL on this system
 export SDL_AUDIODRIVER=alsa
+export AUDIODEV=plughw:0,0
 
 PLUGIN_DIR="/home/fpp/media/plugins/fpp-plugin-BackgroundMusic"
 PLUGIN_CONFIG="/home/fpp/media/config/plugin.fpp-plugin-BackgroundMusic"
@@ -111,12 +113,40 @@ strip_quotes() {
 
 # Function to start background music
 start_music() {
-    # Check if already running
+    # Read configuration first to determine source type
+    if [ ! -f "$PLUGIN_CONFIG" ]; then
+        echo "ERROR: Plugin configuration not found"
+        return 1
+    fi
+    
+    # Read source type (playlist or stream)
+    local bg_source=$(grep "^BackgroundMusicSource=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
+    bg_source=$(strip_quotes "$bg_source")
+    bg_source=${bg_source:-playlist}  # Default to playlist for backward compatibility
+    
+    # Check if already running and if source type has changed
     if [ -f "$PID_FILE" ]; then
         local pid=$(cat "$PID_FILE")
         if ps -p "$pid" > /dev/null 2>&1; then
-            echo "Background music already running (PID: $pid)"
-            return 0
+            # Check if the source type has changed by looking at the running loop script
+            local current_source="unknown"
+            if [ -f "/tmp/bg_music_loop.sh" ]; then
+                if grep -q "STREAM_URL=" /tmp/bg_music_loop.sh; then
+                    current_source="stream"
+                else
+                    current_source="playlist"
+                fi
+            fi
+            
+            # If source type changed, stop the old player and restart with new config
+            if [ "$current_source" != "$bg_source" ] && [ "$current_source" != "unknown" ]; then
+                echo "Source type changed from $current_source to $bg_source, restarting..."
+                stop_music
+                sleep 2
+            else
+                echo "Background music already running (PID: $pid) with same source type ($bg_source)"
+                return 0
+            fi
         fi
     fi
     
@@ -127,17 +157,6 @@ start_music() {
     if [ -f "/tmp/background_music_player.log" ]; then
         chown fpp:fpp /tmp/background_music_player.log 2>/dev/null
     fi
-    
-    # Read configuration
-    if [ ! -f "$PLUGIN_CONFIG" ]; then
-        echo "ERROR: Plugin configuration not found"
-        return 1
-    fi
-    
-    # Read source type (playlist or stream)
-    local bg_source=$(grep "^BackgroundMusicSource=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
-    bg_source=$(strip_quotes "$bg_source")
-    bg_source=${bg_source:-playlist}  # Default to playlist for backward compatibility
     
     local bg_playlist=$(grep "^BackgroundMusicPlaylist=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
     bg_playlist=$(strip_quotes "$bg_playlist")
@@ -897,8 +916,36 @@ previous_track() {
 
 # Function to stop background music
 stop_music() {
+    # First, kill ALL bgmplayer processes unconditionally
+    echo "Stopping all bgmplayer processes..."
+    killall bgmplayer 2>/dev/null
+    killall -9 bgmplayer 2>/dev/null
+    
+    # Kill any metadata extraction processes (specific to streaming)
+    if [ -f "/tmp/bg_music_metadata.pid" ]; then
+        local metadata_pid=$(cat /tmp/bg_music_metadata.pid)
+        kill "$metadata_pid" 2>/dev/null
+        kill -9 "$metadata_pid" 2>/dev/null
+        rm -f /tmp/bg_music_metadata.pid
+    fi
+    
     if [ ! -f "$PID_FILE" ]; then
-        echo "Background music is not running"
+        echo "Background music PID file not found, cleaning up any orphaned processes..."
+        # Kill any loop script processes
+        pkill -f "bg_music_loop.sh" 2>/dev/null
+        pkill -9 -f "bg_music_loop.sh" 2>/dev/null
+        
+        # Kill any bash processes running the loop script
+        pkill -f "/bin/bash /tmp/bg_music_loop.sh" 2>/dev/null
+        pkill -9 -f "/bin/bash /tmp/bg_music_loop.sh" 2>/dev/null
+        
+        # Clean up temp files
+        rm -f "$BGMPLAYER_PID_FILE"
+        rm -f /tmp/bg_music_loop.sh
+        rm -f "$STATE_FILE"
+        rm -f /tmp/bg_music_status.txt
+        
+        echo "Cleanup complete"
         return 0
     fi
     
@@ -907,8 +954,15 @@ stop_music() {
     if ps -p "$pid" > /dev/null 2>&1; then
         echo "Stopping background music player (PID: $pid)..."
         
-        # Kill the main script and all its children (including bgmplayer processes)
+        # Remove status file first to signal loops to stop
+        rm -f /tmp/bg_music_status.txt
+        
+        # Kill all child processes of the main script
         pkill -P "$pid" 2>/dev/null
+        sleep 0.5
+        pkill -9 -P "$pid" 2>/dev/null
+        
+        # Kill the main script
         kill "$pid" 2>/dev/null
         
         # Wait for processes to stop (max 5 seconds)
@@ -925,30 +979,42 @@ stop_music() {
             kill -9 "$pid" 2>/dev/null
         fi
         
-        # Also kill any remaining bgmplayer processes that might be orphaned
-        pkill -f "bgmplayer" 2>/dev/null
-        pkill -f "bg_music_loop.sh" 2>/dev/null
-        
         echo "Background music stopped"
     else
         echo "Background music process not found (stale PID file)"
     fi
     
+    # Always kill any remaining loop scripts and bash processes
+    pkill -f "bg_music_loop.sh" 2>/dev/null
+    pkill -9 -f "bg_music_loop.sh" 2>/dev/null
+    pkill -f "/bin/bash /tmp/bg_music_loop.sh" 2>/dev/null
+    pkill -9 -f "/bin/bash /tmp/bg_music_loop.sh" 2>/dev/null
+    
     rm -f "$PID_FILE"
     rm -f "$PLAYLIST_FILE"
     rm -f /tmp/bg_music_loop.sh
-    # Keep status file for resume functionality - only delete if explicitly requested
-    # rm -f /tmp/bg_music_status.txt
+    # Remove status file to signal all loops to stop
+    rm -f /tmp/bg_music_status.txt
     rm -f "$STATE_FILE"
     rm -f "$BGMPLAYER_PID_FILE"
     rm -f /tmp/bg_music_jump.txt
     rm -f /tmp/bg_music_previous.txt
     rm -f /tmp/bg_music_next.txt
     rm -f /tmp/bg_music_reorder.txt
+    rm -f /tmp/bg_music_metadata.pid
+    
+    # Final safety check - kill any remaining bgmplayer processes
+    # This catches orphaned processes that might have lost their PID tracking
+    sleep 0.5
+    if pgrep -x bgmplayer > /dev/null; then
+        echo "Found orphaned bgmplayer processes, cleaning up..."
+        killall -9 bgmplayer 2>/dev/null
+    fi
     
     # Note: We do NOT manipulate ALSA volume. FPP controls ALSA via its volume slider.
     # Background music uses bgmplayer with system volume control via ALSA.
     
+    echo "All background music processes stopped"
     return 0
 }
 

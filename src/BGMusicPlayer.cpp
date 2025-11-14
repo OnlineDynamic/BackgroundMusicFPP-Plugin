@@ -200,9 +200,9 @@ bool BGMusicPlayer::InitializeSDL()
     wantedSpec.format = AUDIO_S16SYS; // 16-bit signed audio
     wantedSpec.channels = audioInfo.channels;
     wantedSpec.silence = 0;
-    wantedSpec.samples = 4096;     // Buffer size
-    wantedSpec.callback = nullptr; // Use queue mode instead of callback
-    wantedSpec.userdata = nullptr;
+    wantedSpec.samples = 4096;           // Buffer size
+    wantedSpec.callback = AudioCallback; // Use callback mode for dmix compatibility
+    wantedSpec.userdata = this;
 
     // Open audio device - use NULL/default to respect ALSA configuration
     audioDevice = SDL_OpenAudioDevice(NULL, 0, &wantedSpec, &audioSpec,
@@ -222,6 +222,11 @@ bool BGMusicPlayer::InitializeSDL()
     audioInfo.channels = audioSpec.channels;
     audioInfo.bytesPerSample = 2; // S16
     audioInfo.isFloat = false;
+
+    // Initialize audio buffer for callback mode
+    audioBufferMaxSize = audioSpec.size * 8; // 8 buffers worth
+    audioBuffer = new uint8_t[audioBufferMaxSize];
+    audioBufferSize = 0;
 
     // Setup resampler if needed
     AVChannelLayout outLayout;
@@ -367,9 +372,16 @@ void BGMusicPlayer::CleanupSDL()
 {
     if (audioDevice)
     {
-        SDL_ClearQueuedAudio(audioDevice);
         SDL_CloseAudioDevice(audioDevice);
         audioDevice = 0;
+    }
+
+    if (audioBuffer)
+    {
+        delete[] audioBuffer;
+        audioBuffer = nullptr;
+        audioBufferSize = 0;
+        audioBufferMaxSize = 0;
     }
 }
 
@@ -384,22 +396,28 @@ void BGMusicPlayer::DecodeLoop()
             continue;
         }
 
-        // Check SDL queue size - keep it reasonably full
-        uint32_t queuedBytes = SDL_GetQueuedAudioSize(audioDevice);
-        uint32_t maxQueueSize = audioSpec.freq * audioSpec.channels * 2; // 1 second of audio
-
-        if (queuedBytes > maxQueueSize / 2)
+        // Check buffer size - keep it reasonably full
+        int currentBufferSize;
         {
-            usleep(10000); // 10ms - queue has enough data
+            std::lock_guard<std::mutex> lock(bufferMutex);
+            currentBufferSize = audioBufferSize;
+        }
+
+        if (currentBufferSize > audioBufferMaxSize / 2)
+        {
+            usleep(10000); // 10ms - buffer has enough data
             continue;
         }
 
         // Decode next packet
         if (!DecodeAudioPacket())
         {
-            // End of file - wait for queue to drain
-            while (SDL_GetQueuedAudioSize(audioDevice) > 0 && !shouldStop)
+            // End of file - wait for buffer to drain
+            while (true)
             {
+                std::lock_guard<std::mutex> lock(bufferMutex);
+                if (audioBufferSize == 0 || shouldStop)
+                    break;
                 usleep(100000); // 100ms
             }
             playing = false;
@@ -491,10 +509,12 @@ bool BGMusicPlayer::DecodeAudioPacket()
                 }
             }
 
-            // Queue audio directly to SDL
-            if (SDL_QueueAudio(audioDevice, tempBuffer, dataSize) < 0)
+            // Add to internal buffer for callback
+            std::lock_guard<std::mutex> lock(bufferMutex);
+            if (audioBufferSize + dataSize <= audioBufferMaxSize)
             {
-                std::cerr << "Failed to queue audio: " << SDL_GetError() << std::endl;
+                memcpy(audioBuffer + audioBufferSize, tempBuffer, dataSize);
+                audioBufferSize += dataSize;
             }
 
             // Update position
@@ -511,6 +531,47 @@ bool BGMusicPlayer::DecodeAudioPacket()
 
     av_packet_unref(packet);
     return true;
+}
+
+// Static audio callback for SDL
+void BGMusicPlayer::AudioCallback(void *userdata, uint8_t *stream, int len)
+{
+    BGMusicPlayer *player = static_cast<BGMusicPlayer *>(userdata);
+    if (player)
+    {
+        player->FillAudioBuffer(stream, len);
+    }
+}
+
+// Fill audio buffer for SDL callback
+void BGMusicPlayer::FillAudioBuffer(uint8_t *stream, int len)
+{
+    std::lock_guard<std::mutex> lock(bufferMutex);
+
+    if (audioBufferSize >= len)
+    {
+        // Enough data available
+        memcpy(stream, audioBuffer, len);
+
+        // Shift remaining data
+        audioBufferSize -= len;
+        if (audioBufferSize > 0)
+        {
+            memmove(audioBuffer, audioBuffer + len, audioBufferSize);
+        }
+    }
+    else if (audioBufferSize > 0)
+    {
+        // Some data available, fill rest with silence
+        memcpy(stream, audioBuffer, audioBufferSize);
+        memset(stream + audioBufferSize, 0, len - audioBufferSize);
+        audioBufferSize = 0;
+    }
+    else
+    {
+        // No data available, fill with silence
+        memset(stream, 0, len);
+    }
 }
 
 // Check if playing

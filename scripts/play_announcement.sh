@@ -68,7 +68,7 @@ fi
 
 # Ducking strategy using bgmplayer's runtime volume control:
 # 1. Send volume control command to background music player to reduce its volume
-# 2. Play PSA at normal volume (both use same system volume)
+# 2. Play PSA at normal volume (both use same system volume via dmix)
 # 3. After PSA, restore background music volume
 
 if [ "$BG_MUSIC_PLAYING" = true ]; then
@@ -156,8 +156,8 @@ EOF
     
     log_message "Playing announcement at 100% (system volume is ${ORIGINAL_VOLUME}%)"
     
-    # Play announcement at normal volume
-    SDL_AUDIODRIVER=alsa "$PLUGIN_DIR/bgmplayer" -nodisp -autoexit -loglevel error "$ANNOUNCEMENT_FILE" >> "$LOG_FILE" 2>&1 &
+    # Play announcement with direct hardware access (matching background music)
+    SDL_AUDIODRIVER=alsa AUDIODEV=plughw:0,0 "$PLUGIN_DIR/bgmplayer" -nodisp -autoexit -loglevel error "$ANNOUNCEMENT_FILE" >> "$LOG_FILE" 2>&1 &
     BGMPLAYER_PID=$!
     
     # Monitor playback and update status

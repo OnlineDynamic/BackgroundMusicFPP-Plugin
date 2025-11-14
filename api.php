@@ -701,8 +701,8 @@ function fppBackgroundMusicPlayAnnouncement() {
     $input = json_decode(file_get_contents('php://input'), true);
     $buttonNumber = isset($input['buttonNumber']) ? intval($input['buttonNumber']) : 0;
     
-    if ($buttonNumber < 1 || $buttonNumber > 5) {
-        return json(array('status' => 'ERROR', 'message' => 'Invalid button number'));
+    if ($buttonNumber < 1 || $buttonNumber > 20) {
+        return json(array('status' => 'ERROR', 'message' => 'Invalid button number (must be 1-20)'));
     }
     
     // Get announcement configuration

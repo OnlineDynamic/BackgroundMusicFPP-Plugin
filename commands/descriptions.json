@@ -16,5 +16,18 @@
         "description": "Stops the background music player (sequences continue running)",
         "script": "stop-background-music.sh",
         "args": []
+    },
+    {
+        "name": "BackgroundMusic - Play PSA",
+        "description": "Plays a configured PSA announcement button (1-20) with audio ducking",
+        "script": "play-psa.sh",
+        "args": [
+            {
+                "name": "buttonNumber",
+                "description": "PSA button number (1-20)",
+                "type": "string",
+                "optional": false
+            }
+        ]
     }
 ]

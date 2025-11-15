@@ -1,7 +1,7 @@
 <?php
 include_once("/opt/fpp/www/common.php");
 $pluginName = "fpp-plugin-BackgroundMusic";
-$pluginConfigFile = $settings['configDirectory'] . "/plugin." . $pluginName;
+$pluginConfigFile = (isset($settings['configDirectory']) ? $settings['configDirectory'] : '/home/fpp/media/config') . "/plugin." . $pluginName;
 
 function getEndpointsfpppluginBackgroundMusic() {
     $result = array();

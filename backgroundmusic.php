@@ -485,7 +485,7 @@
             </div>
             <div class="statusItem">
                 <span class="statusLabel" style="font-style: italic;">Note:</span>
-                <span style="font-size: 14px;">Pre-show sequence controlled by FPP scheduler</span>
+                <span style="font-size: 14px;">Pre-show light sequence controlled by FPP scheduler</span>
             </div>
         </div>
 

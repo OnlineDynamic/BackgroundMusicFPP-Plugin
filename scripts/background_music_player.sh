@@ -2,10 +2,14 @@
 # Background Music Player - plays audio files independently from FPP playlists
 # Uses custom bgmplayer for proper volume control support
 
-# Force SDL to use ALSA driver with direct hardware access
-# Note: dmix (software mixing) doesn't work reliably with SDL on this system
+# Force SDL to use PipeWire via ALSA driver for proper mixing
+# PipeWire allows multiple audio streams without conflicts
+FPP_UID=$(id -u fpp)
+export XDG_RUNTIME_DIR="/run/user/${FPP_UID}"
+export PIPEWIRE_RUNTIME_DIR="/run/user/${FPP_UID}"
 export SDL_AUDIODRIVER=alsa
-export AUDIODEV=plughw:0,0
+export SDL_AUDIO_ALSA_DEVICE=pipewire
+export SDL_AUDIO_SAMPLES=4096
 
 PLUGIN_DIR="/home/fpp/media/plugins/fpp-plugin-BackgroundMusic"
 PLUGIN_CONFIG="/home/fpp/media/config/plugin.fpp-plugin-BackgroundMusic"

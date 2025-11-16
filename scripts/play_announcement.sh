@@ -155,21 +155,28 @@ EOF
     PLUGIN_DIR="/home/fpp/media/plugins/fpp-plugin-BackgroundMusic"
     
     log_message "Playing announcement at 100% (system volume is ${ORIGINAL_VOLUME}%)"
+
+    # Convert announcement to 48kHz stereo WAV for smoother playback through PipeWire
+    TEMP_FILE="/tmp/psa_resampled_${$}.wav"
+    if ! ffmpeg -y -loglevel error -i "$ANNOUNCEMENT_FILE" -ar 48000 -ac 2 "$TEMP_FILE"; then
+        log_message "ERROR: Failed to transcode announcement for playback"
+        rm -f "$TEMP_FILE"
+        exit 1
+    fi
     
-    # Play announcement with direct hardware access (matching background music)
-    SDL_AUDIODRIVER=alsa AUDIODEV=plughw:0,0 "$PLUGIN_DIR/bgmplayer" -nodisp -autoexit -loglevel error "$ANNOUNCEMENT_FILE" >> "$LOG_FILE" 2>&1 &
+    # Play announcement using PipeWire via ALSA with larger buffer to avoid underruns
+    FPP_UID=$(id -u fpp)
+    XDG_RUNTIME_DIR="/run/user/${FPP_UID}" PIPEWIRE_RUNTIME_DIR="/run/user/${FPP_UID}" \
+        SDL_AUDIODRIVER=alsa SDL_AUDIO_ALSA_DEVICE="pipewire" \
+        SDL_AUDIO_SAMPLES=8192 \
+        "$PLUGIN_DIR/bgmplayer" -nodisp -autoexit \
+        -loglevel error "$TEMP_FILE" >> "$LOG_FILE" 2>&1 &
     BGMPLAYER_PID=$!
     
-    # Monitor playback and update status
-    START_TIME=$(date +%s)
-    while kill -0 $BGMPLAYER_PID 2>/dev/null; do
-        # Update status file with current elapsed time
-        sed -i "s/^startTime=.*/startTime=$START_TIME/" "$ANNOUNCEMENT_STATUS_FILE" 2>/dev/null
-        sleep 0.5
-    done
+    log_message "PSA player started with PID $BGMPLAYER_PID"
     
     # Wait for bgmplayer to finish
-    wait $BGMPLAYER_PID
+    wait $BGMPLAYER_PID 2>/dev/null
     PLAY_RESULT=$?
     
     log_message "DEBUG: announcement playback exit code: $PLAY_RESULT"
@@ -194,7 +201,8 @@ EOF
         fi
     fi
     
-    # Clean up PID and status files
+    # Clean up temp audio, PID and status files
+    rm -f "$TEMP_FILE"
     rm -f "$ANNOUNCEMENT_PID_FILE"
     rm -f "$ANNOUNCEMENT_STATUS_FILE"
     

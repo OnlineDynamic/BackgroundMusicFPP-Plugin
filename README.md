@@ -13,10 +13,10 @@ A 'Start Show' button allows the user to trigger a configured show playlist. Whe
 **New in this version:**
 - **PSA (Public Service Announcement) System** - 5 configurable buttons to play announcements over background music
 - **Automatic Volume Ducking** - Background music fades during announcements
-- **ALSA Software Mixing** - Concurrent audio playback support
+- **PipeWire Audio Mixing** - Rock-solid concurrent playback without ALSA hacks
 - **Enhanced API** - New endpoints for PSA control
 
-**Upgrading from v1.x?** The plugin automatically updates ALSA configuration. After upgrade, stop/restart background music to apply changes. See [CHANGELOG.md](CHANGELOG.md) for full details.
+**Upgrading from v1.x?** The plugin now provisions a dedicated PipeWire stack (including ffmpeg resampling support). After upgrade, stop/restart background music to pick up the new audio pipeline. See [CHANGELOG.md](CHANGELOG.md) for full details.
 
 ## Requirements
 
@@ -64,29 +64,27 @@ sudo systemctl restart fppd
 ## Technical Requirements
 
 ### Audio Configuration
-The plugin automatically configures ALSA for software mixing (dmix) during installation. This enables:
-- ✅ Background music and PSA announcements playing simultaneously
-- ✅ Multiple audio streams without conflicts
-- ✅ Smooth volume ducking for announcements
-- ✅ **Full FPP compatibility** - FPP's playlist media playback continues to work normally
+The installer now deploys a **self-contained PipeWire stack** for the `fpp` user so the plugin can manage concurrent audio cleanly without touching system-wide ALSA configs.
 
-**What Gets Configured:**
-- `/etc/asound.conf` - ALSA configuration with dmix support
-- Original config backed up to `/etc/asound.conf.backup-*`
-- Uses FPP's configured audio card (AudioOutput setting)
-- Background music player uses `plug:default` device
-- PSA announcements use software mixing for concurrent playback
+**During install we:**
 
-**FPP Compatibility:**
-- ✅ Works alongside FPP's native media playback
-- ✅ Uses the same audio card FPP is configured for
-- ✅ FPP playlists with audio continue to work normally
-- ✅ Volume API remains fully functional
-- ✅ No interference with FPP sequences or effects
+- Install `pipewire`, `pipewire-alsa`, `pipewire-pulse`, `wireplumber`, and `ffmpeg`
+- Back up `/home/fpp/.asoundrc` if present so PipeWire's ALSA shim can take over
+- Drop `~/.config/pipewire/pipewire.conf.d/70-backgroundmusic.conf` with large audio buffers to eliminate underruns
+- Make sure `scripts/start_pipewire.sh` is executable and run it to (re)launch the PipeWire/WirePlumber processes under the `fpp` account
 
-**Note:** 
-- After plugin installation, stop and restart background music for ALSA configuration to take effect
-- If you change FPP's audio device setting, reinstall the plugin to update ALSA configuration
+**What you get:**
+
+- ✅ Background music and PSA announcements share the same low-latency PipeWire graph
+- ✅ Automatic ffmpeg resampling to 48 kHz stereo WAV for glitch-free PSA playback
+- ✅ Smooth ducking because both players run through the same mixer
+- ✅ Zero changes to FPP's native playlist audio pipeline—FPP media still plays normally
+
+**Operational tips:**
+
+- If audio ever drops out, run `scripts/start_pipewire.sh` via SSH or reinstall the plugin to restart the stack
+- When changing the physical audio device in FPP settings, rerun the installer (or `start_pipewire.sh`) so PipeWire reconnects to the new sink
+- Keep ffmpeg installed; the PSA pipeline depends on it for on-the-fly conversions
 
 ### Automatic Update Notifications
 
@@ -101,6 +99,7 @@ The plugin checks for updates automatically when internet is available:
 - 🔄 Update via FPP's Plugin Manager
 
 **How it works:**
+
 - Reads `pluginInfo.json` to determine which branch to check based on FPP version
 - Compares local git commit with remote repository
 - Shows notification with commit count and latest changes
@@ -126,12 +125,14 @@ Plugin automatically installs via FPP plugin manager.
 ### 3. Basic Usage
 
 **Start Background Music:**
+
 - Go to **Status/Control** → **Background Music Controller**
 - Click "Start Background Music" button
 - Background music plays over scheduler-controlled sequences
 - See real-time track progress and playlist details
 
 **Start Main Show:**
+
 - Click "Start Main Show" button on controller page
 - OR configure GPIO input to trigger show (see below)
 - Background music fades out → blackout → show starts
@@ -153,11 +154,13 @@ The plugin exposes FPP commands that can be triggered via GPIO inputs, allowing 
 4. Save configuration and test
 
 **Available FPP Commands:**
+
 - `Start Main Show` - Initiates fade transition and starts main show playlist
 - `Start Background Music` - Starts background music playback
 - `Stop Background Music` - Stops background music playback
 
 **Use Cases:**
+
 - Push button at entrance to start show
 - PIR motion sensor to trigger when audience arrives
 - Toggle switch for manual show control
@@ -166,6 +169,7 @@ The plugin exposes FPP commands that can be triggered via GPIO inputs, allowing 
 ## Controller Features
 
 ### Real-Time Status Display
+
 - Background music running state
 - Currently playing track with progress bar
 - Time elapsed/remaining display
@@ -174,6 +178,7 @@ The plugin exposes FPP commands that can be triggered via GPIO inputs, allowing 
 - Configuration summary
 
 ### Playlist Details Panel
+
 - View all tracks in background music playlist
 - Track numbers, names, and durations
 - Total track count and playlist duration
@@ -181,6 +186,7 @@ The plugin exposes FPP commands that can be triggered via GPIO inputs, allowing 
 - Auto-updates every 2 seconds
 
 ### Volume Control
+
 - Real-time volume adjustment slider
 - Syncs with FPP's system volume
 - Separate volume settings for:
@@ -272,6 +278,7 @@ The plugin uses an **independent audio player** (ffplay) that runs completely se
 **Plugin Developer:** Stuart Ledingham of Dynamic Pixels
 
 **Resources:**
+
 - [GitHub Repository](https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin)
 - [Bug Reports & Feature Requests](https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin/issues)
 

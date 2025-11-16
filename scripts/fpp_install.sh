@@ -47,6 +47,11 @@ echo "Installing build dependencies for bgmplayer..."
 sudo apt-get -y install g++ make
 sudo apt-get -y install libsdl2-dev
 sudo apt-get -y install libavformat-dev libavcodec-dev libavutil-dev libswresample-dev
+sudo apt-get -y install ffmpeg
+
+# Install PipeWire stack for reliable mixed audio playback
+echo "Installing PipeWire audio stack..."
+sudo apt-get -y install pipewire pipewire-pulse pipewire-alsa wireplumber
 
 # Compile custom audio player
 echo ""
@@ -65,99 +70,48 @@ else
 fi
 echo "=========================================="
 
-# Configure ALSA for software mixing (dmix) to allow concurrent audio streams
-# This enables background music and PSA announcements to play simultaneously
-echo ""
-echo "=========================================="
-echo "Configuring ALSA for software mixing support..."
-echo "=========================================="
-
-# Detect the audio card to use (prefer FPP's configured device)
-AUDIO_CARD="0"
-AUDIO_DEVICE="0"
-
-# Try to read FPP's audio configuration
-if [ -f "/home/fpp/media/settings" ]; then
-    FPP_AUDIO_OUTPUT=$(grep "^AudioOutput = " /home/fpp/media/settings | sed 's/AudioOutput = "\(.*\)"/\1/')
-    if [ -n "$FPP_AUDIO_OUTPUT" ]; then
-        AUDIO_CARD="$FPP_AUDIO_OUTPUT"
-        echo "Using FPP's configured audio card: $AUDIO_CARD"
-    else
-        echo "No audio output configured in FPP, using default card 0"
-    fi
-else
-    echo "FPP settings file not found, using default card 0"
-fi
-
-# Check if this is an upgrade (existing config with our marker)
-NEEDS_UPDATE=0
-if [ -f "/etc/asound.conf" ]; then
-    if grep -q "Background Music Plugin" /etc/asound.conf; then
-        # Always update to ensure correct configuration
-        echo "Updating ALSA configuration to latest version..."
-        sudo cp /etc/asound.conf /etc/asound.conf.old-$(date +%Y%m%d-%H%M%S)
-        NEEDS_UPDATE=1
-    else
-        # Backup non-plugin config
-        sudo cp /etc/asound.conf /etc/asound.conf.backup-$(date +%Y%m%d-%H%M%S)
-        echo "Backed up existing /etc/asound.conf"
-        NEEDS_UPDATE=1
-    fi
-else
-    # No config exists
-    echo "Creating new ALSA configuration..."
-    NEEDS_UPDATE=1
-fi
-
-# Create or update ALSA configuration with dmix support
-if [ $NEEDS_UPDATE -eq 1 ]; then
-    echo "Writing new ALSA configuration..."
-    sudo tee /etc/asound.conf > /dev/null << EOF
-# ALSA configuration for Background Music Plugin with software mixing support
-# This enables multiple audio streams to play concurrently (background music + PSA announcements)
-# Auto-generated during plugin installation/update
-# Last updated: $(date)
+# Ensure helper scripts are executable
+chmod +x "$PLUGIN_DIR/scripts/start_pipewire.sh" 2>/dev/null
 
 pcm.dmixer {
-    type dmix
-    ipc_key 1024
-    ipc_perm 0666
-    slave {
-        pcm "hw:${AUDIO_CARD},${AUDIO_DEVICE}"
-        rate 48000
-        channels 2
-        format S16_LE
-        period_time 0
-        period_size 1024
-        buffer_size 4096
-    }
-    bindings {
-        0 0
-        1 1
-    }
-}
-
 pcm.!default {
-    type plug
-    slave.pcm "dmixer"
-}
+echo "Note: If FPP's audio device is changed, re-run this install script or"
+# Configure PipeWire for reliable audio mixing
+echo ""
+echo "=========================================="
+echo "Configuring PipeWire audio stack..."
+echo "=========================================="
 
-ctl.!default {
-    type hw
-    card ${AUDIO_CARD}
-}
-EOF
-
-    echo "ALSA software mixing configured successfully for card ${AUDIO_CARD}"
-    echo ""
-    echo "IMPORTANT: If background music is currently playing, stop and restart it"
-    echo "           for the new ALSA configuration to take effect."
-else
-    echo "ALSA configuration is current, no changes needed"
+# Remove legacy ALSA overrides that conflict with PipeWire
+if [ -f "/root/.asoundrc" ] && [ ! -f "/root/.asoundrc.backgroundmusic-backup" ]; then
+    echo "Backing up /root/.asoundrc (it forces direct hardware access)..."
+    sudo mv /root/.asoundrc /root/.asoundrc.backgroundmusic-backup
 fi
 
-echo "Note: If FPP's audio device is changed, re-run this install script or"
-echo "      reinstall the plugin to update /etc/asound.conf"
+# Create per-user PipeWire config for the fpp user
+PIPEWIRE_CONF_DIR="/home/fpp/.config/pipewire/pipewire.conf.d"
+sudo -u fpp mkdir -p "$PIPEWIRE_CONF_DIR"
+cat <<'EOF' | sudo tee "$PIPEWIRE_CONF_DIR/99-backgroundmusic.conf" > /dev/null
+context.properties = {
+    default.clock.rate = 48000
+    default.clock.quantum = 2048
+    default.clock.min-quantum = 1024
+    default.clock.max-quantum = 8192
+}
+EOF
+sudo chown fpp:fpp "$PIPEWIRE_CONF_DIR/99-backgroundmusic.conf"
+
+echo "PipeWire configuration written to $PIPEWIRE_CONF_DIR/99-backgroundmusic.conf"
+
+# Start/refresh PipeWire stack so new settings take effect
+echo "Starting PipeWire services..."
+if /home/fpp/media/plugins/fpp-plugin-BackgroundMusic/scripts/start_pipewire.sh; then
+    echo "✓ PipeWire stack started for fpp user"
+else
+    echo "⚠ WARNING: PipeWire start script encountered an error"
+    echo "  Check /tmp/pipewire*.log for details"
+fi
+
 echo "=========================================="
 
 # Check if fpp-brightness plugin is installed (required for transitions with MultiSync support)

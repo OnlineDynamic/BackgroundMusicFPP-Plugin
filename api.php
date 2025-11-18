@@ -499,7 +499,15 @@ function fppBackgroundMusicStartShow() {
         return json(array('status' => 'ERROR', 'message' => 'Plugin not configured'));
     }
     
-    $showPlaylist = isset($pluginSettings['ShowPlaylist']) ? $pluginSettings['ShowPlaylist'] : '';
+    // Get POST data - check if a playlist name was passed in the request
+    $input = json_decode(file_get_contents('php://input'), true);
+    $showPlaylist = isset($input['playlist']) && !empty($input['playlist']) ? $input['playlist'] : '';
+    
+    // If no playlist was passed, fall back to configured ShowPlaylist
+    if (empty($showPlaylist)) {
+        $showPlaylist = isset($pluginSettings['ShowPlaylist']) ? $pluginSettings['ShowPlaylist'] : '';
+    }
+    
     $fadeTime = isset($pluginSettings['FadeTime']) ? intval($pluginSettings['FadeTime']) : 5;
     $blackoutTime = isset($pluginSettings['BlackoutTime']) ? intval($pluginSettings['BlackoutTime']) : 2;
     

@@ -284,7 +284,14 @@ function fppBackgroundMusicStatus() {
         }
     }
     
-    $showRunning = ($currentPlaylist === $showPlaylist && $currentPlaylist !== '');
+    // Check if a show is running
+    // A show is considered running if:
+    // 1. A playlist is currently running in FPP, AND
+    // 2. It's NOT the background music playlist (background music is handled separately)
+    $showRunning = false;
+    if ($currentPlaylist !== '' && $currentPlaylist !== $backgroundMusicPlaylist) {
+        $showRunning = true;
+    }
     
     // Check if fpp-brightness plugin is installed (required for transitions)
     $brightnessPluginInstalled = file_exists('/home/fpp/media/plugins/fpp-brightness/libfpp-brightness.so');

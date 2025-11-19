@@ -255,3 +255,7 @@ if [ -f "$HEADER_JS" ]; then
 else
     echo "Warning: header-indicator.js not found at $HEADER_JS"
 fi
+
+echo ""
+echo "Installation/Upgrade complete!"
+echo ""

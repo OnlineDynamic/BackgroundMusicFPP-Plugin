@@ -69,16 +69,11 @@ function isMediaOnlyPlaylist($playlistName) {
     curl_close($ch);
     $playlist = json_decode($data, true);
     
-    // Check if playlist is empty
-    if (isset($playlist['empty']) && $playlist['empty'] === true) {
-        return false;
-    }
-    
     if (!isset($playlist['mainPlaylist']) || !is_array($playlist['mainPlaylist'])) {
         return false;
     }
     
-    // Check if playlist has items
+    // Check if playlist has items (don't rely on 'empty' flag - it can be incorrect for m4a files)
     if (count($playlist['mainPlaylist']) == 0) {
         return false;
     }

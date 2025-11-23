@@ -72,6 +72,42 @@
             "quality": "medium",
             "size_mb": 45,
             "description": "Australian English female voice"
+        },
+        {
+            "id": "fr_FR-siwis-medium",
+            "name": "Siwis (French)",
+            "language": "French (FR)",
+            "gender": "female",
+            "quality": "medium",
+            "size_mb": 55,
+            "description": "Natural French female voice"
+        },
+        {
+            "id": "fr_FR-upmc-medium",
+            "name": "UPMC (French)",
+            "language": "French (FR)",
+            "gender": "male",
+            "quality": "medium",
+            "size_mb": 58,
+            "description": "French male voice from UPMC"
+        },
+        {
+            "id": "fr_FR-tom-medium",
+            "name": "Tom (French)",
+            "language": "French (FR)",
+            "gender": "male",
+            "quality": "medium",
+            "size_mb": 52,
+            "description": "Clear French male voice"
+        },
+        {
+            "id": "fr_FR-mls-medium",
+            "name": "MLS (French)",
+            "language": "French (FR)",
+            "gender": "neutral",
+            "quality": "medium",
+            "size_mb": 61,
+            "description": "Multi-speaker French voice"
         }
     ]
 }

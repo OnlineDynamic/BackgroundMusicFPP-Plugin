@@ -70,23 +70,10 @@ else
 fi
 echo "=========================================="
 
-# Ensure helper scripts are executable
-chmod +x "$PLUGIN_DIR/scripts/start_pipewire.sh" 2>/dev/null
-
-pcm.dmixer {
-pcm.!default {
-echo "Note: If FPP's audio device is changed, re-run this install script or"
-# Configure PipeWire for reliable audio mixing
-echo ""
-echo "=========================================="
-echo "Configuring PipeWire audio stack..."
-echo "=========================================="
-
-# Remove legacy ALSA overrides that conflict with PipeWire
-if [ -f "/root/.asoundrc" ] && [ ! -f "/root/.asoundrc.backgroundmusic-backup" ]; then
-    echo "Backing up /root/.asoundrc (it forces direct hardware access)..."
-    sudo mv /root/.asoundrc /root/.asoundrc.backgroundmusic-backup
-fi
+# Ensure helper scripts are executable and owned by fpp
+echo "Setting permissions on helper scripts..."
+chmod +x "$PLUGIN_DIR/scripts"/*.sh 2>/dev/null
+chown fpp:fpp "$PLUGIN_DIR/scripts"/*.sh 2>/dev/null
 
 # Create per-user PipeWire config for the fpp user
 PIPEWIRE_CONF_DIR="/home/fpp/.config/pipewire/pipewire.conf.d"
@@ -100,8 +87,23 @@ context.properties = {
 }
 EOF
 sudo chown fpp:fpp "$PIPEWIRE_CONF_DIR/99-backgroundmusic.conf"
+sudo chmod 644 "$PIPEWIRE_CONF_DIR/99-backgroundmusic.conf"
 
 echo "PipeWire configuration written to $PIPEWIRE_CONF_DIR/99-backgroundmusic.conf"
+
+# Ensure WirePlumber config directory exists with proper permissions
+WIREPLUMBER_CONF_DIR="/home/fpp/.config/wireplumber/main.lua.d"
+sudo -u fpp mkdir -p "$WIREPLUMBER_CONF_DIR"
+sudo chown -R fpp:fpp /home/fpp/.config/wireplumber
+sudo chmod -R 755 /home/fpp/.config/wireplumber
+
+# Ensure /run/user/500 exists with proper permissions for PipeWire runtime
+if [ ! -d "/run/user/500" ]; then
+    echo "Creating /run/user/500 for PipeWire runtime..."
+    sudo mkdir -p /run/user/500
+    sudo chown fpp:fpp /run/user/500
+    sudo chmod 700 /run/user/500
+fi
 
 # Start/refresh PipeWire stack so new settings take effect
 echo "Starting PipeWire services..."

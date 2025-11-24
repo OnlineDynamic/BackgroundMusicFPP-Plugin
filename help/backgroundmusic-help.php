@@ -126,6 +126,58 @@
             margin: 10px 0;
         }
         
+        /* Log Viewer Styles */
+        .log-viewer {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 15px;
+            border-radius: 4px;
+            max-height: 600px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border: 1px solid #333;
+        }
+        
+        .log-viewer::-webkit-scrollbar {
+            width: 10px;
+        }
+        
+        .log-viewer::-webkit-scrollbar-track {
+            background: #2d2d2d;
+        }
+        
+        .log-viewer::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 5px;
+        }
+        
+        .log-viewer::-webkit-scrollbar-thumb:hover {
+            background: #777;
+        }
+        
+        .log-controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .log-line-error {
+            color: #f48771;
+        }
+        
+        .log-line-warning {
+            color: #dcdcaa;
+        }
+        
+        .log-line-psa {
+            color: #4ec9b0;
+        }
+        
         /* Suppress Font Awesome brand icons loading errors (not used in this page) */
         @font-face {
             font-family: "Font Awesome 6 Brands";
@@ -163,6 +215,9 @@
             </button>
             <button class="tab-button" onclick="switchTab('troubleshooting', this)">
                 <i class="fas fa-wrench"></i> Troubleshooting
+            </button>
+            <button class="tab-button" onclick="switchTab('logs', this)">
+                <i class="fas fa-file-alt"></i> Log Viewer
             </button>
             <button class="tab-button" onclick="switchTab('changelog', this)">
                 <i class="fas fa-history"></i> Changelog
@@ -1173,6 +1228,146 @@
                                 changelogLoaded = true;
                             }
                         };
+                    }
+                });
+            </script>
+        </div>
+        
+        <!-- Log Viewer Tab -->
+        <div id="logs" class="tab-content">
+            <h2><i class="fas fa-file-alt"></i> Log Viewer</h2>
+            <p>View plugin logs in real-time to diagnose issues. Logs are color-coded for easier reading.</p>
+            
+            <div class="log-controls">
+                <button class="btn btn-primary" onclick="refreshLog()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+                <button class="btn btn-secondary" onclick="clearLogDisplay()">
+                    <i class="fas fa-eraser"></i> Clear Display
+                </button>
+                <button class="btn btn-success" onclick="downloadLog()">
+                    <i class="fas fa-download"></i> Download Log
+                </button>
+                <label style="margin-left: auto;">
+                    Lines to show:
+                    <select id="logLines" onchange="refreshLog()" class="form-control" style="display: inline-block; width: auto; margin-left: 5px;">
+                        <option value="50">50</option>
+                        <option value="100" selected>100</option>
+                        <option value="200">200</option>
+                        <option value="500">500</option>
+                        <option value="1000">1000</option>
+                        <option value="all">All</option>
+                    </select>
+                </label>
+                <label>
+                    <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()"> Auto-refresh (5s)
+                </label>
+            </div>
+            
+            <div class="log-viewer" id="logContent">
+                <div style="text-align: center; color: #888;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i>
+                    <p>Loading log file...</p>
+                </div>
+            </div>
+            
+            <script>
+                let autoRefreshInterval = null;
+                
+                function refreshLog() {
+                    const lines = document.getElementById('logLines').value;
+                    const logContent = document.getElementById('logContent');
+                    
+                    logContent.innerHTML = '<div style="text-align: center; color: #888;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+                    
+                    fetch('/api/plugin/fpp-plugin-BackgroundMusic/get-log?lines=' + lines)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'OK' && data.log) {
+                                displayLog(data.log);
+                            } else {
+                                logContent.innerHTML = '<div style="color: #f48771;">Error: ' + (data.message || 'Failed to load log') + '</div>';
+                            }
+                        })
+                        .catch(error => {
+                            logContent.innerHTML = '<div style="color: #f48771;">Error loading log: ' + error.message + '</div>';
+                        });
+                }
+                
+                function displayLog(logText) {
+                    const logContent = document.getElementById('logContent');
+                    
+                    if (!logText || logText.trim() === '') {
+                        logContent.innerHTML = '<div style="text-align: center; color: #888;">Log file is empty</div>';
+                        return;
+                    }
+                    
+                    // Split into lines and apply color coding
+                    const lines = logText.split('\\n');
+                    const coloredLines = lines.map(line => {
+                        if (line.includes('ERROR') || line.includes('Error') || line.includes('error')) {
+                            return '<span class="log-line-error">' + escapeHtml(line) + '</span>';
+                        } else if (line.includes('WARNING') || line.includes('Warning') || line.includes('warning')) {
+                            return '<span class="log-line-warning">' + escapeHtml(line) + '</span>';
+                        } else if (line.includes('[PSA]')) {
+                            return '<span class="log-line-psa">' + escapeHtml(line) + '</span>';
+                        }
+                        return escapeHtml(line);
+                    });
+                    
+                    logContent.innerHTML = coloredLines.join('\\n');
+                    // Auto-scroll to bottom
+                    logContent.scrollTop = logContent.scrollHeight;
+                }
+                
+                function clearLogDisplay() {
+                    document.getElementById('logContent').innerHTML = '<div style="text-align: center; color: #888;">Display cleared. Click Refresh to reload.</div>';
+                }
+                
+                function downloadLog() {
+                    window.location.href = '/api/plugin/fpp-plugin-BackgroundMusic/download-log';
+                }
+                
+                function toggleAutoRefresh() {
+                    const enabled = document.getElementById('autoRefresh').checked;
+                    
+                    if (enabled) {
+                        refreshLog(); // Refresh immediately
+                        autoRefreshInterval = setInterval(refreshLog, 5000); // Then every 5 seconds
+                    } else {
+                        if (autoRefreshInterval) {
+                            clearInterval(autoRefreshInterval);
+                            autoRefreshInterval = null;
+                        }
+                    }
+                }
+                
+                function escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                }
+                
+                // Load log when tab is opened
+                document.addEventListener('DOMContentLoaded', function() {
+                    let logsLoaded = false;
+                    const originalSwitchTab = window.switchTab;
+                    
+                    if (typeof originalSwitchTab === 'function') {
+                        window.switchTab = function(tabName, button) {
+                            originalSwitchTab(tabName, button);
+                            if (tabName === 'logs' && !logsLoaded) {
+                                refreshLog();
+                                logsLoaded = true;
+                            }
+                        };
+                    }
+                });
+                
+                // Cleanup on page unload
+                window.addEventListener('beforeunload', function() {
+                    if (autoRefreshInterval) {
+                        clearInterval(autoRefreshInterval);
                     }
                 });
             </script>

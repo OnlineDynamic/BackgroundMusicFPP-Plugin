@@ -115,6 +115,18 @@ function getEndpointsfpppluginBackgroundMusic() {
     array_push($result, $ep);
     
     $ep = array(
+        'method' => 'GET',
+        'endpoint' => 'get-log',
+        'callback' => 'fppBackgroundMusicGetLog');
+    array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'GET',
+        'endpoint' => 'download-log',
+        'callback' => 'fppBackgroundMusicDownloadLog');
+    array_push($result, $ep);
+    
+    $ep = array(
         'method' => 'POST',
         'endpoint' => 'reorder-playlist',
         'callback' => 'fppBackgroundMusicReorderPlaylist');
@@ -1531,6 +1543,59 @@ function fppBackgroundMusicDeleteVoice() {
             'message' => 'Failed to delete voice files'
         ));
     }
+}
+
+function fppBackgroundMusicGetLog() {
+    $logFile = '/home/fpp/media/logs/fpp-plugin-BackgroundMusic.log';
+    
+    if (!file_exists($logFile)) {
+        return json(array(
+            'status' => 'ERROR',
+            'message' => 'Log file not found',
+            'log' => ''
+        ));
+    }
+    
+    // Get number of lines to return
+    $lines = isset($_GET['lines']) ? $_GET['lines'] : '100';
+    
+    if ($lines === 'all') {
+        $logContent = file_get_contents($logFile);
+    } else {
+        $lineCount = intval($lines);
+        if ($lineCount <= 0) $lineCount = 100;
+        
+        // Use tail command to get last N lines efficiently
+        $logContent = shell_exec("tail -n $lineCount " . escapeshellarg($logFile));
+        
+        if ($logContent === null || $logContent === false) {
+            $logContent = file_get_contents($logFile);
+        }
+    }
+    
+    return json(array(
+        'status' => 'OK',
+        'log' => $logContent ?: '',
+        'lines' => $lines
+    ));
+}
+
+function fppBackgroundMusicDownloadLog() {
+    $logFile = '/home/fpp/media/logs/fpp-plugin-BackgroundMusic.log';
+    
+    if (!file_exists($logFile)) {
+        header('HTTP/1.1 404 Not Found');
+        echo 'Log file not found';
+        exit;
+    }
+    
+    // Set headers for download
+    header('Content-Type: text/plain');
+    header('Content-Disposition: attachment; filename="backgroundmusic-' . date('Y-m-d_H-i-s') . '.log"');
+    header('Content-Length: ' . filesize($logFile));
+    
+    readfile($logFile);
+    exit;
 }
 
 ?>

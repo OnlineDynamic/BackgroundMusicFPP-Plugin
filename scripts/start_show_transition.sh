@@ -40,12 +40,12 @@ fi
 
 log_message "Original volume: ${ORIGINAL_VOLUME}%"
 
-# Start audio fade in background (will fade over FADE_TIME seconds)
+# Start fading brightness and bgmplayer volume in parallel
 SCRIPT_DIR="$(dirname "$0")"
 if [ -f "/tmp/background_music_player.pid" ]; then
-    log_message "Starting audio fade"
-    /bin/bash "$SCRIPT_DIR/fade_audio.sh" "$FADE_TIME" &
-    FADE_AUDIO_PID=$!
+    log_message "Starting bgmplayer volume fade (internal volume, not system)"
+    /bin/bash "$SCRIPT_DIR/fade_bgmplayer.sh" >> "$LOG_FILE" 2>&1 &
+    FADE_BGMPLAYER_PID=$!
 fi
 
 # Fade out brightness using Brightness plugin's native fade (supports MultiSync)
@@ -57,18 +57,27 @@ curl -s -X GET "http://localhost/api/plugin-apis/Brightness/FadeDown/$FADE_TIME_
 # Wait for fade to complete
 sleep "$FADE_TIME"
 
-# Wait for audio fade to complete if it's still running
-if [ -n "$FADE_AUDIO_PID" ]; then
-    wait "$FADE_AUDIO_PID" 2>/dev/null
+# Wait for bgmplayer volume fade to complete if it's still running
+if [ -n "$FADE_BGMPLAYER_PID" ]; then
+    wait "$FADE_BGMPLAYER_PID" 2>/dev/null
 fi
 
-log_message "Brightness faded to 0%"
+log_message "Brightness and bgmplayer volume faded to 0%"
 
-# Ensure background music is stopped
+# Now stop the player (it's at 0% volume so no audible artifacts)
 if [ -f "/tmp/background_music_player.pid" ]; then
-    log_message "Stopping background music player"
-    SCRIPT_DIR="$(dirname "$0")"
-    /bin/bash "$SCRIPT_DIR/background_music_player.sh" stop >> "$LOG_FILE" 2>&1
+    PLAYER_PID=$(cat /tmp/background_music_player.pid 2>/dev/null)
+    if [ -n "$PLAYER_PID" ] && kill -0 "$PLAYER_PID" 2>/dev/null; then
+        log_message "Stopping bgmplayer (PID: $PLAYER_PID)"
+        kill -TERM "$PLAYER_PID" 2>/dev/null
+        sleep 0.3
+        # Force kill if still running
+        if kill -0 "$PLAYER_PID" 2>/dev/null; then
+            kill -9 "$PLAYER_PID" 2>/dev/null
+        fi
+    fi
+    # Clean up state files
+    rm -f /tmp/background_music_player.pid /tmp/bg_music_state.txt /tmp/bg_music_status.txt /tmp/bgmplayer_${PLAYER_PID}_volume.txt
 else
     log_message "No background music PID file found, checking for orphaned processes"
 fi

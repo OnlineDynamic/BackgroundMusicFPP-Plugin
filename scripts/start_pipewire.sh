@@ -6,20 +6,100 @@ FPP_UID=$(id -u fpp)
 RUNTIME_DIR="/run/user/${FPP_UID}"
 
 if [ ! -d "$RUNTIME_DIR" ]; then
-    mkdir -p "$RUNTIME_DIR"
-    chown fpp:fpp "$RUNTIME_DIR"
-    chmod 700 "$RUNTIME_DIR"
+    sudo mkdir -p "$RUNTIME_DIR"
+    sudo chown fpp:fpp "$RUNTIME_DIR"
+    sudo chmod 700 "$RUNTIME_DIR"
 fi
 
 # Kill any existing PipeWire processes and stale sockets
 pkill -u fpp pipewire 2>/dev/null
 pkill -u fpp pipewire-pulse 2>/dev/null
 pkill -u fpp wireplumber 2>/dev/null
+pkill -f "dbus-daemon.*$RUNTIME_DIR" 2>/dev/null
 sleep 1
 
-# Remove stale PulseAudio socket so pipewire-pulse can bind cleanly
-mkdir -p "$RUNTIME_DIR/pulse" 2>/dev/null
-rm -f "$RUNTIME_DIR/pulse/native" 2>/dev/null
+# Remove stale sockets and recreate pulse directory with correct permissions
+sudo rm -rf "$RUNTIME_DIR/pulse" 2>/dev/null
+sudo -u fpp mkdir -p "$RUNTIME_DIR/pulse"
+sudo rm -f "$RUNTIME_DIR/bus" 2>/dev/null
+
+# Get FPP's configured audio device and configure PipeWire to use it
+get_fpp_audio_device() {
+    local audio_device=""
+    
+    if [ -f "/home/fpp/media/settings" ]; then
+        audio_device=$(grep "^AudioOutput = " /home/fpp/media/settings | sed 's/AudioOutput = "\(.*\)"/\1/')
+    fi
+    
+    if [ -z "$audio_device" ] && [ -f "/home/fpp/media/settings" ]; then
+        audio_device=$(grep "^AlsaAudioDevice = " /home/fpp/media/settings | sed 's/AlsaAudioDevice = "\(.*\)"/\1/')
+    fi
+    
+    # Convert card number to ALSA device format if needed
+    if [[ "$audio_device" =~ ^[0-9]+$ ]]; then
+        audio_device="hw:$audio_device,0"
+    fi
+    
+    # Default to hw:0,0 if nothing configured
+    if [ -z "$audio_device" ]; then
+        audio_device="hw:0,0"
+    fi
+    
+    echo "$audio_device"
+}
+
+# Create PipeWire configuration with FPP's audio device
+# PipeWire will auto-detect ALSA devices, we just configure the buffer settings
+ALSA_DEVICE=$(get_fpp_audio_device)
+PIPEWIRE_CONF_DIR="/home/fpp/.config/pipewire/pipewire.conf.d"
+sudo -u fpp mkdir -p "$PIPEWIRE_CONF_DIR"
+
+cat <<EOF | sudo tee "$PIPEWIRE_CONF_DIR/99-backgroundmusic.conf" > /dev/null
+context.properties = {
+    default.clock.rate = 48000
+    default.clock.quantum = 2048
+    default.clock.min-quantum = 1024
+    default.clock.max-quantum = 8192
+}
+EOF
+sudo chown fpp:fpp "$PIPEWIRE_CONF_DIR/99-backgroundmusic.conf"
+
+# Create WirePlumber configuration to set the default ALSA device
+WIREPLUMBER_CONF_DIR="/home/fpp/.config/wireplumber/main.lua.d"
+sudo -u fpp mkdir -p "$WIREPLUMBER_CONF_DIR"
+
+# Extract card number from device string (e.g., hw:1,0 -> 1)
+CARD_NUM=$(echo "$ALSA_DEVICE" | grep -oP '(?<=:)\d+' | head -1)
+if [ -z "$CARD_NUM" ]; then
+    CARD_NUM="0"
+fi
+
+# Use filename 51- to load after 50-alsa-config.lua but before 90-enable-all.lua
+cat <<EOF | sudo tee "$WIREPLUMBER_CONF_DIR/51-fpp-audio.lua" > /dev/null
+-- Set default ALSA sink based on FPP configuration
+-- Priority boosts FPP's configured audio device
+alsa_monitor.rules = alsa_monitor.rules or {}
+
+table.insert(alsa_monitor.rules, {
+  matches = {
+    {
+      { "node.name", "matches", "alsa_output.*" },
+      { "api.alsa.card.id", "equals", "${CARD_NUM}" },
+    },
+  },
+  apply_properties = {
+    ["node.description"] = "FPP Audio Output",
+    ["priority.session"] = 1000,
+    ["priority.driver"] = 1000,
+  },
+})
+EOF
+sudo chown fpp:fpp "$WIREPLUMBER_CONF_DIR/51-fpp-audio.lua"
+
+# Remove old config file if it exists
+sudo rm -f "$WIREPLUMBER_CONF_DIR/99-backgroundmusic.lua" 2>/dev/null
+
+echo "PipeWire configured to use ALSA device: $ALSA_DEVICE (card $CARD_NUM)"
 
 # Start PipeWire as fpp user
 export XDG_RUNTIME_DIR="$RUNTIME_DIR"
@@ -49,7 +129,59 @@ sudo -u fpp XDG_RUNTIME_DIR="$RUNTIME_DIR" PIPEWIRE_RUNTIME_DIR="$RUNTIME_DIR" \
     DBUS_SESSION_BUS_ADDRESS="unix:path=$RUNTIME_DIR/bus" \
     /usr/bin/wireplumber &
 
-sleep 2
+# Wait longer for WirePlumber to detect and create all audio devices
+# USB devices can take extra time to enumerate
+sleep 8
 
 echo "PipeWire started for fpp user"
 ps aux | grep -E "pipewire|wireplumber" | grep fpp | grep -v grep
+
+# Set the default sink in background to avoid blocking
+(
+    # Give WirePlumber a moment to finish device detection
+    sleep 3
+    
+    # Set the default sink to match FPP's configured audio device
+    # Find the node name for the configured ALSA card
+    if [ "$CARD_NUM" = "0" ]; then
+        # Card 0 is usually the built-in bcm2835 audio - look for platform mailbox or Built-in Audio
+        DEFAULT_SINK_NAME=$(timeout 5 sudo -u fpp XDG_RUNTIME_DIR="$RUNTIME_DIR" pw-cli ls Node 2>/dev/null | \
+            grep -E 'node.name.*alsa_output.*(platform.*mailbox|bcm2835)' | \
+            head -1 | sed 's/.*node.name = "\([^"]*\)".*/\1/')
+        
+        # Fallback: try any alsa_output for Built-in Audio
+        if [ -z "$DEFAULT_SINK_NAME" ]; then
+            DEFAULT_SINK_NAME=$(timeout 5 sudo -u fpp XDG_RUNTIME_DIR="$RUNTIME_DIR" pw-cli ls Node 2>/dev/null | \
+                grep -B20 'node.description.*Built-in Audio Stereo' | \
+                grep 'node.name.*alsa_output' | tail -1 | sed 's/.*node.name = "\([^"]*\)".*/\1/')
+        fi
+    else
+        # For USB/other cards, get the card name from ALSA and match by description
+        CARD_NAME=$(aplay -l 2>/dev/null | grep "^card $CARD_NUM:" | sed 's/^card [0-9]*: \([^[]*\).*/\1/' | sed 's/ *$//')
+        
+        if [ -n "$CARD_NAME" ]; then
+            echo "Looking for audio sink matching card name: $CARD_NAME"
+            DEFAULT_SINK_NAME=$(timeout 5 sudo -u fpp XDG_RUNTIME_DIR="$RUNTIME_DIR" pw-cli ls Node 2>/dev/null | \
+                grep -A10 "node.description.*$CARD_NAME" | \
+                grep 'node.name.*alsa_output' | \
+                head -1 | sed 's/.*node.name = "\([^"]*\)".*/\1/')
+        fi
+        
+        # Fallback: get any alsa_output node
+        if [ -z "$DEFAULT_SINK_NAME" ]; then
+            DEFAULT_SINK_NAME=$(timeout 5 sudo -u fpp XDG_RUNTIME_DIR="$RUNTIME_DIR" pw-cli ls Node 2>/dev/null | \
+                grep 'node.name.*alsa_output.*usb' | \
+                head -1 | sed 's/.*node.name = "\([^"]*\)".*/\1/')
+        fi
+    fi
+
+    if [ -n "$DEFAULT_SINK_NAME" ]; then
+        echo "Setting default sink to: $DEFAULT_SINK_NAME (card $CARD_NUM)"
+        timeout 3 sudo -u fpp XDG_RUNTIME_DIR="$RUNTIME_DIR" \
+            pw-metadata -n default 0 default.audio.sink "{\"name\":\"$DEFAULT_SINK_NAME\"}" >/dev/null 2>&1
+    else
+        echo "Warning: Could not find ALSA sink for card $CARD_NUM"
+    fi
+) &
+
+echo "PipeWire initialization complete (default sink configuration running in background)"

@@ -28,11 +28,15 @@ fi
 
 log_message "Fading system volume over $FADE_TIME seconds"
 
-# Get current volume
-CURRENT_VOLUME=$(amixer get PCM | grep -o '[0-9]*%' | head -1 | tr -d '%')
-if [ -z "$CURRENT_VOLUME" ]; then
-    log_message "Could not detect current volume"
-    exit 1
+# Get current volume from FPP API
+CURRENT_VOLUME=$(curl -s "http://localhost/api/system/volume" | jq -r '.volume' 2>/dev/null)
+if [ -z "$CURRENT_VOLUME" ] || [ "$CURRENT_VOLUME" = "null" ]; then
+    # Fallback: try amixer
+    CURRENT_VOLUME=$(amixer get PCM 2>/dev/null | grep -o '[0-9]*%' | head -1 | tr -d '%')
+    if [ -z "$CURRENT_VOLUME" ]; then
+        log_message "Could not detect current volume, defaulting to 70"
+        CURRENT_VOLUME=70
+    fi
 fi
 
 log_message "Current volume: ${CURRENT_VOLUME}%, fading to 0%"

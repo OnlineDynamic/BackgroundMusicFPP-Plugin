@@ -2,13 +2,11 @@
 # Background Music Player - plays audio files independently from FPP playlists
 # Uses custom bgmplayer for proper volume control support
 
-# Force SDL to use PipeWire via ALSA driver for proper mixing
-# PipeWire allows multiple audio streams without conflicts
+# Force SDL to use ALSA driver for audio playback
+# SDL_AUDIO_ALSA_DEVICE will be set dynamically based on FPP's configured audio device
 FPP_UID=$(id -u fpp)
 export XDG_RUNTIME_DIR="/run/user/${FPP_UID}"
-export PIPEWIRE_RUNTIME_DIR="/run/user/${FPP_UID}"
 export SDL_AUDIODRIVER=alsa
-export SDL_AUDIO_ALSA_DEVICE=pipewire
 export SDL_AUDIO_SAMPLES=4096
 
 PLUGIN_DIR="/home/fpp/media/plugins/fpp-plugin-BackgroundMusic"
@@ -19,7 +17,7 @@ STATE_FILE="/tmp/bg_music_state.txt"
 BGMPLAYER_PID_FILE="/tmp/bg_music_bgmplayer.pid"
 
 # Use bgmplayer for local files (proper volume control)
-# bgmplayer uses SDL default device, respects ALSA configuration
+# bgmplayer uses SDL which connects directly to ALSA with dmix for software mixing
 PLAYER_CMD="${PLUGIN_DIR}/bgmplayer"
 
 # Function to check if running on PocketBeagle (needs softvol)
@@ -217,14 +215,84 @@ start_music() {
         echo "Attempting to use anyway with plug wrapper..."
     fi
     
-    # Wrap device in plug: for software mixing support (allows PSA announcements to play concurrently)
-    # The plug plugin provides automatic sample rate/format conversion and software mixing
-    # Don't wrap if already using plughw, plug, or dmix (they already have plugin/mixing support)
-    if [[ ! "$audio_device" =~ ^plug: ]] && [[ ! "$audio_device" =~ ^dmix: ]] && [[ ! "$audio_device" =~ ^plughw: ]]; then
-        audio_device="plug:$audio_device"
+    # Ensure PipeWire is running and configured for the current audio device
+    echo "Checking PipeWire status..."
+    if ! pgrep -u fpp pipewire > /dev/null; then
+        echo "PipeWire not running, starting it now..."
+        # Call start_pipewire.sh directly (it now runs sink detection in background)
+        echo "Calling start_pipewire.sh..." > /tmp/pipewire_start.log
+        if "${PLUGIN_DIR}/scripts/start_pipewire.sh" >> /tmp/pipewire_start.log 2>&1; then
+            echo "start_pipewire.sh returned successfully" >> /tmp/pipewire_start.log
+        else
+            echo "start_pipewire.sh returned error code $?" >> /tmp/pipewire_start.log
+        fi
+        
+        # Wait for both PipeWire and WirePlumber to be running and stable
+        local count=0
+        local started=0
+        while [ $count -lt 15 ]; do
+            # Check if both pipewire and wireplumber are running
+            if pgrep -u fpp pipewire > /dev/null && pgrep -u fpp wireplumber > /dev/null; then
+                # Wait a bit to ensure they're stable
+                sleep 2
+                # Verify they're still running
+                if pgrep -u fpp pipewire > /dev/null && pgrep -u fpp wireplumber > /dev/null; then
+                    started=1
+                    break
+                fi
+            fi
+            sleep 1
+            count=$((count + 1))
+        done
+        
+        if [ $started -eq 1 ]; then
+            echo "PipeWire started successfully"
+            sleep 3  # Give WirePlumber extra time to detect devices and create sinks
+        else
+            echo "ERROR: Failed to start PipeWire (timeout after 15s)"
+            echo "Check /tmp/pipewire_start.log for details"
+            return 1
+        fi
+    else
+        echo "PipeWire is running"
+        # Restart PipeWire if the audio device has changed
+        # Check if WirePlumber config matches current device
+        CURRENT_CARD=$(echo "$audio_device" | grep -oP '(?<=:)\d+' | head -1)
+        if [ -z "$CURRENT_CARD" ]; then
+            CURRENT_CARD="0"
+        fi
+        
+        WIREPLUMBER_CONFIG="/home/fpp/.config/wireplumber/main.lua.d/51-fpp-audio.lua"
+        if [ -f "$WIREPLUMBER_CONFIG" ]; then
+            CONFIGURED_CARD=$(grep "api.alsa.card.id" "$WIREPLUMBER_CONFIG" | grep -oP '(?<=equals", ")\d+' | head -1)
+            if [ "$CURRENT_CARD" != "$CONFIGURED_CARD" ]; then
+                echo "Audio device changed (card $CONFIGURED_CARD -> card $CURRENT_CARD), restarting PipeWire..."
+                "${PLUGIN_DIR}/scripts/start_pipewire.sh" > /tmp/pipewire_restart.log 2>&1 &
+                local restart_pid=$!
+                
+                # Wait up to 15 seconds for PipeWire to restart
+                local count=0
+                while [ $count -lt 15 ]; do
+                    if pgrep -u fpp wireplumber > /dev/null; then
+                        echo "PipeWire restarted successfully"
+                        sleep 2  # Give WirePlumber time to detect devices
+                        break
+                    fi
+                    sleep 1
+                    count=$((count + 1))
+                done
+                
+                if ! pgrep -u fpp wireplumber > /dev/null; then
+                    echo "ERROR: Failed to restart PipeWire (timeout)"
+                    echo "Check /tmp/pipewire_restart.log for details"
+                    return 1
+                fi
+            fi
+        fi
     fi
     
     echo "Starting background music player..."
+    echo "Audio routing: SDL -> PipeWire -> $audio_device"
     echo "Source Type: $bg_source"
     if [ "$bg_source" = "stream" ]; then
         echo "Stream URL: $bg_stream_url"
@@ -293,6 +361,12 @@ extract_metadata() {
             
             # Update status file with metadata
             # Read current status and update stream fields
+            # Also check STATE_FILE for pause/play state
+            current_state="playing"
+            if [ -f "$STATE_FILE" ]; then
+                current_state=$(cat "$STATE_FILE")
+            fi
+            
             temp_status=$(mktemp)
             while IFS='=' read -r key value; do
                 case "$key" in
@@ -301,6 +375,10 @@ extract_metadata() {
                         ;;
                     stream_artist)
                         echo "stream_artist=$stream_artist"
+                        ;;
+                    state)
+                        # Use state from STATE_FILE, not from old STATUS_FILE
+                        echo "state=$current_state"
                         ;;
                     *)
                         echo "$key=$value"
@@ -817,6 +895,10 @@ pause_music() {
         kill -STOP "$bgmplayer_pid" 2>/dev/null
         if [ $? -eq 0 ]; then
             echo "paused" > "$STATE_FILE"
+            # Update status file so UI shows paused state
+            if [ -f "/tmp/bg_music_status.txt" ]; then
+                sed -i 's/^state=.*/state=paused/' /tmp/bg_music_status.txt
+            fi
             echo "Background music paused"
             return 0
         else
@@ -842,6 +924,10 @@ resume_music() {
         kill -CONT "$bgmplayer_pid" 2>/dev/null
         if [ $? -eq 0 ]; then
             echo "playing" > "$STATE_FILE"
+            # Update status file so UI shows playing state
+            if [ -f "/tmp/bg_music_status.txt" ]; then
+                sed -i 's/^state=.*/state=playing/' /tmp/bg_music_status.txt
+            fi
             echo "Background music resumed"
             return 0
         else

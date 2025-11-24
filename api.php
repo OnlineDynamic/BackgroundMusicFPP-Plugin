@@ -372,16 +372,43 @@ function fppBackgroundMusicStartBackground() {
     
     // Start background music using independent player (not FPP playlist system)
     // This allows music to play while FPP scheduler controls the sequence playlist
+    // Run in background to avoid HTTP timeout during PipeWire initialization
     $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
-    $output = array();
-    $returnCode = 0;
-    exec("/bin/bash " . escapeshellarg($scriptPath) . " start 2>&1", $output, $returnCode);
+    $logFile = '/tmp/background_music_start.log';
+    $pidFile = '/tmp/background_music_start.pid';
     
-    if ($returnCode === 0) {
-        return json(array('status' => 'OK', 'message' => 'Background music started'));
-    } else {
-        return json(array('status' => 'ERROR', 'message' => 'Failed to start background music', 'details' => implode("\n", $output)));
+    // Kill any previous stuck startup processes
+    if (file_exists($pidFile)) {
+        $oldPid = trim(file_get_contents($pidFile));
+        if (!empty($oldPid) && is_numeric($oldPid)) {
+            exec("ps -p " . escapeshellarg($oldPid) . " > /dev/null 2>&1 && kill " . escapeshellarg($oldPid) . " 2>/dev/null");
+        }
     }
+    
+    // Start in background with proper environment for PipeWire
+    // Set XDG_RUNTIME_DIR for fpp user
+    $fppUid = trim(shell_exec("id -u fpp"));
+    $runtimeDir = "/run/user/" . $fppUid;
+    $cmd = "(sudo -u fpp XDG_RUNTIME_DIR=" . escapeshellarg($runtimeDir) . " /bin/bash " . escapeshellarg($scriptPath) . " start > " . escapeshellarg($logFile) . " 2>&1 & echo \$! > " . escapeshellarg($pidFile) . ")";
+    exec($cmd);
+    
+    // Give it a moment to start, then check if it's running
+    usleep(500000); // 0.5 seconds
+    
+    // Check if the process started successfully
+    if (file_exists($pidFile)) {
+        $pid = trim(file_get_contents($pidFile));
+        if (!empty($pid) && is_numeric($pid)) {
+            exec("ps -p " . escapeshellarg($pid) . " > /dev/null 2>&1", $psOutput, $psReturn);
+            if ($psReturn === 0) {
+                return json(array('status' => 'OK', 'message' => 'Background music starting...', 'details' => 'Check /tmp/background_music_start.log for progress'));
+            }
+        }
+    }
+    
+    // If we get here, something went wrong
+    $errorLog = file_exists($logFile) ? file_get_contents($logFile) : 'No log file found';
+    return json(array('status' => 'ERROR', 'message' => 'Failed to start background music', 'details' => $errorLog));
 }
 
 // POST /api/plugin/fpp-plugin-BackgroundMusic/stop-background
@@ -423,7 +450,7 @@ function fppBackgroundMusicPauseBackground() {
     $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
     $output = array();
     $returnCode = 0;
-    exec("sudo /bin/bash " . escapeshellarg($scriptPath) . " pause 2>&1", $output, $returnCode);
+    exec("sudo -u fpp /bin/bash " . escapeshellarg($scriptPath) . " pause 2>&1", $output, $returnCode);
     
     if ($returnCode === 0) {
         return json(array('status' => 'OK', 'message' => 'Background music paused'));
@@ -437,7 +464,7 @@ function fppBackgroundMusicResumeBackground() {
     $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
     $output = array();
     $returnCode = 0;
-    exec("sudo /bin/bash " . escapeshellarg($scriptPath) . " resume 2>&1", $output, $returnCode);
+    exec("sudo -u fpp /bin/bash " . escapeshellarg($scriptPath) . " resume 2>&1", $output, $returnCode);
     
     if ($returnCode === 0) {
         return json(array('status' => 'OK', 'message' => 'Background music resumed'));

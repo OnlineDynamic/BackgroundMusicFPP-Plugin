@@ -72,19 +72,21 @@ fi
 # 3. After PSA, restore background music volume
 
 if [ "$BG_MUSIC_PLAYING" = true ]; then
-    # Calculate what percentage the background music should play at relative to current
-    # Example: if DUCK_VOLUME=30% and ORIGINAL_VOLUME=70%, bg should be at 43% (30/70*100)
-    BG_RELATIVE_VOLUME=$(echo "scale=0; ($DUCK_VOLUME * 100) / $ORIGINAL_VOLUME" | bc)
+    # DUCK_VOLUME is the target volume level (e.g., 20 means bgmplayer should be at 20%)
+    # bgmplayer starts at 100%, so we need to decrease to DUCK_VOLUME
     
-    log_message "Ducking background music to ${BG_RELATIVE_VOLUME}% via runtime volume control"
+    log_message "Ducking background music from 100% to ${DUCK_VOLUME}% via SIGUSR1 signals"
     
-    # Send volume control command to bgmplayer
-    echo "$BG_RELATIVE_VOLUME" > "/tmp/bgmplayer_${BG_PLAYER_PID}_volume.txt"
+    # Calculate how many 10% decreases needed to reach target
+    DECREASES=$(( (100 - DUCK_VOLUME) / 10 ))
     
-    # Give it a moment to apply
-    sleep 0.3
+    # Send SIGUSR1 signals to decrease volume by 10% each time
+    for ((i=0; i<DECREASES; i++)); do
+        kill -SIGUSR1 "$BG_PLAYER_PID" 2>/dev/null
+        sleep 0.1
+    done
     
-    log_message "Background music ducked (continues playing at reduced volume)"
+    log_message "Background music ducked to ~${DUCK_VOLUME}% (continues playing at reduced volume)"
 fi
 
 # Get FPP audio device
@@ -148,13 +150,17 @@ EOF
 
 # Play announcement in background
 (
-    # System volume stays at ORIGINAL_VOLUME
-    # Background music is now at reduced internal volume
-    # PSA plays at 100% = full system volume
+    # Temporarily raise system volume to ANNOUNCEMENT_VOLUME for the PSA
+    # Background music is already ducked to low internal volume
     
     PLUGIN_DIR="/home/fpp/media/plugins/fpp-plugin-BackgroundMusic"
     
-    log_message "Playing announcement at 100% (system volume is ${ORIGINAL_VOLUME}%)"
+    log_message "Setting system volume to ${ANNOUNCEMENT_VOLUME}% for announcement (was ${ORIGINAL_VOLUME}%)"
+    
+    # Set system volume to announcement level via FPP API
+    curl -s -X PUT "http://localhost/api/system/volume" \
+        -H "Content-Type: application/json" \
+        -d "{\"volume\":${ANNOUNCEMENT_VOLUME}}" > /dev/null 2>&1
 
     # Convert announcement to 48kHz stereo WAV for smoother playback through PipeWire
     TEMP_FILE="/tmp/psa_resampled_${$}.wav"
@@ -187,16 +193,27 @@ EOF
         log_message "ERROR: Announcement playback failed with code: $PLAY_RESULT"
     fi
     
+    # Restore system volume to original level
+    log_message "Restoring system volume to ${ORIGINAL_VOLUME}%"
+    curl -s -X PUT "http://localhost/api/system/volume" \
+        -H "Content-Type: application/json" \
+        -d "{\"volume\":${ORIGINAL_VOLUME}}" > /dev/null 2>&1
+    
     # Restore background music to normal volume
     if [ "$BG_MUSIC_PLAYING" = true ]; then
-        log_message "Restoring background music to 100% volume"
+        log_message "Restoring background music from ${DUCK_VOLUME}% to 100% volume"
         
-        # Send volume restore command to bgmplayer
+        # Calculate how many increases needed to restore to 100%
+        INCREASES=$(( (100 - DUCK_VOLUME) / 10 ))
+        
         if [ -f "/tmp/bg_music_bgmplayer.pid" ]; then
             CURRENT_BG_PID=$(cat /tmp/bg_music_bgmplayer.pid)
             if ps -p "$CURRENT_BG_PID" > /dev/null 2>&1; then
-                echo "100" > "/tmp/bgmplayer_${CURRENT_BG_PID}_volume.txt"
-                log_message "Background music volume restored"
+                for ((i=0; i<INCREASES; i++)); do
+                    kill -SIGUSR2 "$CURRENT_BG_PID" 2>/dev/null
+                    sleep 0.1
+                done
+                log_message "Background music volume restored to 100%"
             fi
         fi
     fi

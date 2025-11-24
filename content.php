@@ -97,12 +97,7 @@ function hasPlaylistItems($playlistName) {
     curl_close($ch);
     $playlist = json_decode($data, true);
     
-    // Use the empty flag from FPP API if available
-    if (isset($playlist['empty'])) {
-        return $playlist['empty'] !== true;
-    }
-    
-    // Fallback: check mainPlaylist array
+    // Check mainPlaylist array directly (don't rely on 'empty' flag - it can be incorrect for m4a files)
     if (!isset($playlist['mainPlaylist']) || !is_array($playlist['mainPlaylist'])) {
         return false;
     }

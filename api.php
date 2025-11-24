@@ -1260,16 +1260,9 @@ function fppBackgroundMusicInstallTTS() {
 
 // POST /api/plugin/fpp-plugin-BackgroundMusic/generate-tts
 function fppBackgroundMusicGenerateTTS() {
+    global $settings;
     $pluginDir = dirname(__FILE__);
-    $piperBin = $pluginDir . '/piper/piper';
-    
-    // Check if Piper is installed
-    if (!file_exists($piperBin)) {
-        return json(array(
-            'status' => 'ERROR', 
-            'message' => 'Piper TTS not installed. Please install it first.'
-        ));
-    }
+    $pluginConfigFile = $settings['configDirectory'] . "/plugin.fpp-plugin-BackgroundMusic";
     
     // Get POST data
     $data = json_decode(file_get_contents('php://input'), true);
@@ -1286,20 +1279,52 @@ function fppBackgroundMusicGenerateTTS() {
     $filename = $data['filename'];
     $voice = isset($data['voice']) ? $data['voice'] : '';
     
+    // Get TTS engine preference from config
+    $ttsEngine = 'piper'; // default
+    if (file_exists($pluginConfigFile)) {
+        $pluginSettings = parse_ini_file($pluginConfigFile);
+        if (isset($pluginSettings['TTSEngine'])) {
+            $ttsEngine = strtolower($pluginSettings['TTSEngine']);
+        }
+    }
+    
     // Sanitize filename
     $filename = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $filename);
     if (!preg_match('/\.mp3$/', $filename)) {
         $filename .= '.mp3';
     }
     
-    // Build command
-    $generateScript = $pluginDir . '/scripts/generate_tts.sh';
-    $cmd = "bash " . escapeshellarg($generateScript) . " " . 
-           escapeshellarg($text) . " " . 
-           escapeshellarg($filename);
-    
-    if (!empty($voice)) {
-        $cmd .= " " . escapeshellarg($voice);
+    // Select appropriate script based on engine
+    if ($ttsEngine === 'elevenlabs') {
+        // ElevenLabs
+        $generateScript = $pluginDir . '/scripts/generate_tts_elevenlabs.sh';
+        $cmd = "bash " . escapeshellarg($generateScript) . " " . 
+               escapeshellarg($text) . " " . 
+               escapeshellarg($filename);
+        
+        if (!empty($voice)) {
+            $cmd .= " " . escapeshellarg($voice);
+        }
+    } else {
+        // Piper (default)
+        $piperBin = $pluginDir . '/piper/piper';
+        
+        // Check if Piper is installed
+        if (!file_exists($piperBin)) {
+            return json(array(
+                'status' => 'ERROR', 
+                'message' => 'Piper TTS not installed. Please install it first or switch to ElevenLabs.'
+            ));
+        }
+        
+        $generateScript = $pluginDir . '/scripts/generate_tts.sh';
+        $cmd = "bash " . escapeshellarg($generateScript) . " " . 
+               escapeshellarg($text) . " " . 
+               escapeshellarg($filename);
+        
+        if (!empty($voice)) {
+            $cmd .= " " . escapeshellarg($voice);
+        }
     }
     
     $cmd .= " 2>&1";
@@ -1311,9 +1336,10 @@ function fppBackgroundMusicGenerateTTS() {
     if ($returnVar === 0) {
         return json(array(
             'status' => 'OK',
-            'message' => 'TTS audio generated successfully',
+            'message' => 'TTS audio generated successfully using ' . ucfirst($ttsEngine),
             'filename' => $filename,
-            'path' => '/home/fpp/media/music/' . $filename
+            'path' => '/home/fpp/media/music/' . $filename,
+            'engine' => $ttsEngine
         ));
     } else {
         return json(array(
@@ -1367,7 +1393,94 @@ function fppBackgroundMusicPlayTTS() {
 
 // GET /api/plugin/fpp-plugin-BackgroundMusic/tts-voices
 function fppBackgroundMusicTTSVoices() {
+    global $settings;
     $pluginDir = dirname(__FILE__);
+    $pluginConfigFile = $settings['configDirectory'] . "/plugin.fpp-plugin-BackgroundMusic";
+    
+    // Get TTS engine from query parameter or config
+    $ttsEngine = 'piper';
+    if (isset($_GET['engine'])) {
+        // Use engine from query parameter (user's current selection)
+        $ttsEngine = strtolower($_GET['engine']);
+    } else if (file_exists($pluginConfigFile)) {
+        // Fall back to saved config
+        $pluginSettings = parse_ini_file($pluginConfigFile);
+        if (isset($pluginSettings['TTSEngine'])) {
+            $ttsEngine = strtolower($pluginSettings['TTSEngine']);
+        }
+    }
+    
+    // Get ElevenLabs API key from config
+    $elevenLabsAPIKey = '';
+    if (file_exists($pluginConfigFile)) {
+        $pluginSettings = parse_ini_file($pluginConfigFile);
+        if (isset($pluginSettings['ElevenLabsAPIKey'])) {
+            $elevenLabsAPIKey = $pluginSettings['ElevenLabsAPIKey'];
+        }
+    }
+    
+    // Handle ElevenLabs voices
+    if ($ttsEngine === 'elevenlabs') {
+        if (empty($elevenLabsAPIKey)) {
+            return json(array(
+                'status' => 'ERROR',
+                'message' => 'ElevenLabs API key not configured'
+            ));
+        }
+        
+        // Fetch voices from ElevenLabs API
+        $ch = curl_init('https://api.elevenlabs.io/v1/voices');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            'xi-api-key: ' . $elevenLabsAPIKey
+        ));
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($httpCode !== 200 || !$response) {
+            return json(array(
+                'status' => 'ERROR',
+                'message' => 'Failed to fetch voices from ElevenLabs (HTTP ' . $httpCode . ')'
+            ));
+        }
+        
+        $voicesData = json_decode($response, true);
+        if (!$voicesData || !isset($voicesData['voices'])) {
+            return json(array(
+                'status' => 'ERROR',
+                'message' => 'Invalid response from ElevenLabs API'
+            ));
+        }
+        
+        // Format voices for UI
+        $formattedVoices = array();
+        foreach ($voicesData['voices'] as $voice) {
+            $formattedVoices[] = array(
+                'id' => $voice['voice_id'],
+                'name' => $voice['name'],
+                'description' => isset($voice['description']) ? $voice['description'] : '',
+                'category' => isset($voice['category']) ? $voice['category'] : 'general',
+                'gender' => isset($voice['labels']['gender']) ? $voice['labels']['gender'] : 'unknown',
+                'accent' => isset($voice['labels']['accent']) ? $voice['labels']['accent'] : 'unknown',
+                'age' => isset($voice['labels']['age']) ? $voice['labels']['age'] : 'unknown',
+                'use_case' => isset($voice['labels']['use case']) ? $voice['labels']['use case'] : 'general',
+                'preview_url' => isset($voice['preview_url']) ? $voice['preview_url'] : '',
+                'installed' => true,  // All cloud voices are "available"
+                'is_default' => false,
+                'engine' => 'elevenlabs'
+            );
+        }
+        
+        return json(array(
+            'status' => 'OK',
+            'engine' => 'elevenlabs',
+            'voices' => $formattedVoices,
+            'total_count' => count($formattedVoices)
+        ));
+    }
+    
+    // Handle Piper voices (existing code)
     $piperDir = $pluginDir . '/piper';
     $voicesDir = $piperDir . '/voices';
     $availableVoicesFile = $piperDir . '/available_voices.json';
@@ -1405,10 +1518,12 @@ function fppBackgroundMusicTTSVoices() {
     foreach ($availableVoices as &$voice) {
         $voice['installed'] = in_array($voice['id'], $installedVoices);
         $voice['is_default'] = ($voice['id'] === $defaultVoice);
+        $voice['engine'] = 'piper';
     }
     
     return json(array(
         'status' => 'OK',
+        'engine' => 'piper',
         'voices' => $availableVoices,
         'installed_count' => count($installedVoices),
         'default_voice' => $defaultVoice

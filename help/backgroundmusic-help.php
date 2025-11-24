@@ -308,8 +308,9 @@
             <h3>Public Service Announcements (PSA)</h3>
             <p>
                 Play pre-recorded announcements or generate Text-to-Speech announcements over background music with automatic volume ducking. 
-                Configure up to 20 announcement buttons with custom labels and smooth audio mixing. TTS announcements use Piper TTS engine
-                for natural-sounding speech generation in real-time or pre-recorded TTS audio files.
+                Configure up to 20 announcement buttons with custom labels and smooth audio mixing. TTS announcements support two engines:
+                <strong>Piper TTS</strong> (local, free, fast) for natural-sounding speech generation, or <strong>ElevenLabs</strong> 
+                (cloud-based, premium quality) for professional-grade voices. Generate TTS files for future use or play announcements in real-time.
             </p>
             
             <h3>Crossfade Between Tracks</h3>
@@ -407,7 +408,12 @@
                         <li>Enable "Shuffle Music" if using FPP Playlist (not available for streams)</li>
                         <li>Enable "Crossfade Between Tracks" to eliminate silence between songs (playlist mode only, 1-10 seconds)</li>
                         <li>Configure up to 20 PSA announcement buttons with custom labels and audio files</li>
-                        <li>Optionally install Piper TTS for real-time Text-to-Speech announcements</li>
+                        <li><strong>Text-to-Speech Configuration:</strong>
+                            <ul>
+                                <li><strong>Piper TTS (Local):</strong> Free, fast, runs locally. Install Piper TTS and download voice models</li>
+                                <li><strong>ElevenLabs (Cloud):</strong> Premium quality, requires API key from <a href="https://elevenlabs.io" target="_blank">elevenlabs.io</a>. Choose from dozens of professional voices with various accents and styles</li>
+                            </ul>
+                        </li>
                         <li>Save Settings</li>
                     </ul>
                 </li>
@@ -451,6 +457,56 @@
                 <li><strong>Set and Forget:</strong> Configure once, music starts automatically every evening</li>
                 <li><strong>Maintenance Friendly:</strong> Background music resumes after system updates or reboots</li>
             </ul>
+            
+            <h2>Text-to-Speech Configuration</h2>
+            <p>
+                The plugin supports two Text-to-Speech engines for generating voice announcements.
+                Choose the engine that best fits your needs and budget.
+            </p>
+            
+            <h3>Piper TTS (Local - Free)</h3>
+            <ul>
+                <li><strong>Cost:</strong> Completely free</li>
+                <li><strong>Location:</strong> Runs locally on your FPP system</li>
+                <li><strong>Quality:</strong> Natural-sounding AI voices (~10MB installation)</li>
+                <li><strong>Speed:</strong> Very fast generation (real-time capable)</li>
+                <li><strong>Requirements:</strong> Click "Install Piper TTS" button in settings, then download voice models</li>
+                <li><strong>Voices:</strong> Multiple languages, genders, and qualities available</li>
+                <li><strong>Best For:</strong> Most users, offline operation, frequent announcements</li>
+            </ul>
+            
+            <h3>ElevenLabs (Cloud - Premium)</h3>
+            <ul>
+                <li><strong>Cost:</strong> Requires ElevenLabs subscription (<a href="https://elevenlabs.io/pricing" target="_blank">pricing info</a>)</li>
+                <li><strong>Location:</strong> Cloud-based API service</li>
+                <li><strong>Quality:</strong> Professional-grade, studio-quality voices</li>
+                <li><strong>Speed:</strong> Fast (requires internet connection)</li>
+                <li><strong>Requirements:</strong> Sign up at <a href="https://elevenlabs.io" target="_blank">elevenlabs.io</a> and obtain API key</li>
+                <li><strong>Voices:</strong> Dozens of premium voices with various accents, ages, and speaking styles</li>
+                <li><strong>Features:</strong> Voice previews, advanced voice settings, character voices</li>
+                <li><strong>Best For:</strong> Professional displays, high-quality announcements, specific voice requirements</li>
+            </ul>
+            
+            <h3>Configuration Steps</h3>
+            <ol>
+                <li>Go to Content Setup → Background Music Settings</li>
+                <li>Scroll to "Text-to-Speech (TTS) Announcements" section</li>
+                <li>Select your preferred TTS Engine:
+                    <ul>
+                        <li><strong>Piper (Local - Free):</strong> Click "Install Piper TTS" if not already installed, then browse and install voice models</li>
+                        <li><strong>ElevenLabs (Cloud - Premium):</strong> Enter your API key, select default voice from dropdown</li>
+                    </ul>
+                </li>
+                <li>Use "Generate TTS Audio File" panel to create MP3 files from text</li>
+                <li>Generated files are saved to <code>/home/fpp/media/music/</code> and can be used in PSA buttons</li>
+            </ol>
+            
+            <h3>Switching Between Engines</h3>
+            <p>
+                You can switch between Piper and ElevenLabs at any time. The Generate TTS panel will automatically
+                show the appropriate voice selection for your chosen engine. Previously generated audio files remain
+                available regardless of which engine you're currently using.
+            </p>
             
             <h2>Tips for Best Results</h2>
             <ul>
@@ -864,7 +920,7 @@
                     <span class="api-method post">POST</span>
                     <code class="api-path">play-tts</code>
                 </div>
-                <p><strong>Description:</strong> Generate and play a Text-to-Speech announcement with volume ducking (requires Piper TTS)</p>
+                <p><strong>Description:</strong> Generate and play a Text-to-Speech announcement with volume ducking (requires Piper TTS or ElevenLabs configured)</p>
                 <p><strong>Request Body:</strong></p>
                 <div class="code-block">{"text": "Your announcement text here"}</div>
                 <p><strong>Parameters:</strong></p>
@@ -1407,7 +1463,7 @@
                 <li><strong>Continuous Looping:</strong> Music never stops during pre-show</li>
                 <li><strong>Shuffle Mode:</strong> Randomize track order for variety</li>
                 <li><strong>PSA System:</strong> Play announcements with automatic volume ducking (up to 20 configurable buttons)</li>
-                <li><strong>Text-to-Speech:</strong> Real-time TTS announcements using Piper TTS engine</li>
+                <li><strong>Text-to-Speech:</strong> Dual TTS engine support - Local Piper TTS (free) or Cloud ElevenLabs (premium quality)</li>
                 <li><strong>Auto Return:</strong> Optionally return to pre-show after main show completes</li>
                 <li><strong>Real-time Status:</strong> Track-level playback information and progress</li>
                 <li><strong>REST API:</strong> Full API for automation and integration</li>

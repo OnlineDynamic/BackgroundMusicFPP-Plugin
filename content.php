@@ -687,9 +687,60 @@ $audioFiles = getAudioFiles();
                 <i class="fas fa-robot"></i> Text-to-Speech (TTS) Announcements
             </h3>
             <div class="description" style="margin-top: 15px;">
-                <p><strong>About TTS:</strong> Generate AI-powered voice announcements using Piper TTS. Create MP3 files 
-                from text for future use, or play announcements in real-time. TTS uses minimal storage (~10MB) and runs 
-                efficiently on Raspberry Pi.</p>
+                <p><strong>About TTS:</strong> Generate AI-powered voice announcements using either Piper TTS (local, free) 
+                or ElevenLabs (cloud-based, premium quality). Create MP3 files from text for future use, or play announcements in real-time.</p>
+            </div>
+            
+            <!-- TTS Engine Selection -->
+            <div style="max-width: 800px; margin: 20px auto; padding: 15px; border: 2px solid #2196F3; border-radius: 8px; background-color: #E3F2FD;">
+                <h4 style="margin-top: 0; color: #2196F3;"><i class="fas fa-cogs"></i> TTS Engine Configuration</h4>
+                <table class="settingsTable" style="margin: 0;">
+                    <tr>
+                        <td class="label" style="width: 250px;">TTS Engine:</td>
+                        <td class="value">
+                            <?php
+                            $ttsEngine = isset($pluginSettings['TTSEngine']) ? $pluginSettings['TTSEngine'] : 'piper';
+                            ?>
+                            <select id="TTSEngine" name="TTSEngine" class="form-control" style="width: 300px;" onchange="toggleTTSEngineSettings()">
+                                <option value="piper" <?php echo ($ttsEngine == 'piper') ? 'selected' : ''; ?>>Piper (Local - Free)</option>
+                                <option value="elevenlabs" <?php echo ($ttsEngine == 'elevenlabs') ? 'selected' : ''; ?>>ElevenLabs (Cloud - Premium)</option>
+                            </select>
+                            <small>Choose between local Piper TTS or cloud-based ElevenLabs</small>
+                        </td>
+                    </tr>
+                </table>
+                
+                <!-- ElevenLabs Settings (hidden by default) -->
+                <div id="elevenLabsSettings" style="<?php echo ($ttsEngine == 'elevenlabs') ? '' : 'display: none;'; ?> margin-top: 15px; padding-top: 15px; border-top: 1px solid #2196F3;">
+                    <table class="settingsTable" style="margin: 0;">
+                        <tr>
+                            <td class="label" style="width: 250px;">
+                                ElevenLabs API Key:
+                                <a href="https://elevenlabs.io/api" target="_blank" style="font-size: 11px;">
+                                    <i class="fas fa-external-link-alt"></i> Get API Key
+                                </a>
+                            </td>
+                            <td class="value">
+                                <input type="text" id="ElevenLabsAPIKey" name="ElevenLabsAPIKey" 
+                                    value="<?php echo isset($pluginSettings['ElevenLabsAPIKey']) ? htmlspecialchars($pluginSettings['ElevenLabsAPIKey']) : ''; ?>"
+                                    placeholder="sk_..." style="width: 400px;" class="form-control" onblur="loadElevenLabsDefaultVoices()">
+                                <small>Your ElevenLabs API key (required for cloud TTS)</small>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="label">Default Voice:</td>
+                            <td class="value">
+                                <select id="ElevenLabsVoiceID" name="ElevenLabsVoiceID" style="width: 400px;" class="form-control" data-saved-value="<?php echo isset($pluginSettings['ElevenLabsVoiceID']) ? htmlspecialchars($pluginSettings['ElevenLabsVoiceID']) : '21m00Tcm4TlvDq8ikWAM'; ?>">
+                                    <option value="21m00Tcm4TlvDq8ikWAM" <?php echo (!isset($pluginSettings['ElevenLabsVoiceID']) || $pluginSettings['ElevenLabsVoiceID'] == '21m00Tcm4TlvDq8ikWAM') ? 'selected' : ''; ?>>
+                                        Rachel (American - Female)
+                                    </option>
+                                </select>
+                                <span id="elevenLabsVoiceLoadStatus" style="margin-left: 10px;"></span>
+                                <br><small>Default voice for TTS generation (will load available voices when API key is provided)</small>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
             </div>
             
             <div id="ttsStatusPanel" style="max-width: 800px; margin: 20px auto; padding: 15px; border: 2px solid #ddd; border-radius: 8px; background-color: #f9f9f9;">
@@ -740,8 +791,8 @@ $audioFiles = getAudioFiles();
             
             <!-- Voice Management Panel -->
             <div id="voiceManagementPanel" style="max-width: 800px; margin: 20px auto; padding: 15px; border: 2px solid #673ab7; border-radius: 8px; background-color: #f3e5f5; display: none;">
-                <h4 style="margin-top: 0; color: #673ab7;"><i class="fas fa-microphone"></i> Voice Management</h4>
-                <p style="margin-bottom: 15px; font-size: 13px;">Install additional voices for different accents, genders, and qualities. Click on a voice to see details and install.</p>
+                <h4 style="margin-top: 0; color: #673ab7;"><i class="fas fa-microphone"></i> <span id="voiceManagementTitle">Voice Management</span></h4>
+                <p id="voiceManagementDescription" style="margin-bottom: 15px; font-size: 13px;">Loading voices...</p>
                 <div id="voicesList" style="margin-top: 10px;">
                     <p><i class="fas fa-spinner fa-spin"></i> Loading available voices...</p>
                 </div>
@@ -773,6 +824,87 @@ $audioFiles = getAudioFiles();
             } else {
                 $('#crossfadeDurationRow').hide();
             }
+        }
+        
+        function toggleTTSEngineSettings() {
+            var engine = $('#TTSEngine').val();
+            if (engine === 'elevenlabs') {
+                $('#elevenLabsSettings').slideDown();
+                // For ElevenLabs, hide Piper-specific panels
+                $('#ttsStatusPanel').hide();
+                $('#voiceManagementPanel').hide();
+                // Load ElevenLabs voices into generator panel and default voice dropdown
+                loadVoices(engine);
+                loadElevenLabsDefaultVoices();
+                $('#ttsGeneratorPanel').show();
+            } else {
+                $('#elevenLabsSettings').slideUp();
+                // For Piper, show status panel and check if installed
+                $('#ttsStatusPanel').show();
+                $('#ttsGeneratorPanel').hide();
+                checkTTSStatus();
+            }
+        }
+        
+        function loadElevenLabsDefaultVoices() {
+            var apiKey = $('#ElevenLabsAPIKey').val().trim();
+            if (!apiKey) {
+                return;
+            }
+            
+            $('#elevenLabsVoiceLoadStatus').html('<i class="fas fa-spinner fa-spin"></i>');
+            
+            $.ajax({
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/tts-voices',
+                type: 'GET',
+                data: { engine: 'elevenlabs' },
+                success: function(data) {
+                    if (data.status === 'OK' && data.voices) {
+                        var select = $('#ElevenLabsVoiceID');
+                        var savedValue = select.data('saved-value') || select.val();
+                        select.empty();
+                        
+                        // Group voices by gender
+                        var grouped = {};
+                        data.voices.forEach(function(voice) {
+                            var gender = voice.gender || 'Other';
+                            if (!grouped[gender]) {
+                                grouped[gender] = [];
+                            }
+                            grouped[gender].push(voice);
+                        });
+                        
+                        // Add voices grouped by gender
+                        Object.keys(grouped).sort().forEach(function(gender) {
+                            var optgroup = $('<optgroup label="' + gender + '"></optgroup>');
+                            grouped[gender].forEach(function(voice) {
+                                var label = voice.name;
+                                if (voice.accent && voice.accent !== 'unknown') {
+                                    label += ' (' + voice.accent + ')';
+                                }
+                                var option = $('<option></option>')
+                                    .val(voice.id)
+                                    .text(label);
+                                if (voice.id === savedValue) {
+                                    option.prop('selected', true);
+                                }
+                                optgroup.append(option);
+                            });
+                            select.append(optgroup);
+                        });
+                        
+                        // Set the saved value
+                        select.val(savedValue);
+                        
+                        $('#elevenLabsVoiceLoadStatus').html('<i class="fas fa-check-circle" style="color: green;"></i>');
+                    } else {
+                        $('#elevenLabsVoiceLoadStatus').html('<i class="fas fa-exclamation-triangle" style="color: orange;"></i>');
+                    }
+                },
+                error: function() {
+                    $('#elevenLabsVoiceLoadStatus').html('<i class="fas fa-times-circle" style="color: red;"></i>');
+                }
+            });
         }
         
         function handleStreamPresetChange() {
@@ -819,7 +951,11 @@ $audioFiles = getAudioFiles();
                 'VolumeLevel': $('#BackgroundMusicVolume').val() || '70',  // Maintain backward compatibility
                 // PSA settings
                 'PSAAnnouncementVolume': $('#PSAAnnouncementVolume').val(),
-                'PSADuckVolume': $('#PSADuckVolume').val()
+                'PSADuckVolume': $('#PSADuckVolume').val(),
+                // TTS settings
+                'TTSEngine': $('#TTSEngine').val(),
+                'ElevenLabsAPIKey': $('#ElevenLabsAPIKey').val(),
+                'ElevenLabsVoiceID': $('#ElevenLabsVoiceID').val()
             };
             
             // Dynamically collect all PSA button settings
@@ -857,6 +993,21 @@ $audioFiles = getAudioFiles();
         
         // TTS Functions
         function checkTTSStatus() {
+            var engine = $('#TTSEngine').val();
+            
+            // If ElevenLabs is selected, show appropriate message
+            if (engine === 'elevenlabs') {
+                $('#ttsStatus').html(
+                    '<p style="color: #2196F3;"><i class="fas fa-cloud"></i> <strong>ElevenLabs Cloud TTS</strong></p>' +
+                    '<p>Using cloud-based text-to-speech. All voices are available instantly without installation.</p>' +
+                    '<p style="font-size: 12px; color: #666;">Make sure your API key is configured above.</p>'
+                );
+                $('#ttsGeneratorPanel').show();
+                loadVoices(engine);
+                return;
+            }
+            
+            // Check Piper TTS status
             $.ajax({
                 url: '/api/plugin/fpp-plugin-BackgroundMusic/tts-status',
                 type: 'GET',
@@ -873,7 +1024,7 @@ $audioFiles = getAudioFiles();
                         );
                         $('#ttsGeneratorPanel').show();
                         $('#voiceManagementPanel').show();
-                        loadVoices();
+                        loadVoices('piper');
                     } else {
                         $('#ttsStatus').html(
                             '<p style="color: #ff9800;"><i class="fas fa-exclamation-triangle"></i> <strong>Piper TTS Not Installed</strong></p>' +
@@ -883,6 +1034,7 @@ $audioFiles = getAudioFiles();
                             '<p style="margin-top: 10px; font-size: 12px; color: #666;">Installation takes 2-5 minutes depending on your internet speed.</p>'
                         );
                         $('#ttsGeneratorPanel').hide();
+                        $('#voiceManagementPanel').hide();
                     }
                 },
                 error: function() {
@@ -925,6 +1077,7 @@ $audioFiles = getAudioFiles();
             var text = $('#ttsText').val().trim();
             var filename = $('#ttsFilename').val().trim();
             var voiceId = $('#ttsVoiceSelect').val();
+            var engine = $('#TTSEngine').val();
             
             if (!text) {
                 $.jGrowl('Please enter text to convert', {themeState: 'danger'});
@@ -948,8 +1101,9 @@ $audioFiles = getAudioFiles();
                 filename: filename
             };
             
-            // Only add voice if it's not the default
-            if (voiceId !== 'default') {
+            // For ElevenLabs, always include voice ID
+            // For Piper, only add voice if it's not the default
+            if (engine === 'elevenlabs' || voiceId !== 'default') {
                 requestData.voice = voiceId;
             }
             
@@ -983,16 +1137,22 @@ $audioFiles = getAudioFiles();
             });
         }
         
-        function loadVoices() {
+        function loadVoices(engine) {
+            // If no engine specified, get from UI
+            if (!engine) {
+                engine = $('#TTSEngine').val() || 'piper';
+            }
+            
             $.ajax({
                 url: '/api/plugin/fpp-plugin-BackgroundMusic/tts-voices',
                 type: 'GET',
+                data: { engine: engine },
                 success: function(data) {
                     if (data.status === 'OK') {
-                        displayVoices(data.voices, data.default_voice);
-                        populateVoiceSelect(data.voices, data.default_voice);
+                        displayVoices(data.voices, data.default_voice, data.engine);
+                        populateVoiceSelect(data.voices, data.default_voice, data.engine);
                     } else {
-                        $('#voicesList').html('<p style="color: red;">Error loading voices</p>');
+                        $('#voicesList').html('<p style="color: red;">Error: ' + data.message + '</p>');
                     }
                 },
                 error: function() {
@@ -1001,74 +1161,95 @@ $audioFiles = getAudioFiles();
             });
         }
         
-        function populateVoiceSelect(voices, defaultVoice) {
+        function populateVoiceSelect(voices, defaultVoice, engine) {
             var select = $('#ttsVoiceSelect');
             select.empty();
             
-            // Add default option
-            select.append('<option value="default">Use Default Voice (' + defaultVoice + ')</option>');
-            
-            // Add installed voices
-            voices.forEach(function(voice) {
-                if (voice.installed) {
-                    var label = voice.name + ' - ' + voice.gender + ' (' + voice.quality + ')';
+            if (engine === 'elevenlabs') {
+                // ElevenLabs voices
+                select.append('<option value="">Select a voice...</option>');
+                voices.forEach(function(voice) {
+                    var label = voice.name;
+                    if (voice.accent && voice.accent !== 'unknown') {
+                        label += ' (' + voice.accent + ')';
+                    }
+                    if (voice.gender && voice.gender !== 'unknown') {
+                        label += ' - ' + voice.gender;
+                    }
                     select.append('<option value="' + voice.id + '">' + label + '</option>');
-                }
-            });
-            
-            // Select default
-            select.val('default');
+                });
+            } else {
+                // Piper voices
+                select.append('<option value="default">Use Default Voice (' + defaultVoice + ')</option>');
+                voices.forEach(function(voice) {
+                    if (voice.installed) {
+                        var label = voice.name + ' - ' + voice.gender + ' (' + voice.quality + ')';
+                        select.append('<option value="' + voice.id + '">' + label + '</option>');
+                    }
+                });
+                select.val('default');
+            }
         }
         
-        function displayVoices(voices, defaultVoice) {
+        function displayVoices(voices, defaultVoice, engine) {
             var html = '';
             
-            // Group by language
-            var grouped = {};
-            voices.forEach(function(voice) {
-                if (!grouped[voice.language]) {
-                    grouped[voice.language] = [];
-                }
-                grouped[voice.language].push(voice);
-            });
-            
-            // Display each language group
-            Object.keys(grouped).sort().forEach(function(language) {
-                html += '<h5 style="margin: 15px 0 10px 0; color: #673ab7; border-bottom: 1px solid #673ab7;">' + language + '</h5>';
-                html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px;">';
+            if (engine === 'elevenlabs') {
+                // For ElevenLabs, voices are only shown in the dropdown, not in the management panel
+                // Just clear the voices list since the panel is hidden anyway
+                $('#voicesList').html('');
+                return;
+            } else {
+                // Update panel title and description for Piper
+                $('#voiceManagementTitle').text('Piper Voice Management');
+                $('#voiceManagementDescription').text('Install additional voices for different accents, genders, and qualities. Click on a voice to see details and install.');
                 
-                grouped[language].forEach(function(voice) {
-                    var isDefault = voice.id === defaultVoice;
-                    var borderColor = isDefault ? '#4caf50' : (voice.installed ? '#2196f3' : '#ccc');
-                    var bgColor = isDefault ? '#e8f5e9' : (voice.installed ? '#e3f2fd' : '#fafafa');
-                    
-                    html += '<div style="border: 2px solid ' + borderColor + '; border-radius: 6px; padding: 12px; background-color: ' + bgColor + ';">';
-                    html += '<div style="font-weight: bold; font-size: 14px; margin-bottom: 5px;">';
-                    html += '<i class="fas fa-' + getGenderIcon(voice.gender) + '"></i> ' + voice.name;
-                    if (isDefault) html += ' <span style="color: #4caf50; font-size: 11px;">(DEFAULT)</span>';
-                    html += '</div>';
-                    html += '<div style="font-size: 12px; color: #666; margin-bottom: 8px;">' + voice.description + '</div>';
-                    html += '<div style="font-size: 11px; color: #999; margin-bottom: 8px;">';
-                    html += 'Gender: ' + voice.gender + ' | Quality: ' + voice.quality + ' | Size: ' + voice.size_mb + 'MB';
-                    html += '</div>';
-                    
-                    if (voice.installed) {
-                        html += '<button onclick="setDefaultVoice(\'' + voice.id + '\')" class="btn btn-sm btn-success" style="font-size: 11px; padding: 4px 8px; margin-right: 5px;">';
-                        html += '<i class="fas fa-star"></i> Set Default</button>';
-                        if (!isDefault) {
-                            html += '<button onclick="deleteVoice(\'' + voice.id + '\')" class="btn btn-sm btn-danger" style="font-size: 11px; padding: 4px 8px;">';
-                            html += '<i class="fas fa-trash"></i> Delete</button>';
-                        }
-                    } else {
-                        html += '<button onclick="installVoice(\'' + voice.id + '\')" class="btn btn-sm btn-primary" style="font-size: 11px; padding: 4px 8px; background-color: #673ab7;">';
-                        html += '<i class="fas fa-download"></i> Install (' + voice.size_mb + 'MB)</button>';
+                // Display Piper voices (existing code)
+                var grouped = {};
+                voices.forEach(function(voice) {
+                    if (!grouped[voice.language]) {
+                        grouped[voice.language] = [];
                     }
+                    grouped[voice.language].push(voice);
+                });
+                
+                Object.keys(grouped).sort().forEach(function(language) {
+                    html += '<h5 style="margin: 15px 0 10px 0; color: #673ab7; border-bottom: 1px solid #673ab7;">' + language + '</h5>';
+                    html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px;">';
+                    
+                    grouped[language].forEach(function(voice) {
+                        var isDefault = voice.id === defaultVoice;
+                        var borderColor = isDefault ? '#4caf50' : (voice.installed ? '#2196f3' : '#ccc');
+                        var bgColor = isDefault ? '#e8f5e9' : (voice.installed ? '#e3f2fd' : '#fafafa');
+                        
+                        html += '<div style="border: 2px solid ' + borderColor + '; border-radius: 6px; padding: 12px; background-color: ' + bgColor + ';">';
+                        html += '<div style="font-weight: bold; font-size: 14px; margin-bottom: 5px;">';
+                        html += '<i class="fas fa-' + getGenderIcon(voice.gender) + '"></i> ' + voice.name;
+                        if (isDefault) html += ' <span style="color: #4caf50; font-size: 11px;">(DEFAULT)</span>';
+                        html += '</div>';
+                        html += '<div style="font-size: 12px; color: #666; margin-bottom: 8px;">' + voice.description + '</div>';
+                        html += '<div style="font-size: 11px; color: #999; margin-bottom: 8px;">';
+                        html += 'Gender: ' + voice.gender + ' | Quality: ' + voice.quality + ' | Size: ' + voice.size_mb + 'MB';
+                        html += '</div>';
+                        
+                        if (voice.installed) {
+                            html += '<button onclick="setDefaultVoice(\'' + voice.id + '\')" class="btn btn-sm btn-success" style="font-size: 11px; padding: 4px 8px; margin-right: 5px;">';
+                            html += '<i class="fas fa-star"></i> Set Default</button>';
+                            if (!isDefault) {
+                                html += '<button onclick="deleteVoice(\'' + voice.id + '\')" class="btn btn-sm btn-danger" style="font-size: 11px; padding: 4px 8px;">';
+                                html += '<i class="fas fa-trash"></i> Delete</button>';
+                            }
+                        } else {
+                            html += '<button onclick="installVoice(\'' + voice.id + '\')" class="btn btn-sm btn-primary" style="font-size: 11px; padding: 4px 8px; background-color: #673ab7;">';
+                            html += '<i class="fas fa-download"></i> Install (' + voice.size_mb + 'MB)</button>';
+                        }
+                        
+                        html += '</div>';
+                    });
                     
                     html += '</div>';
                 });
-                
-                html += '</div>';
-            });
+            }
             
             $('#voicesList').html(html);
         }
@@ -1151,7 +1332,7 @@ $audioFiles = getAudioFiles();
         // Check TTS status on page load
         $(document).ready(function() {
             toggleBackgroundSource();
-            checkTTSStatus();
+            toggleTTSEngineSettings();
         });
     </script>
 </div>

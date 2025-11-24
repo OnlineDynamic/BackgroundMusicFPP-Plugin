@@ -1273,18 +1273,34 @@
             
             <script>
                 let autoRefreshInterval = null;
+                let lastLogContent = '';
+                let isInitialLoad = true;
                 
-                function refreshLog() {
+                function refreshLog(skipSpinner = false) {
                     const lines = document.getElementById('logLines').value;
                     const logContent = document.getElementById('logContent');
                     
-                    logContent.innerHTML = '<div style="text-align: center; color: #888;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+                    // Show loading spinner only on manual refresh or initial load
+                    if (!skipSpinner) {
+                        logContent.innerHTML = '<div style="text-align: center; color: #888;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+                    }
                     
                     fetch('/api/plugin/fpp-plugin-BackgroundMusic/get-log?lines=' + lines)
                         .then(response => response.json())
                         .then(data => {
-                            if (data.status === 'OK' && data.log) {
-                                displayLog(data.log);
+                            if (data.status === 'OK' && data.log !== undefined) {
+                                // Update if content changed or it's the first load
+                                if (data.log !== lastLogContent || isInitialLoad) {
+                                    const wasAtBottom = logContent.scrollHeight - logContent.scrollTop <= logContent.clientHeight + 50;
+                                    displayLog(data.log);
+                                    lastLogContent = data.log;
+                                    isInitialLoad = false;
+                                    
+                                    // Auto-scroll if user was at the bottom
+                                    if (wasAtBottom) {
+                                        logContent.scrollTop = logContent.scrollHeight;
+                                    }
+                                }
                             } else {
                                 logContent.innerHTML = '<div style="color: #f48771;">Error: ' + (data.message || 'Failed to load log') + '</div>';
                             }
@@ -1316,12 +1332,11 @@
                     });
                     
                     logContent.innerHTML = coloredLines.join('\\n');
-                    // Auto-scroll to bottom
-                    logContent.scrollTop = logContent.scrollHeight;
                 }
                 
                 function clearLogDisplay() {
                     document.getElementById('logContent').innerHTML = '<div style="text-align: center; color: #888;">Display cleared. Click Refresh to reload.</div>';
+                    lastLogContent = '';
                 }
                 
                 function downloadLog() {
@@ -1332,8 +1347,8 @@
                     const enabled = document.getElementById('autoRefresh').checked;
                     
                     if (enabled) {
-                        refreshLog(); // Refresh immediately
-                        autoRefreshInterval = setInterval(refreshLog, 5000); // Then every 5 seconds
+                        refreshLog(true); // Refresh immediately without spinner
+                        autoRefreshInterval = setInterval(() => refreshLog(true), 5000); // Then every 5 seconds without spinner
                     } else {
                         if (autoRefreshInterval) {
                             clearInterval(autoRefreshInterval);

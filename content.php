@@ -418,7 +418,7 @@ $audioFiles = getAudioFiles();
                     <td class="value">
                         <input type="number" name="BackgroundMusicVolume" id="BackgroundMusicVolume" min="0" max="100" 
                                value="<?php echo isset($pluginSettings['BackgroundMusicVolume']) ? $pluginSettings['BackgroundMusicVolume'] : '70'; ?>">
-                        <small>Volume level for background music during pre-show (0-100%)</small>
+                        <small>Volume level for background music during pre-show (0-100%). Use the main control page to adjust in real-time.</small>
                     </td>
                 </tr>
                 <tr>

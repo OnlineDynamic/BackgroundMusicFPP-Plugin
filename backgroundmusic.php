@@ -348,16 +348,16 @@
             <div style="margin-top: 25px; border-top: 2px solid #e0e0e0; padding-top: 20px;">
                 <div style="text-align: left; padding: 0 10px;">
                     <div style="font-size: 13px; font-weight: 600; color: #4CAF50; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
-                        <i class="fas fa-volume-up"></i> Volume Control
+                        <i class="fas fa-volume-up"></i> Background Music Volume Control
                     </div>
                     <div style="margin-bottom: 12px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                             <span style="font-size: 12px; color: #666;">Current Level:</span>
-                            <span id="statusVolume" style="font-weight: bold; font-size: 16px; color: #4CAF50;">70%</span>
+                            <span id="statusVolume" style="font-weight: bold; font-size: 16px; color: #4CAF50;">--</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <span style="font-size: 20px; cursor: pointer; user-select: none;" onclick="decreaseVolume()" title="Decrease volume">🔈</span>
-                            <input type="range" id="volumeSlider" min="0" max="100" value="70" 
+                            <input type="range" id="volumeSlider" min="0" max="100" value="0" 
                                    style="flex: 1; height: 6px; cursor: pointer;" 
                                    oninput="updateVolumeDisplay(this.value)" 
                                    onchange="setVolume(this.value)">
@@ -708,21 +708,18 @@
         }
         
         function setVolume(volume) {
-            // Use FPP's native volume API to keep UI in sync
-            // Using the same approach as FPP's SetVolume function
+            // Update display immediately for responsiveness
+            $('#statusVolume').text(volume + '%');
+            
+            // Use plugin's volume API to control bgmplayer independently
             var obj = { volume: parseInt(volume) };
             $.post({
-                url: '/api/system/volume',
+                url: '/api/plugin/fpp-plugin-BackgroundMusic/set-volume',
                 data: JSON.stringify(obj),
                 contentType: 'application/json'
             })
-            .done(function(data) {
-                $.jGrowl('Volume set to ' + volume + '%', {themeState: 'success', life: 1000});
-                // Update the display immediately
-                $('#statusVolume').text(volume + '%');
-            })
             .fail(function() {
-                $.jGrowl('Failed to set volume', {themeState: 'danger'});
+                $.jGrowl('Failed to set background music volume', {themeState: 'danger'});
             });
         }
         
@@ -902,18 +899,26 @@
                 }
             });
             
-            // Get FPP's system volume separately
-            $.ajax({
-                url: '/api/fppd/volume',
-                type: 'GET',
-                dataType: 'json',
-                success: function(data) {
-                    if (data.volume !== undefined) {
-                        $('#volumeSlider').val(data.volume);
-                        $('#statusVolume').text(data.volume + '%');
+            // Get background music volume from plugin status (not FPP system volume)
+            // Skip update if slider is currently being used
+            if (!$('#volumeSlider').is(':focus') && !$('#volumeSlider')[0].matches(':active')) {
+                $.ajax({
+                    url: '/api/plugin/fpp-plugin-BackgroundMusic/status',
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function(data) {
+                        if (data.volume !== undefined) {
+                            var currentSliderValue = parseInt($('#volumeSlider').val());
+                            // Always update if slider hasn't been initialized (value is 0)
+                            // Otherwise only update if difference is significant
+                            if (currentSliderValue === 0 || Math.abs(data.volume - currentSliderValue) > 15) {
+                                $('#volumeSlider').val(data.volume);
+                                $('#statusVolume').text(data.volume + '%');
+                            }
+                        }
                     }
-                }
-            });
+                });
+            }
         }
         
         function updatePlaylistDetails(currentTrack, forceRefresh) {
@@ -1463,6 +1468,10 @@
         var lastPlaylistUpdate = 0;
         var lastPlaylistData = null;
         var lastCurrentTrack = '';
+        
+        // Volume control state
+        var volumeChanging = false;
+        var lastVolumeChange = 0;
         
         function generatePSAButtons(config) {
             var container = $('#psaButtonsContainer');

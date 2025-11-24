@@ -98,7 +98,7 @@ private:
     std::mutex stateMutex;
 
     // Volume control
-    float volumeGain; // 1.0 = 100%, 2.0 = 200%, etc.
+    std::atomic<float> volumeGain; // 1.0 = 100%, 2.0 = 200%, etc.
 
     // Audio buffer
     uint8_t *audioBuffer;

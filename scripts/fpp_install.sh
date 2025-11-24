@@ -70,7 +70,8 @@ else
 fi
 echo "=========================================="
 
-# Ensure helper scripts are executable and owned by fpp
+# Ensure helper scripts are executable
+# Scripts will be executed by root via sudo, but can be owned by fpp for easy editing
 echo "Setting permissions on helper scripts..."
 chmod +x "$PLUGIN_DIR/scripts"/*.sh 2>/dev/null
 chown fpp:fpp "$PLUGIN_DIR/scripts"/*.sh 2>/dev/null
@@ -194,8 +195,8 @@ fi
 
 # Create log files with proper permissions
 LOG_FILE="/home/fpp/media/logs/fpp-plugin-BackgroundMusic.log"
-PLAYER_LOG="/tmp/background_music_player.log"
 
+# Plugin log file in /home/fpp/media/logs should be owned by fpp for web UI access
 if [ ! -f "$LOG_FILE" ]; then
     touch "$LOG_FILE"
     chown fpp:fpp "$LOG_FILE"
@@ -203,20 +204,15 @@ if [ ! -f "$LOG_FILE" ]; then
     echo "Created log file: $LOG_FILE"
 fi
 
-if [ ! -f "$PLAYER_LOG" ]; then
-    touch "$PLAYER_LOG"
-    chown fpp:fpp "$PLAYER_LOG"
-    chmod 664 "$PLAYER_LOG"
-    echo "Created player log file: $PLAYER_LOG"
-else
-    # Fix ownership if file exists but has wrong owner
-    chown fpp:fpp "$PLAYER_LOG" 2>/dev/null
-    chmod 664 "$PLAYER_LOG" 2>/dev/null
-fi
+# Temporary log files in /tmp will be created by root at runtime - no need to pre-create
+# Clean up any old temp files
+rm -f /tmp/background_music*.log /tmp/background_music*.pid /tmp/bg_music*.pid 2>/dev/null
+echo "Cleaned up temporary files"
 
-# Clean up any temp files with wrong permissions (from older versions or manual testing)
-echo "Cleaning up temporary files..."
+# Clean up any temp files from previous versions or manual testing
+echo "Cleaning up control files..."
 rm -f /tmp/bg_music_jump.txt /tmp/bg_music_next.txt /tmp/bg_music_previous.txt 2>/dev/null
+rm -f /tmp/bg_music_status.txt /tmp/bg_music_state.txt 2>/dev/null
 
 # Copy stream presets example file if it doesn't exist
 STREAM_PRESETS="${PLUGIN_DIR}/stream_presets.json"

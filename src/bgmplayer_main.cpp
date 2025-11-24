@@ -8,11 +8,10 @@
  *   -nodisp          Ignored (for ffplay compatibility)
  *   -autoexit        Ignored (for ffplay compatibility)
  *   -loglevel <level> Ignored (for ffplay compatibility)
- *   -volume <percent> Set volume gain (100 = normal, 200 = 2x, etc.)
+ *   -volume <percent> Set initial volume (100 = normal)
  *
  * Runtime Volume Control:
- *   Create file /tmp/bgmplayer_<pid>_volume.txt with desired volume percentage
- *   Player checks this file every second and adjusts volume dynamically
+ *   Volume is controlled by PipeWire using wpctl set-volume
  */
 
 #include "BGMusicPlayer.h"
@@ -20,11 +19,9 @@
 #include <fstream>
 #include <csignal>
 #include <unistd.h>
-#include <sys/stat.h>
 
 static BGMusicPlayer *player = nullptr;
 static bool shouldExit = false;
-static std::string volumeControlFile;
 
 // Signal handler for clean shutdown
 void signalHandler(int signum)
@@ -143,53 +140,17 @@ int main(int argc, char *argv[])
     std::cout << "Duration: " << player->GetDurationMs() / 1000 << "s" << std::endl;
     if (volumePercent != 100)
     {
-        std::cout << "Volume: " << volumePercent << "%" << std::endl;
+        std::cout << "Initial volume: " << volumePercent << "%" << std::endl;
+        std::cout << "Volume control: PipeWire (use wpctl to adjust)" << std::endl;
     }
 
-    // Setup volume control file (allows external volume changes)
-    pid_t myPid = getpid();
-    volumeControlFile = "/tmp/bgmplayer_" + std::to_string(myPid) + "_volume.txt";
-    std::cout << "Volume control: " << volumeControlFile << std::endl;
-
     // Wait for playback to finish
-    int checkCount = 0;
     while (player->IsPlaying() && !shouldExit)
     {
-        sleep(1);
-        checkCount++;
-
-        // Check for volume control file every second
-        struct stat buffer;
-        if (stat(volumeControlFile.c_str(), &buffer) == 0)
-        {
-            std::ifstream volumeFile(volumeControlFile);
-            if (volumeFile.is_open())
-            {
-                int newVolume;
-                volumeFile >> newVolume;
-                volumeFile.close();
-
-                if (newVolume >= 0 && newVolume <= 400)
-                {
-                    player->SetVolumeGain(newVolume);
-                    std::cout << "Volume adjusted to " << newVolume << "%" << std::endl;
-                }
-
-                // Remove the control file after reading
-                unlink(volumeControlFile.c_str());
-            }
-        }
-
-        // Optional: print progress
-        // int pos = player->GetPositionMs();
-        // int dur = player->GetDurationMs();
-        // std::cout << "\rPosition: " << pos/1000 << "s / " << dur/1000 << "s" << std::flush;
+        usleep(100000); // 100ms
     }
 
     std::cout << "\nPlayback finished" << std::endl;
-
-    // Cleanup volume control file
-    unlink(volumeControlFile.c_str());
 
     // Cleanup
     player->Close();

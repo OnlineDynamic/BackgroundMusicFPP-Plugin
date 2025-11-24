@@ -2,12 +2,23 @@
 # Background Music Player - plays audio files independently from FPP playlists
 # Uses custom bgmplayer for proper volume control support
 
-# Force SDL to use ALSA driver for audio playback
-# SDL_AUDIO_ALSA_DEVICE will be set dynamically based on FPP's configured audio device
+# Use PipeWire for audio routing - allows dynamic device switching
 FPP_UID=$(id -u fpp)
 export XDG_RUNTIME_DIR="/run/user/${FPP_UID}"
-export SDL_AUDIODRIVER=alsa
+export SDL_AUDIODRIVER=pipewire
 export SDL_AUDIO_SAMPLES=4096
+
+# Clean up stale PipeWire sockets FIRST before anything else
+# This prevents issues when audio output changes between reboots
+if [ -d "$XDG_RUNTIME_DIR" ]; then
+    # If pipewire sockets exist but no pipewire processes are running, clean them up
+    if ls "$XDG_RUNTIME_DIR"/pipewire-* >/dev/null 2>&1; then
+        if ! pgrep -u fpp pipewire >/dev/null 2>&1; then
+            rm -f "$XDG_RUNTIME_DIR"/pipewire-* 2>/dev/null
+            rm -f "$XDG_RUNTIME_DIR/bus" 2>/dev/null
+        fi
+    fi
+fi
 
 PLUGIN_DIR="/home/fpp/media/plugins/fpp-plugin-BackgroundMusic"
 PLUGIN_CONFIG="/home/fpp/media/config/plugin.fpp-plugin-BackgroundMusic"
@@ -47,10 +58,19 @@ get_audio_device() {
     
     # If audio_device is just a number (card number), convert to ALSA device format
     if [[ "$audio_device" =~ ^[0-9]+$ ]]; then
-        # It's a card number - convert to plughw format
+        # It's a card number - get the actual card name from ALSA
         local card_num="$audio_device"
-        audio_device="plughw:${card_num},0"
-        echo "Converted card number $card_num to ALSA device: $audio_device" >&2
+        local card_name=$(aplay -l 2>/dev/null | grep "^card ${card_num}:" | sed 's/^card [0-9]*: \([^ ]*\).*/\1/')
+        
+        if [ -n "$card_name" ]; then
+            # Use the card name format that ALSA recognizes
+            audio_device="plughw:CARD=${card_name},DEV=0"
+            echo "Converted card number $card_num to ALSA device: $audio_device (card name: $card_name)" >&2
+        else
+            # Fallback to numeric format
+            audio_device="plughw:${card_num},0"
+            echo "Converted card number $card_num to ALSA device: $audio_device" >&2
+        fi
     fi
     
     # If still empty, use default detection
@@ -152,13 +172,16 @@ start_music() {
         fi
     fi
     
-    # Clean up any stale control files from previous session
+    # Clean up any stale control files and log files from previous session
     rm -f /tmp/bg_music_jump.txt /tmp/bg_music_next.txt /tmp/bg_music_previous.txt 2>/dev/null
+    rm -f /tmp/background_music_player.log /tmp/background_music_start.log 2>/dev/null
+    rm -f /tmp/pipewire_start.log /tmp/pipewire_restart.log 2>/dev/null
+    # Clean up stale PID files
+    rm -f "$PID_FILE" /tmp/background_music_start.pid 2>/dev/null
     
-    # Ensure log file has correct permissions
-    if [ -f "/tmp/background_music_player.log" ]; then
-        chown fpp:fpp /tmp/background_music_player.log 2>/dev/null
-    fi
+    # Write a temporary startup PID so the API knows we're starting
+    # This will be updated with the actual player PID later
+    echo "$$" > /tmp/background_music_start.pid
     
     local bg_playlist=$(grep "^BackgroundMusicPlaylist=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r')
     bg_playlist=$(strip_quotes "$bg_playlist")
@@ -181,6 +204,11 @@ start_music() {
     
     # Default volume to 70 if not set
     volume_level=${volume_level:-70}
+    
+    # Always initialize volume file with config value on start
+    # This ensures config changes are applied
+    echo "$volume_level" > /tmp/bgmplayer_volume.txt
+    echo "Set volume to ${volume_level}% from config"
     
     # Validate configuration based on source type
     if [ "$bg_source" = "stream" ]; then
@@ -217,47 +245,36 @@ start_music() {
     
     # Ensure PipeWire is running and configured for the current audio device
     echo "Checking PipeWire status..."
-    if ! pgrep -u fpp pipewire > /dev/null; then
+    if ! pgrep -u fpp pipewire > /dev/null || ! pgrep -u fpp wireplumber > /dev/null; then
         echo "PipeWire not running, starting it now..."
-        # Call start_pipewire.sh directly (it now runs sink detection in background)
-        echo "Calling start_pipewire.sh..." > /tmp/pipewire_start.log
-        if "${PLUGIN_DIR}/scripts/start_pipewire.sh" >> /tmp/pipewire_start.log 2>&1; then
-            echo "start_pipewire.sh returned successfully" >> /tmp/pipewire_start.log
-        else
-            echo "start_pipewire.sh returned error code $?" >> /tmp/pipewire_start.log
-        fi
-        
-        # Wait for both PipeWire and WirePlumber to be running and stable
-        local count=0
-        local started=0
-        while [ $count -lt 15 ]; do
-            # Check if both pipewire and wireplumber are running
-            if pgrep -u fpp pipewire > /dev/null && pgrep -u fpp wireplumber > /dev/null; then
-                # Wait a bit to ensure they're stable
-                sleep 2
-                # Verify they're still running
-                if pgrep -u fpp pipewire > /dev/null && pgrep -u fpp wireplumber > /dev/null; then
-                    started=1
-                    break
-                fi
-            fi
-            sleep 1
-            count=$((count + 1))
-        done
-        
-        if [ $started -eq 1 ]; then
+        # Call start_pipewire.sh synchronously (it's fast now - ~4 seconds)
+        if "${PLUGIN_DIR}/scripts/start_pipewire.sh" > /tmp/pipewire_start.log 2>&1; then
             echo "PipeWire started successfully"
-            sleep 3  # Give WirePlumber extra time to detect devices and create sinks
+            sleep 2  # Give WirePlumber time to detect devices and create sinks
+            
+            # Ensure audio output is set to match FPP configuration
+            echo "Configuring audio output to match FPP settings..."
+            "${PLUGIN_DIR}/scripts/set_audio_output.sh" >> /tmp/background_music_start.log 2>&1
         else
-            echo "ERROR: Failed to start PipeWire (timeout after 15s)"
+            echo "ERROR: Failed to start PipeWire"
             echo "Check /tmp/pipewire_start.log for details"
             return 1
         fi
     else
         echo "PipeWire is running"
+        
         # Restart PipeWire if the audio device has changed
         # Check if WirePlumber config matches current device
-        CURRENT_CARD=$(echo "$audio_device" | grep -oP '(?<=:)\d+' | head -1)
+        # Extract card number from various formats: plughw:2,0 or plughw:CARD=vc4hdmi0,DEV=0 or hw:2
+        if echo "$audio_device" | grep -q "CARD="; then
+            # Format: plughw:CARD=vc4hdmi0,DEV=0 - need to map card name to number
+            local card_name=$(echo "$audio_device" | sed 's/.*CARD=\([^,]*\).*/\1/')
+            CURRENT_CARD=$(aplay -l 2>/dev/null | grep -i "card [0-9]*:.*$card_name" | sed 's/^card \([0-9]*\):.*/\1/' | head -1)
+        else
+            # Format: plughw:2,0 or hw:2
+            CURRENT_CARD=$(echo "$audio_device" | grep -oP '(?<=:)\d+' | head -1)
+        fi
+        
         if [ -z "$CURRENT_CARD" ]; then
             CURRENT_CARD="0"
         fi
@@ -267,26 +284,29 @@ start_music() {
             CONFIGURED_CARD=$(grep "api.alsa.card.id" "$WIREPLUMBER_CONFIG" | grep -oP '(?<=equals", ")\d+' | head -1)
             if [ "$CURRENT_CARD" != "$CONFIGURED_CARD" ]; then
                 echo "Audio device changed (card $CONFIGURED_CARD -> card $CURRENT_CARD), restarting PipeWire..."
-                "${PLUGIN_DIR}/scripts/start_pipewire.sh" > /tmp/pipewire_restart.log 2>&1 &
-                local restart_pid=$!
                 
-                # Wait up to 15 seconds for PipeWire to restart
-                local count=0
-                while [ $count -lt 15 ]; do
-                    if pgrep -u fpp wireplumber > /dev/null; then
-                        echo "PipeWire restarted successfully"
-                        sleep 2  # Give WirePlumber time to detect devices
-                        break
-                    fi
-                    sleep 1
-                    count=$((count + 1))
-                done
+                # Kill existing PipeWire processes first
+                pkill -u fpp pipewire 2>/dev/null
+                pkill -u fpp wireplumber 2>/dev/null
+                sleep 1
                 
-                if ! pgrep -u fpp wireplumber > /dev/null; then
-                    echo "ERROR: Failed to restart PipeWire (timeout)"
+                # Start PipeWire synchronously (this is fast - ~4 seconds)
+                if "${PLUGIN_DIR}/scripts/start_pipewire.sh" > /tmp/pipewire_restart.log 2>&1; then
+                    echo "PipeWire restarted successfully"
+                    sleep 3  # Give WirePlumber time to detect all devices and create sinks
+                    
+                    # Set audio output to match FPP configuration after restart
+                    echo "Configuring audio output to match FPP settings..."
+                    "${PLUGIN_DIR}/scripts/set_audio_output.sh" >> /tmp/background_music_start.log 2>&1
+                else
+                    echo "ERROR: Failed to restart PipeWire"
                     echo "Check /tmp/pipewire_restart.log for details"
                     return 1
                 fi
+            else
+                # No restart needed, but ensure default sink is set correctly
+                echo "Configuring audio output to match FPP settings..."
+                "${PLUGIN_DIR}/scripts/set_audio_output.sh" >> /tmp/background_music_start.log 2>&1
             fi
         fi
     fi
@@ -332,6 +352,9 @@ stream_url=$STREAM_URL
 stream_title=
 stream_artist=
 EOF
+
+# Make status file world-readable so web UI can access it
+chmod 644 "$STATUS_FILE"
 
 # Function to extract ICY metadata
 extract_metadata() {
@@ -386,6 +409,7 @@ extract_metadata() {
                 esac
             done < "$STATUS_FILE" > "$temp_status"
             mv "$temp_status" "$STATUS_FILE"
+            chmod 644 "$STATUS_FILE"
         fi
         
         # Check every 10 seconds for metadata updates
@@ -406,11 +430,19 @@ while true; do
     fi
     
     # Play the stream with bgmplayer
-    SDL_AUDIODRIVER=alsa "$PLAYER_CMD" -nodisp -autoexit \
+    SDL_AUDIODRIVER=pipewire "$PLAYER_CMD" -nodisp -autoexit \
         -loglevel error "$STREAM_URL" &
     
     bgplayer_pid=$!
     echo $bgplayer_pid > "$BGMPLAYER_PID_FILE"
+    
+    # Wait for PipeWire stream to be created and set initial volume
+    sleep 1
+    VOLUME_FILE="/tmp/bgmplayer_volume.txt"
+    if [ -f "$VOLUME_FILE" ]; then
+        DESIRED_VOL=$(cat "$VOLUME_FILE")
+        /home/fpp/media/plugins/fpp-plugin-BackgroundMusic/scripts/set_bgmplayer_volume.sh "$DESIRED_VOL" 2>&1
+    fi
     
     # Wait for bgmplayer to exit
     wait $bgplayer_pid
@@ -498,6 +530,14 @@ play_track_with_crossfade() {
     local player_pid=\$!
     echo "\$player_pid" > "\$BGMPLAYER_PID_FILE"
     
+    # Wait for PipeWire stream to be created and set initial volume
+    sleep 0.5
+    VOLUME_FILE="/tmp/bgmplayer_volume.txt"
+    if [ -f "\$VOLUME_FILE" ]; then
+        DESIRED_VOL=\$(cat "\$VOLUME_FILE")
+        /home/fpp/media/plugins/fpp-plugin-BackgroundMusic/scripts/set_bgmplayer_volume.sh "\$DESIRED_VOL" >/dev/null 2>&1 &
+    fi
+    
     # Track progress while playing
     local elapsed=0
     local crossfade_started=0
@@ -505,6 +545,8 @@ play_track_with_crossfade() {
     
     while kill -0 \$player_pid 2>/dev/null; do
         sleep 1
+        
+        # Volume is already set at bgmplayer startup - no need to re-apply
         
         # Only increment elapsed time if not paused
         local current_state="playing"
@@ -526,6 +568,16 @@ play_track_with_crossfade() {
             next_player_pid=\$!
             echo "\$next_player_pid" > "\$BGMPLAYER_NEXT_PID_FILE"
             echo "\$(date +%s.%N) [CROSSFADE] Started next PID=\$next_player_pid file='\$(basename "\$next_media_file")'" >&2
+            
+            # Wait for PipeWire stream and set volume for crossfade track
+            (
+                sleep 0.5
+                VOLUME_FILE="/tmp/bgmplayer_volume.txt"
+                if [ -f "\$VOLUME_FILE" ]; then
+                    DESIRED_VOL=\$(cat "\$VOLUME_FILE")
+                    /home/fpp/media/plugins/fpp-plugin-BackgroundMusic/scripts/set_bgmplayer_volume.sh "\$DESIRED_VOL" >/dev/null 2>&1
+                fi
+            ) &
         fi
         
         # Check for jump/skip/previous commands
@@ -588,6 +640,9 @@ update_status() {
         echo "track_number=\$track_num"
         echo "total_tracks=\$total_tracks"
     } > "\$STATUS_FILE"
+    
+    # Make status file world-readable so web UI can access it
+    chmod 644 "\$STATUS_FILE" 2>/dev/null
 }
 
 # Main loop - continuously play music
@@ -766,6 +821,14 @@ while true; do
     player_pid=\$!
     echo "\$player_pid" > "\$BGMPLAYER_PID_FILE"
         
+        # Wait for PipeWire stream to be created and set initial volume
+        sleep 0.5
+        VOLUME_FILE="/tmp/bgmplayer_volume.txt"
+        if [ -f "\$VOLUME_FILE" ]; then
+            DESIRED_VOL=\$(cat "\$VOLUME_FILE")
+            /home/fpp/media/plugins/fpp-plugin-BackgroundMusic/scripts/set_bgmplayer_volume.sh "\$DESIRED_VOL" >/dev/null 2>&1 &
+        fi
+        
         elapsed=0
         track_was_skipped=0
         while kill -0 \$player_pid 2>/dev/null; do
@@ -869,6 +932,8 @@ LOOPSCRIPT
     
     local pid=$!
     echo $pid > "$PID_FILE"
+    # Also write to the file the API expects
+    echo $pid > "/tmp/background_music_start.pid"
     
     # Verify it started
     sleep 1
@@ -1031,6 +1096,7 @@ stop_music() {
         
         # Clean up temp files
         rm -f "$BGMPLAYER_PID_FILE"
+        rm -f "/tmp/background_music_start.pid"
         rm -f /tmp/bg_music_loop.sh
         rm -f "$STATE_FILE"
         rm -f /tmp/bg_music_status.txt
@@ -1081,6 +1147,7 @@ stop_music() {
     pkill -9 -f "/bin/bash /tmp/bg_music_loop.sh" 2>/dev/null
     
     rm -f "$PID_FILE"
+    rm -f "/tmp/background_music_start.pid"
     rm -f "$PLAYLIST_FILE"
     rm -f /tmp/bg_music_loop.sh
     # Remove status file to signal all loops to stop

@@ -1289,8 +1289,8 @@
                         .then(response => response.json())
                         .then(data => {
                             if (data.status === 'OK' && data.log !== undefined) {
-                                // Update if content changed or it's the first load
-                                if (data.log !== lastLogContent || isInitialLoad) {
+                                // Update if content changed, it's the first load, or manual refresh
+                                if (data.log !== lastLogContent || isInitialLoad || !skipSpinner) {
                                     const wasAtBottom = logContent.scrollHeight - logContent.scrollTop <= logContent.clientHeight + 50;
                                     displayLog(data.log);
                                     lastLogContent = data.log;
@@ -1319,7 +1319,7 @@
                     }
                     
                     // Split into lines and apply color coding
-                    const lines = logText.split('\\n');
+                    const lines = logText.split('\n');
                     const coloredLines = lines.map(line => {
                         if (line.includes('ERROR') || line.includes('Error') || line.includes('error')) {
                             return '<span class="log-line-error">' + escapeHtml(line) + '</span>';
@@ -1331,7 +1331,7 @@
                         return escapeHtml(line);
                     });
                     
-                    logContent.innerHTML = coloredLines.join('\\n');
+                    logContent.innerHTML = coloredLines.join('\n');
                 }
                 
                 function clearLogDisplay() {

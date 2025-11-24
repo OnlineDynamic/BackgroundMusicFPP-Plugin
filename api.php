@@ -308,6 +308,16 @@ function fppBackgroundMusicStatus() {
     // Check if fpp-brightness plugin is installed (required for transitions)
     $brightnessPluginInstalled = file_exists('/home/fpp/media/plugins/fpp-brightness/libfpp-brightness.so');
     
+    // Get current bgmplayer volume from file
+    $bgmplayerVolume = $backgroundMusicVolume; // default from config
+    $volumeFile = '/tmp/bgmplayer_volume.txt';
+    if (file_exists($volumeFile)) {
+        $fileVolume = trim(file_get_contents($volumeFile));
+        if (is_numeric($fileVolume)) {
+            $bgmplayerVolume = intval($fileVolume);
+        }
+    }
+    
     $result = array(
         'backgroundMusicRunning' => $backgroundMusicRunning,
         'showRunning' => $showRunning,
@@ -326,6 +336,7 @@ function fppBackgroundMusicStatus() {
         'totalTracks' => $totalTracks,
         'streamTitle' => $streamTitle,
         'streamArtist' => $streamArtist,
+        'volume' => $bgmplayerVolume,
         'config' => array(
             'backgroundMusicSource' => isset($pluginSettings['BackgroundMusicSource']) ? $pluginSettings['BackgroundMusicSource'] : 'playlist',
             'backgroundMusicPlaylist' => $backgroundMusicPlaylist,
@@ -397,15 +408,16 @@ function fppBackgroundMusicStartBackground() {
         }
     }
     
-    // Start in background with proper environment for PipeWire
-    // Set XDG_RUNTIME_DIR for fpp user
-    $fppUid = trim(shell_exec("id -u fpp"));
-    $runtimeDir = "/run/user/" . $fppUid;
-    $cmd = "(sudo -u fpp XDG_RUNTIME_DIR=" . escapeshellarg($runtimeDir) . " /bin/bash " . escapeshellarg($scriptPath) . " start > " . escapeshellarg($logFile) . " 2>&1 & echo \$! > " . escapeshellarg($pidFile) . ")";
+    // Start in background using wrapper script
+    // The wrapper handles proper detachment from Apache
+    $wrapperScript = dirname(__FILE__) . '/scripts/start_background_wrapper.sh';
+    $cmd = "sudo " . escapeshellarg($wrapperScript);
     exec($cmd);
     
-    // Give it a moment to start, then check if it's running
-    usleep(500000); // 0.5 seconds
+    // Give script time to start PipeWire, configure audio, and write PID file
+    // Script can take 3-4 seconds when starting PipeWire
+    sleep(5);
+    file_put_contents('/tmp/api_debug.log', "After sleep, checking PID file: $pidFile\n", FILE_APPEND);
     
     // Check if the process started successfully
     if (file_exists($pidFile)) {
@@ -462,7 +474,7 @@ function fppBackgroundMusicPauseBackground() {
     $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
     $output = array();
     $returnCode = 0;
-    exec("sudo -u fpp /bin/bash " . escapeshellarg($scriptPath) . " pause 2>&1", $output, $returnCode);
+    exec("sudo /bin/bash " . escapeshellarg($scriptPath) . " pause 2>&1", $output, $returnCode);
     
     if ($returnCode === 0) {
         return json(array('status' => 'OK', 'message' => 'Background music paused'));
@@ -476,7 +488,7 @@ function fppBackgroundMusicResumeBackground() {
     $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
     $output = array();
     $returnCode = 0;
-    exec("sudo -u fpp /bin/bash " . escapeshellarg($scriptPath) . " resume 2>&1", $output, $returnCode);
+    exec("sudo /bin/bash " . escapeshellarg($scriptPath) . " resume 2>&1", $output, $returnCode);
     
     if ($returnCode === 0) {
         return json(array('status' => 'OK', 'message' => 'Background music resumed'));
@@ -561,15 +573,13 @@ function fppBackgroundMusicStartShow() {
         return json(array('status' => 'ERROR', 'message' => 'Show playlist not configured'));
     }
     
-    // Execute the fade and show transition script in background
-    $scriptPath = dirname(__FILE__) . '/scripts/start_show_transition.sh';
-    $logFile = '/home/fpp/media/logs/fpp-plugin-BackgroundMusic-api.log';
-    $cmd = sprintf('/bin/bash %s %d %d %s >> %s 2>&1 &', 
-        escapeshellarg($scriptPath), 
+    // Execute the fade and show transition script in background via wrapper
+    $wrapperScript = dirname(__FILE__) . '/scripts/start_show_wrapper.sh';
+    $cmd = sprintf('sudo %s %d %d %s', 
+        escapeshellarg($wrapperScript), 
         $fadeTime, 
         $blackoutTime, 
-        escapeshellarg($showPlaylist),
-        escapeshellarg($logFile));
+        escapeshellarg($showPlaylist));
     
     exec($cmd);
     
@@ -606,14 +616,15 @@ function fppBackgroundMusicSetVolume() {
     }
     file_put_contents($pluginConfigFile, $configContent);
     
-    // Apply volume change immediately using system audio controls
-    $scriptPath = dirname(__FILE__) . '/scripts/restore_audio_volume.sh';
+    // Apply volume change immediately to bgmplayer (not system volume)
+    // This controls the player's internal volume via SIGUSR1/SIGUSR2 signals
+    $scriptPath = dirname(__FILE__) . '/scripts/set_bgmplayer_volume.sh';
     exec("/bin/bash " . escapeshellarg($scriptPath) . " " . escapeshellarg($volume) . " 2>&1", $output, $returnCode);
     
     if ($returnCode === 0) {
-        return json(array('status' => 'OK', 'message' => 'Volume updated immediately', 'volume' => $volume));
+        return json(array('status' => 'OK', 'message' => 'Volume updated', 'volume' => $volume));
     } else {
-        return json(array('status' => 'WARNING', 'message' => 'Volume saved but failed to apply immediately', 'volume' => $volume));
+        return json(array('status' => 'WARNING', 'message' => 'Volume saved but player may not be running', 'volume' => $volume));
     }
 }
 

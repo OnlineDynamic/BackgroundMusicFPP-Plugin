@@ -7,6 +7,7 @@
 #include <iostream>
 #include <cstring>
 #include <unistd.h>
+#include <cmath>
 
 // Constructor
 BGMusicPlayer::BGMusicPlayer() : formatContext(nullptr),
@@ -488,26 +489,8 @@ bool BGMusicPlayer::DecodeAudioPacket()
         {
             int dataSize = samples * audioInfo.channels * audioInfo.bytesPerSample;
 
-            // Apply volume gain if not 1.0
-            if (volumeGain != 1.0f)
-            {
-                // Assuming 16-bit signed integer samples (AUDIO_S16SYS)
-                int16_t *samplePtr = reinterpret_cast<int16_t *>(tempBuffer);
-                int numSamples = dataSize / sizeof(int16_t);
-
-                for (int i = 0; i < numSamples; i++)
-                {
-                    float sample = static_cast<float>(samplePtr[i]) * volumeGain;
-
-                    // Clamp to prevent overflow
-                    if (sample > 32767.0f)
-                        sample = 32767.0f;
-                    if (sample < -32768.0f)
-                        sample = -32768.0f;
-
-                    samplePtr[i] = static_cast<int16_t>(sample);
-                }
-            }
+            // Volume is controlled by PipeWire - no need for manual PCM scaling
+            // Just copy the decoded audio directly to the buffer
 
             // Add to internal buffer for callback
             std::lock_guard<std::mutex> lock(bufferMutex);
@@ -621,15 +604,21 @@ bool BGMusicPlayer::IsPaused() const
 // Set volume gain (percent: 100 = normal, 200 = 2x, etc.)
 void BGMusicPlayer::SetVolumeGain(int percent)
 {
+    // Volume is now controlled by PipeWire via wpctl
+    // This function kept for API compatibility but does nothing
+    // The 1.5x boost is applied in set_bgmplayer_volume.sh via PipeWire
     if (percent < 0)
         percent = 0;
-    if (percent > 400)
-        percent = 400; // Max 4x gain to prevent excessive distortion
-    volumeGain = static_cast<float>(percent) / 100.0f;
+    if (percent > 100)
+        percent = 100;
+    
+    // Store the value for reporting, but don't apply any gain
+    volumeGain.store(percent / 100.0f);
 }
 
 // Get volume gain as percent
 int BGMusicPlayer::GetVolumeGain() const
 {
-    return static_cast<int>(volumeGain * 100.0f);
+    // Return stored percentage (volume is actually controlled by PipeWire)
+    return static_cast<int>(volumeGain.load() * 100.0f);
 }

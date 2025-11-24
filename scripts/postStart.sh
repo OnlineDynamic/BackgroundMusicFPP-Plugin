@@ -13,6 +13,19 @@ log_message() {
 
 log_message "FPP postStart hook triggered"
 
+# Clean up stale PipeWire sockets that might prevent startup after reboot
+RUNTIME_DIR="/run/user/500"
+if [ -d "$RUNTIME_DIR" ]; then
+    # If pipewire sockets exist but no pipewire processes are running, clean them up
+    if ls "$RUNTIME_DIR"/pipewire-* >/dev/null 2>&1; then
+        if ! pgrep -u fpp pipewire >/dev/null 2>&1; then
+            log_message "Cleaning up stale PipeWire sockets (no running processes)"
+            rm -f "$RUNTIME_DIR"/pipewire-* 2>/dev/null
+            rm -f "$RUNTIME_DIR/bus" 2>/dev/null
+        fi
+    fi
+fi
+
 # Check if plugin is configured
 if [ ! -f "$PLUGIN_CONFIG" ]; then
     log_message "Plugin not configured, skipping autostart"
@@ -35,8 +48,9 @@ sleep 5
 SCRIPT_DIR="$(dirname "$0")"
 log_message "Starting background music via autostart..."
 
-# Run as fpp user to avoid permission issues
-if su - fpp -c "/bin/bash '$SCRIPT_DIR/background_music_player.sh' start" >> "$LOG_FILE" 2>&1; then
+# Run background_music_player.sh directly (it will use sudo internally where needed)
+# Don't use su - fpp because start_pipewire.sh needs to run as root
+if /bin/bash "$SCRIPT_DIR/background_music_player.sh" start >> "$LOG_FILE" 2>&1; then
     log_message "Background music autostart successful"
 else
     log_message "Background music autostart failed"

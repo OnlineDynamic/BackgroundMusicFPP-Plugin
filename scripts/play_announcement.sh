@@ -51,6 +51,11 @@ if [ -f "$PLUGIN_CONFIG" ]; then
         ORIGINAL_VOLUME=$(grep "^VolumeLevel=" "$PLUGIN_CONFIG" | cut -d'=' -f2 | tr -d '\r')
     fi
 fi
+
+# If no config volume found, get current FPP system volume
+if [ -z "$ORIGINAL_VOLUME" ]; then
+    ORIGINAL_VOLUME=$(curl -s "http://localhost/api/system/volume" | jq -r '.volume' 2>/dev/null)
+fi
 ORIGINAL_VOLUME=${ORIGINAL_VOLUME:-70}
 
 log_message "Original volume: ${ORIGINAL_VOLUME}%, ducking to: ${DUCK_VOLUME}%, announcement volume: ${ANNOUNCEMENT_VOLUME}%"
@@ -162,6 +167,23 @@ EOF
         -H "Content-Type: application/json" \
         -d "{\"volume\":${ANNOUNCEMENT_VOLUME}}" > /dev/null 2>&1
 
+    # Ensure PipeWire is running and audio output is properly set
+    # This is important when background music is not playing
+    if [ "$BG_MUSIC_PLAYING" = false ]; then
+        log_message "Background music not playing - ensuring PipeWire and audio output are configured"
+        FPP_UID=$(id -u fpp)
+        
+        # Start PipeWire if not running (run as root, script handles internal sudo)
+        if ! pgrep -u fpp pipewire > /dev/null 2>&1; then
+            log_message "Starting PipeWire for fpp user"
+            XDG_RUNTIME_DIR="/run/user/${FPP_UID}" bash "$PLUGIN_DIR/scripts/start_pipewire.sh" >> "$LOG_FILE" 2>&1
+            sleep 1
+        fi
+        
+        # Set the correct audio output (run as root, script handles internal sudo)
+        XDG_RUNTIME_DIR="/run/user/${FPP_UID}" bash "$PLUGIN_DIR/scripts/set_audio_output.sh" >> "$LOG_FILE" 2>&1
+    fi
+
     # Convert announcement to 48kHz stereo WAV for smoother playback through PipeWire
     TEMP_FILE="/tmp/psa_resampled_${$}.wav"
     if ! ffmpeg -y -loglevel error -i "$ANNOUNCEMENT_FILE" -ar 48000 -ac 2 "$TEMP_FILE"; then
@@ -171,8 +193,9 @@ EOF
     fi
     
     # Play announcement using PipeWire via ALSA with larger buffer to avoid underruns
+    # Run as fpp user to access PipeWire session
     FPP_UID=$(id -u fpp)
-    XDG_RUNTIME_DIR="/run/user/${FPP_UID}" PIPEWIRE_RUNTIME_DIR="/run/user/${FPP_UID}" \
+    sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" PIPEWIRE_RUNTIME_DIR="/run/user/${FPP_UID}" \
         SDL_AUDIODRIVER=alsa SDL_AUDIO_ALSA_DEVICE="pipewire" \
         SDL_AUDIO_SAMPLES=8192 \
         "$PLUGIN_DIR/bgmplayer" -nodisp -autoexit \
@@ -199,23 +222,23 @@ EOF
         -H "Content-Type: application/json" \
         -d "{\"volume\":${ORIGINAL_VOLUME}}" > /dev/null 2>&1
     
-    # Restore background music to normal volume
-    if [ "$BG_MUSIC_PLAYING" = true ]; then
-        log_message "Restoring background music from ${DUCK_VOLUME}% to 100% volume"
-        
-        # Calculate how many increases needed to restore to 100%
-        INCREASES=$(( (100 - DUCK_VOLUME) / 10 ))
-        
-        if [ -f "/tmp/bg_music_bgmplayer.pid" ]; then
-            CURRENT_BG_PID=$(cat /tmp/bg_music_bgmplayer.pid)
-            if ps -p "$CURRENT_BG_PID" > /dev/null 2>&1; then
-                for ((i=0; i<INCREASES; i++)); do
-                    kill -SIGUSR2 "$CURRENT_BG_PID" 2>/dev/null
-                    sleep 0.1
-                done
-                log_message "Background music volume restored to 100%"
-            fi
+    # Restore background music to normal volume if it was playing
+    if [ "$BG_MUSIC_PLAYING" = true ] && [ -f "/tmp/bg_music_bgmplayer.pid" ]; then
+        CURRENT_BG_PID=$(cat /tmp/bg_music_bgmplayer.pid)
+        if ps -p "$CURRENT_BG_PID" > /dev/null 2>&1; then
+            log_message "Restoring background music from ${DUCK_VOLUME}% to 100% volume"
+            
+            # Calculate how many increases needed to restore to 100%
+            INCREASES=$(( (100 - DUCK_VOLUME) / 10 ))
+            
+            for ((i=0; i<INCREASES; i++)); do
+                kill -SIGUSR2 "$CURRENT_BG_PID" 2>/dev/null
+                sleep 0.1
+            done
+            log_message "Background music volume restored to 100%"
         fi
+    else
+        log_message "No background music to restore (was not playing)"
     fi
     
     # Clean up temp audio, PID and status files

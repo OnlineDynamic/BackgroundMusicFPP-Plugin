@@ -164,7 +164,7 @@ start_music() {
             if [ "$current_source" != "$bg_source" ] && [ "$current_source" != "unknown" ]; then
                 echo "Source type changed from $current_source to $bg_source, restarting..."
                 stop_music
-                sleep 2
+                sleep 0.5
             else
                 echo "Background music already running (PID: $pid) with same source type ($bg_source)"
                 return 0
@@ -250,7 +250,7 @@ start_music() {
         # Call start_pipewire.sh synchronously (it's fast now - ~4 seconds)
         if "${PLUGIN_DIR}/scripts/start_pipewire.sh" > /tmp/pipewire_start.log 2>&1; then
             echo "PipeWire started successfully"
-            sleep 2  # Give WirePlumber time to detect devices and create sinks
+            sleep 0.5  # Give WirePlumber time to detect devices and create sinks
             
             # Ensure audio output is set to match FPP configuration
             echo "Configuring audio output to match FPP settings..."
@@ -288,12 +288,12 @@ start_music() {
                 # Kill existing PipeWire processes first
                 pkill -u fpp pipewire 2>/dev/null
                 pkill -u fpp wireplumber 2>/dev/null
-                sleep 1
+                sleep 0.2
                 
                 # Start PipeWire synchronously (this is fast - ~4 seconds)
                 if "${PLUGIN_DIR}/scripts/start_pipewire.sh" > /tmp/pipewire_restart.log 2>&1; then
                     echo "PipeWire restarted successfully"
-                    sleep 3  # Give WirePlumber time to detect all devices and create sinks
+                    sleep 1  # Give WirePlumber time to detect all devices and create sinks
                     
                     # Set audio output to match FPP configuration after restart
                     echo "Configuring audio output to match FPP settings..."
@@ -437,7 +437,7 @@ while true; do
     echo $bgplayer_pid > "$BGMPLAYER_PID_FILE"
     
     # Wait for PipeWire stream to be created and set initial volume
-    sleep 1
+    sleep 0.3
     VOLUME_FILE="/tmp/bgmplayer_volume.txt"
     if [ -f "$VOLUME_FILE" ]; then
         DESIRED_VOL=$(cat "$VOLUME_FILE")

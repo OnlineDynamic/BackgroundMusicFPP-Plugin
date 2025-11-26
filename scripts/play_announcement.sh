@@ -177,7 +177,7 @@ EOF
         if ! pgrep -u fpp pipewire > /dev/null 2>&1; then
             log_message "Starting PipeWire for fpp user"
             XDG_RUNTIME_DIR="/run/user/${FPP_UID}" bash "$PLUGIN_DIR/scripts/start_pipewire.sh" >> "$LOG_FILE" 2>&1
-            sleep 1
+            sleep 0.3
         fi
         
         # Set the correct audio output (run as root, script handles internal sudo)

@@ -192,12 +192,12 @@ EOF
         exit 1
     fi
     
-    # Play announcement using PipeWire via ALSA with larger buffer to avoid underruns
+    # Play announcement using PipeWire with same SDL config as background music
     # Run as fpp user to access PipeWire session
     FPP_UID=$(id -u fpp)
     sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" PIPEWIRE_RUNTIME_DIR="/run/user/${FPP_UID}" \
-        SDL_AUDIODRIVER=alsa SDL_AUDIO_ALSA_DEVICE="pipewire" \
-        SDL_AUDIO_SAMPLES=8192 \
+        SDL_AUDIODRIVER=pipewire \
+        SDL_AUDIO_SAMPLES=4096 \
         "$PLUGIN_DIR/bgmplayer" -nodisp -autoexit \
         -loglevel error "$TEMP_FILE" >> "$LOG_FILE" 2>&1 &
     BGMPLAYER_PID=$!

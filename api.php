@@ -19,6 +19,12 @@ function getEndpointsfpppluginBackgroundMusic() {
     array_push($result, $ep);
     
     $ep = array(
+        'method' => 'GET',
+        'endpoint' => 'headerIndicator',
+        'callback' => 'fppBackgroundMusicHeaderIndicator');
+    array_push($result, $ep);
+    
+    $ep = array(
         'method' => 'POST',
         'endpoint' => 'start-background',
         'callback' => 'fppBackgroundMusicStartBackground');
@@ -308,14 +314,22 @@ function fppBackgroundMusicStatus() {
     // Check if fpp-brightness plugin is installed (required for transitions)
     $brightnessPluginInstalled = file_exists('/home/fpp/media/plugins/fpp-brightness/libfpp-brightness.so');
     
-    // Get current bgmplayer volume from file
+    // Get current bgmplayer volume from PipeWire stream (query actual volume)
     $bgmplayerVolume = $backgroundMusicVolume; // default from config
-    $volumeFile = '/tmp/bgmplayer_volume.txt';
-    if (file_exists($volumeFile)) {
-        $fileVolume = trim(file_get_contents($volumeFile));
-        if (is_numeric($fileVolume)) {
-            $bgmplayerVolume = intval($fileVolume);
-        }
+    
+    // Query PipeWire for actual stream volume
+    // Note: We query all running BackgroundMusic streams and take the first result.
+    // The player sets bgmplayer.role metadata to distinguish "main" vs "crossfade" streams,
+    // but querying metadata requires per-stream lookups which is slower.
+    // Since volume should be consistent across streams, we rely on the most recent stream.
+    $fppUid = trim(shell_exec('id -u fpp'));
+    $pwDumpCmd = "sudo -u fpp XDG_RUNTIME_DIR=/run/user/{$fppUid} pw-dump 2>/dev/null";
+    $jqQuery = '.[] | select(.info.props["media.name"]? // "" | startswith("BackgroundMusic")) | select(.type == "PipeWire:Interface:Node") | select(.info.state? == "running") | .info.params.Props[0].volume';
+    $streamVolume = trim(shell_exec("{$pwDumpCmd} | jq -r '{$jqQuery}' 2>/dev/null | tail -1"));
+    
+    if (!empty($streamVolume) && $streamVolume !== 'null' && is_numeric($streamVolume)) {
+        // Convert from 0.0-1.0 to 0-100
+        $bgmplayerVolume = intval($streamVolume * 100);
     }
     
     $result = array(
@@ -365,6 +379,74 @@ function fppBackgroundMusicStatus() {
     }
     
     return json($result);
+}
+
+// GET /api/plugin/fpp-plugin-BackgroundMusic/headerIndicator
+function fppBackgroundMusicHeaderIndicator() {
+    global $settings, $pluginConfigFile;
+    
+    // Get plugin status
+    $pidFile = '/tmp/background_music_start.pid';
+    $backgroundMusicRunning = false;
+    
+    if (file_exists($pidFile)) {
+        $pid = trim(file_get_contents($pidFile));
+        exec("ps -p $pid > /dev/null 2>&1", $output, $returnCode);
+        $backgroundMusicRunning = ($returnCode === 0);
+    }
+    
+    // Only return indicator if background music is running
+    if (!$backgroundMusicRunning) {
+        return json(null);
+    }
+    
+    // Get current track info for tooltip
+    $currentTrack = '';
+    $streamSource = false;
+    $streamTitle = '';
+    
+    $statusFile = '/tmp/bg_music_status.txt';
+    if (file_exists($statusFile)) {
+        $statusLines = file($statusFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $statusData = array();
+        foreach ($statusLines as $line) {
+            $pos = strpos($line, '=');
+            if ($pos !== false) {
+                $key = substr($line, 0, $pos);
+                $value = substr($line, $pos + 1);
+                $statusData[$key] = $value;
+            }
+        }
+        
+        if ($statusData) {
+            $streamSource = isset($statusData['source']) && $statusData['source'] === 'stream';
+            if ($streamSource) {
+                $streamTitle = isset($statusData['stream_title']) ? $statusData['stream_title'] : '';
+            } else {
+                $currentTrack = isset($statusData['filename']) ? $statusData['filename'] : '';
+            }
+        }
+    }
+    
+    // Build tooltip text
+    $tooltip = 'Background Music Playing';
+    if ($streamSource && !empty($streamTitle)) {
+        $tooltip = 'Background Music: ' . $streamTitle;
+    } elseif (!$streamSource && !empty($currentTrack)) {
+        $tooltip = 'Background Music: ' . $currentTrack;
+    }
+    
+    // Return indicator configuration
+    $indicator = array(
+        'visible' => true,
+        'icon' => 'fa-music',
+        'color' => '#8b5cf6',
+        'tooltip' => $tooltip,
+        'link' => '/plugin.php?_menu=status&plugin=fpp-plugin-BackgroundMusic&page=backgroundmusic.php',
+        'animate' => 'pulse'
+    );
+    
+    return json($indicator);
 }
 
 // POST /api/plugin/fpp-plugin-BackgroundMusic/start-background

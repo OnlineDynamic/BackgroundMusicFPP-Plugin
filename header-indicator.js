@@ -1,8 +1,24 @@
 // Background Music Plugin - Header Indicator
 // Adds a music icon to the FPP header when background music is active
+// NOTE: This is the legacy implementation. FPP now has built-in plugin header indicator support.
+// This script only runs if the new system is not available (backwards compatibility).
 
 (function () {
     'use strict';
+
+    // Check if FPP has the new plugin header indicator system
+    // If header_plugin_indicators element exists, the new system is available
+    function hasNewHeaderSystem() {
+        return document.getElementById('header_plugin_indicators') !== null;
+    }
+
+    // Exit early if new system is available
+    if (hasNewHeaderSystem()) {
+        console.debug('Background Music: Using new FPP plugin header indicator system');
+        return; // Don't initialize legacy indicator
+    }
+
+    console.debug('Background Music: Using legacy header indicator (FPP core support not detected)');
 
     let indicatorElement = null;
     let updateInterval = null;

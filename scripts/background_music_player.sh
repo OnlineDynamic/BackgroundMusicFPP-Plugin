@@ -205,10 +205,15 @@ start_music() {
     # Default volume to 70 if not set
     volume_level=${volume_level:-70}
     
-    # Always initialize volume file with config value on start
-    # This ensures config changes are applied
-    echo "$volume_level" > /tmp/bgmplayer_volume.txt
-    echo "Set volume to ${volume_level}% from config"
+    # Only initialize volume file if it doesn't exist (first start)
+    # Otherwise preserve the user's runtime volume adjustments
+    if [ ! -f /tmp/bgmplayer_volume.txt ]; then
+        echo "$volume_level" > /tmp/bgmplayer_volume.txt
+        echo "Set initial volume to ${volume_level}% from config"
+    else
+        current_volume=$(cat /tmp/bgmplayer_volume.txt)
+        echo "Preserving user volume setting: ${current_volume}%"
+    fi
     
     # Validate configuration based on source type
     if [ "$bg_source" = "stream" ]; then
@@ -1212,6 +1217,7 @@ stop_music() {
         rm -f /tmp/bg_music_loop.sh
         rm -f "$STATE_FILE"
         rm -f /tmp/bg_music_status.txt
+        rm -f /tmp/bgmplayer_volume.txt  # Clear volume file so next start uses config default
         
         echo "Cleanup complete"
         return 0
@@ -1271,6 +1277,7 @@ stop_music() {
     rm -f /tmp/bg_music_next.txt
     rm -f /tmp/bg_music_reorder.txt
     rm -f /tmp/bg_music_metadata.pid
+    rm -f /tmp/bgmplayer_volume.txt  # Clear volume file so next start uses config default
     
     # Final safety check - kill any remaining bgmplayer processes
     # This catches orphaned processes that might have lost their PID tracking

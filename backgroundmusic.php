@@ -365,7 +365,7 @@
                         </div>
                     </div>
                     <p style="font-size: 10px; color: #777; margin: 0; padding: 6px 8px; background-color: #f9f9f9; border-left: 3px solid #4CAF50; border-radius: 3px; line-height: 1.3;">
-                        <i class="fas fa-info-circle" style="color: #4CAF50;"></i> Adjusts FPP system volume (affects all audio)
+                        <i class="fas fa-info-circle" style="color: #4CAF50;"></i> Adjusts background music volume only (FPP system volume controls overall level)
                     </p>
                 </div>
             </div>

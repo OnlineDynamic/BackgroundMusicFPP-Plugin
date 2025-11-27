@@ -609,7 +609,10 @@ play_track_with_crossfade() {
         # Check for jump/skip/previous commands
         if [ -f "\$JUMP_FILE" ] || [ -f "\$NEXT_FILE" ] || [ -f "\$PREVIOUS_FILE" ]; then
             kill \$player_pid 2>/dev/null
-            [ \$next_player_pid -gt 0 ] && kill \$next_player_pid 2>/dev/null
+            if [ \$next_player_pid -gt 0 ]; then
+                kill \$next_player_pid 2>/dev/null
+                rm -f "\$BGMPLAYER_NEXT_PID_FILE"
+            fi
             return 2  # Interrupted
         fi
     done
@@ -618,8 +621,9 @@ play_track_with_crossfade() {
     wait \$player_pid 2>/dev/null
     rm -f "\$BGMPLAYER_PID_FILE"
     
-    # If crossfade was started, the next track is now the current player
-    if [ \$crossfade_started -eq 1 ] && [ \$next_player_pid -gt 0 ]; then
+    # If crossfade was started and completed normally (not interrupted), the next track is now the current player
+    # Check if the next player process is still alive
+    if [ \$crossfade_started -eq 1 ] && [ \$next_player_pid -gt 0 ] && kill -0 \$next_player_pid 2>/dev/null; then
         echo "\$next_player_pid" > "\$BGMPLAYER_PID_FILE"
         
         # Update metadata: crossfade stream is now the main stream
@@ -877,7 +881,10 @@ while true; do
                     # Check for skip commands
                     if [ -f "\$JUMP_FILE" ] || [ -f "\$NEXT_FILE" ] || [ -f "\$PREVIOUS_FILE" ]; then
                         kill \$player_pid 2>/dev/null
-                        [ \$next_player_pid -gt 0 ] && kill \$next_player_pid 2>/dev/null
+                        if [ \$next_player_pid -gt 0 ]; then
+                            kill \$next_player_pid 2>/dev/null
+                            rm -f "\$BGMPLAYER_NEXT_PID_FILE"
+                        fi
                         track_was_skipped=1
                         break
                     fi
@@ -887,7 +894,7 @@ while true; do
                 rm -f "\$BGMPLAYER_PID_FILE"
                 
                 # If crossfade was started for the next track, update PID file
-                if [ \$next_crossfade_started -eq 1 ] && [ \$next_player_pid -gt 0 ]; then
+                if [ \$next_crossfade_started -eq 1 ] && [ \$next_player_pid -gt 0 ] && [ \$track_was_skipped -eq 0 ]; then
                     echo "\$next_player_pid" > "\$BGMPLAYER_PID_FILE"
                     crossfade_happened=1
                     

@@ -757,18 +757,23 @@
                         $('#trackProgressContainer').show();
                         $('#statusCurrentTrack').text(data.currentTrack);
                         
-                        // Update progress bar in Current Status section
+                        // Get elapsed and duration from server
+                        var elapsed = data.trackElapsed || 0;
+                        var duration = data.trackDuration || 0;
+                        var isPaused = (data.playbackState === 'paused');
+                        
+                        // Start smooth progress animation synced with server data
+                        startSmoothProgress(duration, elapsed, isPaused);
+                        
+                        // Also immediately update displays with server data
                         var progress = data.trackProgress || 0;
                         $('#statusTrackProgressBar').css('width', progress + '%');
                         $('#trackProgressText').text(progress + '%');
-                        
-                        // Update time display
-                        var elapsed = data.trackElapsed || 0;
-                        var duration = data.trackDuration || 0;
                         $('#trackTimeDisplay').text(formatTime(elapsed) + ' / ' + formatTime(duration));
                     } else {
                         $('#currentTrackContainer').hide();
                         $('#trackProgressContainer').hide();
+                        stopSmoothProgress(); // Stop smooth updates when not playing
                     }
                     
                     // Show current FPP playlist (sequence running via scheduler)
@@ -869,12 +874,15 @@
                         
                         // Update progress bar (only for playlist mode)
                         if (bgSource === 'playlist') {
-                            $('#trackProgressBar').css('width', (data.trackProgress || 0) + '%');
+                            // Smooth progress will handle the updates, but set initial state
+                            var progress = data.trackProgress || 0;
+                            $('#trackProgressBar').css('width', progress + '%');
                             $('#trackTime').text(formatTime(data.trackElapsed || 0) + ' / ' + formatTime(data.trackDuration || 0));
                         } else {
                             // Hide progress for streams
                             $('#trackProgressBar').css('width', '0%');
                             $('#trackTime').text('');
+                            stopSmoothProgress(); // Stop smooth updates for streams
                         }
                         
                         // Update pause/resume button
@@ -889,6 +897,7 @@
                         }
                     } else {
                         $('#playerControls').hide();
+                        stopSmoothProgress(); // Stop smooth updates when not running
                     }
                     
                     // Check PSA status
@@ -1656,6 +1665,68 @@
         function dismissUpdateNotification() {
             $('#updateNotification').slideUp(400);
             updateCheckDismissed = true;
+        }
+        
+        // Smooth progress bar state
+        var smoothProgress = {
+            enabled: false,
+            duration: 0,
+            elapsed: 0,
+            lastUpdate: Date.now(),
+            isPaused: false,
+            intervalId: null
+        };
+        
+        // Start smooth progress animation
+        function startSmoothProgress(duration, elapsed, isPaused) {
+            smoothProgress.duration = duration;
+            smoothProgress.elapsed = elapsed;
+            smoothProgress.lastUpdate = Date.now();
+            smoothProgress.isPaused = isPaused;
+            smoothProgress.enabled = duration > 0;
+            
+            if (!smoothProgress.intervalId && smoothProgress.enabled) {
+                smoothProgress.intervalId = setInterval(updateSmoothProgress, 100); // Update 10x per second
+            }
+        }
+        
+        // Update smooth progress between status updates
+        function updateSmoothProgress() {
+            if (!smoothProgress.enabled || smoothProgress.isPaused) return;
+            
+            var now = Date.now();
+            var deltaSeconds = (now - smoothProgress.lastUpdate) / 1000;
+            smoothProgress.lastUpdate = now;
+            smoothProgress.elapsed += deltaSeconds;
+            
+            // Don't go past the duration
+            if (smoothProgress.elapsed > smoothProgress.duration) {
+                smoothProgress.elapsed = smoothProgress.duration;
+            }
+            
+            var progress = smoothProgress.duration > 0 ? (smoothProgress.elapsed / smoothProgress.duration) * 100 : 0;
+            
+            // Update both progress bars smoothly
+            $('#statusTrackProgressBar').css('width', progress.toFixed(1) + '%');
+            $('#trackProgressBar').css('width', progress.toFixed(1) + '%');
+            
+            // Update percentage text
+            $('#trackProgressText').text(Math.round(progress) + '%');
+            
+            // Update time displays
+            var elapsedFormatted = formatTime(Math.floor(smoothProgress.elapsed));
+            var durationFormatted = formatTime(smoothProgress.duration);
+            $('#trackTimeDisplay').text(elapsedFormatted + ' / ' + durationFormatted);
+            $('#trackTime').text(elapsedFormatted + ' / ' + durationFormatted);
+        }
+        
+        // Stop smooth progress
+        function stopSmoothProgress() {
+            if (smoothProgress.intervalId) {
+                clearInterval(smoothProgress.intervalId);
+                smoothProgress.intervalId = null;
+            }
+            smoothProgress.enabled = false;
         }
         
         setInterval(updateStatus, 2000);

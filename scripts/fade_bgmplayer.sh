@@ -7,7 +7,7 @@ SCRIPT_DIR="$(dirname "$0")"
 . /opt/fpp/scripts/common
 
 LOG_FILE="/home/fpp/media/logs/backgroundmusic_transition.log"
-export XDG_RUNTIME_DIR=/run/user/500
+FPP_UID=$(id -u fpp)
 
 log_message() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
@@ -27,8 +27,16 @@ if [ -z "$PLAYER_PID" ] || ! kill -0 "$PLAYER_PID" 2>/dev/null; then
     exit 1
 fi
 
-# Find bgmplayer stream in PipeWire
-STREAM_ID=$(wpctl status 2>/dev/null | awk '/Streams:/,/^$/ {print}' | grep -E "(bgmplayer|SDL Application)" | grep -oP '^\s+\K[0-9]+' | head -1)
+# Find bgmplayer stream in PipeWire using pw-dump + jq
+# Target the main track (BackgroundMusic_Main) for fading
+STREAM_ID=$(sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" \
+    pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"]? == "BackgroundMusic_Main") | select(.type == "PipeWire:Interface:Node") | .id' | tail -1)
+
+# Fallback to any BackgroundMusic stream if _Main not found
+if [ -z "$STREAM_ID" ]; then
+    STREAM_ID=$(sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" \
+        pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"]? // "" | startswith("BackgroundMusic")) | select(.type == "PipeWire:Interface:Node") | .id' | tail -1)
+fi
 
 if [ -z "$STREAM_ID" ]; then
     log_message "Could not find bgmplayer stream in PipeWire"
@@ -64,11 +72,12 @@ for ((i=1; i<=STEPS; i++)); do
         TARGET_VOL=0
     fi
     
-    # Convert to PipeWire volume (with 1.5x boost like set_bgmplayer_volume.sh)
-    PIPEWIRE_VOL=$(echo "scale=2; ($TARGET_VOL / 100.0) * 1.5" | bc)
+    # Convert to PipeWire volume (0.0 to 1.0)
+    PIPEWIRE_VOL=$(echo "scale=2; $TARGET_VOL / 100.0" | bc)
     
-    # Set volume using wpctl
-    wpctl set-volume "$STREAM_ID" "$PIPEWIRE_VOL" 2>/dev/null
+    # Set volume using pw-cli
+    sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" \
+        pw-cli set-param "$STREAM_ID" Props '{ volume: '"$PIPEWIRE_VOL"' }' 2>/dev/null
     
     log_message "Fade step $i/$STEPS - volume: ${TARGET_VOL}% (PipeWire: ${PIPEWIRE_VOL})"
     
@@ -76,5 +85,6 @@ for ((i=1; i<=STEPS; i++)); do
 done
 
 # Final step - ensure it's at 0
-wpctl set-volume "$STREAM_ID" 0 2>/dev/null
+sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" \
+    pw-cli set-param "$STREAM_ID" Props '{ volume: 0 }' 2>/dev/null
 log_message "PipeWire stream volume fade complete - now at 0%"

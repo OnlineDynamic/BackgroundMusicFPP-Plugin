@@ -430,6 +430,7 @@ while true; do
     fi
     
     # Play the stream with bgmplayer
+    PIPEWIRE_PROPS="{media.name=BackgroundMusic_Main}" \
     SDL_AUDIODRIVER=pipewire "$PLAYER_CMD" -nodisp -autoexit \
         -loglevel error "$STREAM_URL" &
     
@@ -525,13 +526,25 @@ play_track_with_crossfade() {
     # Update status before starting
     update_status "\$track_name" "\$duration" 0 "\$track_number" "\$total_tracks"
     
-    # Start bgmplayer in background
+    # Start bgmplayer in background with PipeWire props for identification
+    # Use unique name for main track to distinguish from crossfade track
+    PIPEWIRE_PROPS="{media.name=BackgroundMusic_Main}" \
     "\$PLAYER_CMD" -nodisp -autoexit -loglevel error "\$media_file" &
     local player_pid=\$!
     echo "\$player_pid" > "\$BGMPLAYER_PID_FILE"
     
-    # Wait for PipeWire stream to be created and set initial volume
+    # Wait for PipeWire stream to be created and set metadata
     sleep 0.5
+    
+    # Set custom metadata to identify this as the main track
+    FPP_UID=\$(id -u fpp)
+    MAIN_STREAM_ID=\$(sudo -u fpp XDG_RUNTIME_DIR="/run/user/\${FPP_UID}" \\
+        pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"]? == "BackgroundMusic_Main") | select(.type == "PipeWire:Interface:Node") | select(.info.state? == "running") | .id' | tail -1)
+    
+    if [ -n "\$MAIN_STREAM_ID" ]; then
+        sudo -u fpp XDG_RUNTIME_DIR="/run/user/\${FPP_UID}" \\
+            pw-metadata set "\$MAIN_STREAM_ID" bgmplayer.role "main" 2>/dev/null
+    fi
     VOLUME_FILE="/tmp/bgmplayer_volume.txt"
     if [ -f "\$VOLUME_FILE" ]; then
         DESIRED_VOL=\$(cat "\$VOLUME_FILE")
@@ -563,7 +576,8 @@ play_track_with_crossfade() {
         # Start crossfade if enabled and time reached
         if [ \$crossfade_started -eq 0 ] && [ \$crossfade_start_time -gt 0 ] && [ \$elapsed -ge \$crossfade_start_time ]; then
             crossfade_started=1
-            # Start next track with bgmplayer
+            # Start next track with bgmplayer using unique crossfade name
+            PIPEWIRE_PROPS="{media.name=BackgroundMusic_Crossfade}" \
             "\$PLAYER_CMD" -nodisp -autoexit -loglevel error "\$next_media_file" &
             next_player_pid=\$!
             echo "\$next_player_pid" > "\$BGMPLAYER_NEXT_PID_FILE"
@@ -575,7 +589,19 @@ play_track_with_crossfade() {
                 VOLUME_FILE="/tmp/bgmplayer_volume.txt"
                 if [ -f "\$VOLUME_FILE" ]; then
                     DESIRED_VOL=\$(cat "\$VOLUME_FILE")
-                    /home/fpp/media/plugins/fpp-plugin-BackgroundMusic/scripts/set_bgmplayer_volume.sh "\$DESIRED_VOL" >/dev/null 2>&1
+                    # Target the crossfade stream specifically by name using pw-dump + jq
+                    FPP_UID=\$(id -u fpp)
+                    XFADE_STREAM_ID=\$(sudo -u fpp XDG_RUNTIME_DIR="/run/user/\${FPP_UID}" \\
+                        pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"] == "BackgroundMusic_Crossfade") | select(.type == "PipeWire:Interface:Node") | .id' | tail -1)
+                    if [ -n "\$XFADE_STREAM_ID" ]; then
+                        XFADE_PW_VOL=\$(awk "BEGIN {printf \\"%.2f\\", \$DESIRED_VOL / 100.0}")
+                        sudo -u fpp XDG_RUNTIME_DIR="/run/user/\${FPP_UID}" \\
+                            pw-cli set-param "\$XFADE_STREAM_ID" Props '{ volume: '"\$XFADE_PW_VOL"' }' 2>/dev/null
+                        
+                        # Set metadata to mark this as the crossfade stream
+                        sudo -u fpp XDG_RUNTIME_DIR="/run/user/\${FPP_UID}" \\
+                            pw-metadata set "\$XFADE_STREAM_ID" bgmplayer.role "crossfade" 2>/dev/null
+                    fi
                 fi
             ) &
         fi
@@ -595,6 +621,17 @@ play_track_with_crossfade() {
     # If crossfade was started, the next track is now the current player
     if [ \$crossfade_started -eq 1 ] && [ \$next_player_pid -gt 0 ]; then
         echo "\$next_player_pid" > "\$BGMPLAYER_PID_FILE"
+        
+        # Update metadata: crossfade stream is now the main stream
+        FPP_UID=\$(id -u fpp)
+        XFADE_STREAM_ID=\$(sudo -u fpp XDG_RUNTIME_DIR="/run/user/\${FPP_UID}" \\
+            pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"]? == "BackgroundMusic_Crossfade") | select(.type == "PipeWire:Interface:Node") | select(.info.state? == "running") | .id' | tail -1)
+        if [ -n "\$XFADE_STREAM_ID" ]; then
+            sudo -u fpp XDG_RUNTIME_DIR="/run/user/\${FPP_UID}" \\
+                pw-metadata set "\$XFADE_STREAM_ID" bgmplayer.role "main" 2>/dev/null
+            echo "\$(date +%s.%N) [METADATA] Updated stream \$XFADE_STREAM_ID role: crossfade -> main" >&2
+        fi
+        
         return 0  # Crossfade completed - next track already playing
     fi
     
@@ -761,6 +798,13 @@ while true; do
             # Advance index to reflect the track that's actually playing
             current_track_index=\$next_track_index
             
+            # Calculate next track for potential crossfade
+            next_track_index=\$((current_track_index + 1))
+            if [ \$next_track_index -ge \$total_tracks ]; then
+                next_track_index=0
+            fi
+            next_media_file="\${playlist_files[\$next_track_index]}"
+            
             # Now monitor the NEXT track (which is actually playing) until completion
             # Get info about the track that's actually playing
             media_file="\${playlist_files[\$current_track_index]}"
@@ -769,12 +813,22 @@ while true; do
             duration=\$(get_duration "\$media_file")
             [ -z "\$duration" ] && duration=0
             
+            # Calculate crossfade start time for THIS track
+            local crossfade_start_time=0
+            if [ "\$ENABLE_CROSSFADE" = "1" ] && [ -n "\$next_media_file" ] && [ "\$duration" -gt "\$CROSSFADE_DURATION" ]; then
+                crossfade_start_time=\$((duration - CROSSFADE_DURATION))
+            fi
+            
             # Read the PID of the currently playing track (set by crossfade function)
             if [ -f "\$BGMPLAYER_PID_FILE" ]; then
                 player_pid=\$(cat "\$BGMPLAYER_PID_FILE")
                 
                 # Monitor this track as it plays
-                elapsed=0
+                # This track started during crossfade, so it's already been playing for CROSSFADE_DURATION seconds
+                elapsed=\$CROSSFADE_DURATION
+                local next_crossfade_started=0
+                local next_player_pid=0
+                
                 while kill -0 \$player_pid 2>/dev/null; do
                     sleep 1
                     
@@ -789,9 +843,41 @@ while true; do
                     
                     update_status "\$track_name" "\$duration" "\$elapsed" "\$track_number" "\$total_tracks"
                     
+                    # Start crossfade for NEXT track if time reached
+                    if [ \$next_crossfade_started -eq 0 ] && [ \$crossfade_start_time -gt 0 ] && [ \$elapsed -ge \$crossfade_start_time ]; then
+                        next_crossfade_started=1
+                        PIPEWIRE_PROPS="{media.name=BackgroundMusic_Crossfade}" \\
+                        "\$PLAYER_CMD" -nodisp -autoexit -loglevel error "\$next_media_file" &
+                        next_player_pid=\$!
+                        echo "\$next_player_pid" > "\$BGMPLAYER_NEXT_PID_FILE"
+                        echo "\$(date +%s.%N) [CROSSFADE] Started next PID=\$next_player_pid file='\$(basename "\$next_media_file")'" >&2
+                        
+                        # Set volume for crossfade track
+                        (
+                            sleep 0.5
+                            VOLUME_FILE="/tmp/bgmplayer_volume.txt"
+                            if [ -f "\$VOLUME_FILE" ]; then
+                                DESIRED_VOL=\$(cat "\$VOLUME_FILE")
+                                FPP_UID=\$(id -u fpp)
+                                XFADE_STREAM_ID=\$(sudo -u fpp XDG_RUNTIME_DIR="/run/user/\${FPP_UID}" \\
+                                    pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"]? == "BackgroundMusic_Crossfade") | select(.type == "PipeWire:Interface:Node") | .id' | tail -1)
+                                if [ -n "\$XFADE_STREAM_ID" ]; then
+                                    XFADE_PW_VOL=\$(awk "BEGIN {printf \\"%.2f\\", \$DESIRED_VOL / 100.0}")
+                                    sudo -u fpp XDG_RUNTIME_DIR="/run/user/\${FPP_UID}" \\
+                                        pw-cli set-param "\$XFADE_STREAM_ID" Props '{ volume: '"\$XFADE_PW_VOL"' }' 2>/dev/null
+                                    
+                                    # Set metadata to mark this as the crossfade stream
+                                    sudo -u fpp XDG_RUNTIME_DIR="/run/user/\${FPP_UID}" \\
+                                        pw-metadata set "\$XFADE_STREAM_ID" bgmplayer.role "crossfade" 2>/dev/null
+                                fi
+                            fi
+                        ) &
+                    fi
+                    
                     # Check for skip commands
                     if [ -f "\$JUMP_FILE" ] || [ -f "\$NEXT_FILE" ] || [ -f "\$PREVIOUS_FILE" ]; then
                         kill \$player_pid 2>/dev/null
+                        [ \$next_player_pid -gt 0 ] && kill \$next_player_pid 2>/dev/null
                         track_was_skipped=1
                         break
                     fi
@@ -799,6 +885,22 @@ while true; do
                 
                 wait \$player_pid 2>/dev/null
                 rm -f "\$BGMPLAYER_PID_FILE"
+                
+                # If crossfade was started for the next track, update PID file
+                if [ \$next_crossfade_started -eq 1 ] && [ \$next_player_pid -gt 0 ]; then
+                    echo "\$next_player_pid" > "\$BGMPLAYER_PID_FILE"
+                    crossfade_happened=1
+                    
+                    # Update metadata: crossfade stream is now the main stream
+                    FPP_UID=\$(id -u fpp)
+                    XFADE_STREAM_ID=\$(sudo -u fpp XDG_RUNTIME_DIR="/run/user/\${FPP_UID}" \\
+                        pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"]? == "BackgroundMusic_Crossfade") | select(.type == "PipeWire:Interface:Node") | select(.info.state? == "running") | .id' | tail -1)
+                    if [ -n "\$XFADE_STREAM_ID" ]; then
+                        sudo -u fpp XDG_RUNTIME_DIR="/run/user/\${FPP_UID}" \\
+                            pw-metadata set "\$XFADE_STREAM_ID" bgmplayer.role "main" 2>/dev/null
+                        echo "\$(date +%s.%N) [METADATA] Updated stream \$XFADE_STREAM_ID role: crossfade -> main" >&2
+                    fi
+                fi
             fi
             
             # After crossfade, we've already played this track in full.
@@ -900,9 +1002,9 @@ while true; do
     # Save current index as previous for next iteration
     previous_track_index=\$current_track_index
     
-    # Move to next track (unless previous was pressed, which already set the correct index)
-    # Note: If crossfade happened, we already advanced the index during monitoring, so just increment by 1
-    if [ \$previous_pressed -eq 0 ]; then
+    # Move to next track (unless previous was pressed or crossfade already advanced it)
+    # Note: If crossfade happened, we already advanced the index during monitoring, so DON'T increment again
+    if [ \$previous_pressed -eq 0 ] && [ \$crossfade_happened -eq 0 ]; then
         current_track_index=\$((current_track_index + 1))
         
         # Check if we would wrap around - if so, check for pending reorder first

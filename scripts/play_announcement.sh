@@ -16,6 +16,7 @@ ANNOUNCEMENT_VOLUME="${3:-90}"  # Volume for announcement playback (default 90%)
 BUTTON_NUMBER="${4:-0}"         # Button number (optional)
 BUTTON_LABEL="${5:-PSA}"        # Button label (optional)
 
+PLUGIN_DIR="/home/fpp/media/plugins/fpp-plugin-BackgroundMusic"
 PLUGIN_CONFIG="/home/fpp/media/config/plugin.fpp-plugin-BackgroundMusic"
 LOG_FILE="/home/fpp/media/logs/fpp-plugin-BackgroundMusic.log"
 ANNOUNCEMENT_PID_FILE="/tmp/announcement_player.pid"
@@ -71,27 +72,52 @@ if [ -f "/tmp/bg_music_bgmplayer.pid" ]; then
     fi
 fi
 
-# Ducking strategy using bgmplayer's runtime volume control:
-# 1. Send volume control command to background music player to reduce its volume
-# 2. Play PSA at normal volume (both use same system volume via dmix)
-# 3. After PSA, restore background music volume
+# Ducking strategy using PipeWire stream volume control:
+# 1. Duck background music stream to DUCK_VOLUME via PipeWire
+# 2. Play PSA at ANNOUNCEMENT_VOLUME via its own bgmplayer instance
+# 3. After PSA, restore background music stream volume
+# This allows independent volume control for each audio stream
 
 if [ "$BG_MUSIC_PLAYING" = true ]; then
-    # DUCK_VOLUME is the target volume level (e.g., 20 means bgmplayer should be at 20%)
-    # bgmplayer starts at 100%, so we need to decrease to DUCK_VOLUME
+    # Query actual current volume from PipeWire stream
+    FPP_UID=$(id -u fpp)
     
-    log_message "Ducking background music from 100% to ${DUCK_VOLUME}% via SIGUSR1 signals"
+    # Find background music stream by name using pw-dump + jq
+    # Target BackgroundMusic_Main first, fallback to any BackgroundMusic
+    BG_STREAM_ID=$(sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" \
+        pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"] == "BackgroundMusic_Main") | select(.type == "PipeWire:Interface:Node") | .id' | tail -1)
     
-    # Calculate how many 10% decreases needed to reach target
-    DECREASES=$(( (100 - DUCK_VOLUME) / 10 ))
+    # Fallback to any BackgroundMusic stream
+    if [ -z "$BG_STREAM_ID" ]; then
+        BG_STREAM_ID=$(sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" \
+            pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"] | startswith("BackgroundMusic")) | select(.type == "PipeWire:Interface:Node") | .id' | tail -1)
+    fi
     
-    # Send SIGUSR1 signals to decrease volume by 10% each time
-    for ((i=0; i<DECREASES; i++)); do
-        kill -SIGUSR1 "$BG_PLAYER_PID" 2>/dev/null
-        sleep 0.1
-    done
-    
-    log_message "Background music ducked to ~${DUCK_VOLUME}% (continues playing at reduced volume)"
+    if [ -n "$BG_STREAM_ID" ]; then
+        # Get current volume from PipeWire stream
+        CURRENT_BG_VOLUME=$(sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" \
+            pw-dump 2>/dev/null | jq -r --arg id "$BG_STREAM_ID" '.[] | select(.id == ($id | tonumber)) | .info.params.Props[0].volume' 2>/dev/null)
+        
+        # Convert from 0.0-1.0 to 0-100, default to config value if query fails
+        if [ -n "$CURRENT_BG_VOLUME" ] && [ "$CURRENT_BG_VOLUME" != "null" ]; then
+            CURRENT_BG_VOLUME=$(awk "BEGIN {printf \"%.0f\", $CURRENT_BG_VOLUME * 100}")
+        else
+            CURRENT_BG_VOLUME=$ORIGINAL_VOLUME
+        fi
+        
+        log_message "Ducking background music (PID $BG_PLAYER_PID) from ${CURRENT_BG_VOLUME}% to ${DUCK_VOLUME}% via PipeWire"
+        
+        # Save the stream ID and current volume for restoration
+        echo "$BG_STREAM_ID" > /tmp/bg_music_stream_id.txt
+        echo "$CURRENT_BG_VOLUME" > /tmp/bg_music_preduck_volume.txt
+        # Set volume using pw-cli (volume is 0.0 to 1.0 for 0-100%)
+        DUCK_PW_VOL=$(awk "BEGIN {printf \"%.2f\", $DUCK_VOLUME / 100.0}")
+        sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" \
+            pw-cli set-param "$BG_STREAM_ID" Props '{ volume: '"$DUCK_PW_VOL"' }' 2>/dev/null
+        log_message "Background music ducked to ${DUCK_VOLUME}% (stream $BG_STREAM_ID, volume $DUCK_PW_VOL)"
+    else
+        log_message "WARNING: Could not find background music stream to duck"
+    fi
 fi
 
 # Get FPP audio device
@@ -155,17 +181,10 @@ EOF
 
 # Play announcement in background
 (
-    # Temporarily raise system volume to ANNOUNCEMENT_VOLUME for the PSA
-    # Background music is already ducked to low internal volume
+    # PSA will play at ANNOUNCEMENT_VOLUME via its own PipeWire stream
+    # Background music continues at ducked volume (independent streams)
     
     PLUGIN_DIR="/home/fpp/media/plugins/fpp-plugin-BackgroundMusic"
-    
-    log_message "Setting system volume to ${ANNOUNCEMENT_VOLUME}% for announcement (was ${ORIGINAL_VOLUME}%)"
-    
-    # Set system volume to announcement level via FPP API
-    curl -s -X PUT "http://localhost/api/system/volume" \
-        -H "Content-Type: application/json" \
-        -d "{\"volume\":${ANNOUNCEMENT_VOLUME}}" > /dev/null 2>&1
 
     # Ensure PipeWire is running and audio output is properly set
     # This is important when background music is not playing
@@ -196,6 +215,7 @@ EOF
     # Run as fpp user to access PipeWire session
     FPP_UID=$(id -u fpp)
     sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" PIPEWIRE_RUNTIME_DIR="/run/user/${FPP_UID}" \
+        PIPEWIRE_PROPS="{media.name=PSA_Announcement}" \
         SDL_AUDIODRIVER=pipewire \
         SDL_AUDIO_SAMPLES=4096 \
         "$PLUGIN_DIR/bgmplayer" -nodisp -autoexit \
@@ -203,6 +223,29 @@ EOF
     BGMPLAYER_PID=$!
     
     log_message "PSA player started with PID $BGMPLAYER_PID"
+    
+    # Set PSA stream volume using pw-cli - wait for stream to appear
+    sleep 0.5
+    
+    FPP_UID=$(id -u fpp)
+    
+    # Find the PSA stream by name to set volume
+    PSA_STREAM_ID=$(sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" \
+        pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"]? == "PSA_Announcement") | select(.type == "PipeWire:Interface:Node") | .id' | tail -1)
+    
+    log_message "Found PSA stream: ${PSA_STREAM_ID}"
+    
+    if [ -n "$PSA_STREAM_ID" ]; then
+        # Set volume using pw-cli (volume is 0.0 to 1.0 for 0-100%)
+        PSA_PW_VOL=$(awk "BEGIN {printf \"%.2f\", $ANNOUNCEMENT_VOLUME / 100.0}")
+        sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" \
+            pw-cli set-param "$PSA_STREAM_ID" Props '{ volume: '"$PSA_PW_VOL"' }' 2>/dev/null
+        log_message "PSA stream volume set to ${ANNOUNCEMENT_VOLUME}% (stream $PSA_STREAM_ID, volume $PSA_PW_VOL)"
+    elif [ -n "$PSA_STREAM_ID" ]; then
+        log_message "WARNING: Only found 1 stream - not setting PSA volume to avoid affecting background music"
+    else
+        log_message "WARNING: Could not find PSA stream to set volume"
+    fi
     
     # Wait for bgmplayer to finish
     wait $BGMPLAYER_PID 2>/dev/null
@@ -216,26 +259,46 @@ EOF
         log_message "ERROR: Announcement playback failed with code: $PLAY_RESULT"
     fi
     
-    # Restore system volume to original level
-    log_message "Restoring system volume to ${ORIGINAL_VOLUME}%"
-    curl -s -X PUT "http://localhost/api/system/volume" \
-        -H "Content-Type: application/json" \
-        -d "{\"volume\":${ORIGINAL_VOLUME}}" > /dev/null 2>&1
-    
-    # Restore background music to normal volume if it was playing
+    # Restore background music volume if it was playing
     if [ "$BG_MUSIC_PLAYING" = true ] && [ -f "/tmp/bg_music_bgmplayer.pid" ]; then
         CURRENT_BG_PID=$(cat /tmp/bg_music_bgmplayer.pid)
         if ps -p "$CURRENT_BG_PID" > /dev/null 2>&1; then
-            log_message "Restoring background music from ${DUCK_VOLUME}% to 100% volume"
+            # Get the volume to restore from our saved pre-duck value
+            RESTORE_VOLUME=$ORIGINAL_VOLUME
+            if [ -f /tmp/bg_music_preduck_volume.txt ]; then
+                RESTORE_VOLUME=$(cat /tmp/bg_music_preduck_volume.txt)
+            fi
             
-            # Calculate how many increases needed to restore to 100%
-            INCREASES=$(( (100 - DUCK_VOLUME) / 10 ))
+            log_message "Restoring background music from ${DUCK_VOLUME}% to ${RESTORE_VOLUME}% via PipeWire"
             
-            for ((i=0; i<INCREASES; i++)); do
-                kill -SIGUSR2 "$CURRENT_BG_PID" 2>/dev/null
-                sleep 0.1
-            done
-            log_message "Background music volume restored to 100%"
+            # Get the saved stream ID or find it again
+            FPP_UID=$(id -u fpp)
+            if [ -f "/tmp/bg_music_stream_id.txt" ]; then
+                RESTORE_STREAM_ID=$(cat /tmp/bg_music_stream_id.txt)
+            else
+                # Fallback: find BackgroundMusic stream (Main first, then any)
+                RESTORE_STREAM_ID=$(sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" \
+                    pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"]? == "BackgroundMusic_Main") | select(.type == "PipeWire:Interface:Node") | .id' | tail -1)
+                if [ -z "$RESTORE_STREAM_ID" ]; then
+                    RESTORE_STREAM_ID=$(sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" \
+                        pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"]? // "" | startswith("BackgroundMusic")) | select(.type == "PipeWire:Interface:Node") | .id' | tail -1)
+                fi
+            fi
+            
+            if [ -n "$RESTORE_STREAM_ID" ]; then
+                # Set volume using pw-cli (volume is 0.0 to 1.0 for 0-100%)
+                RESTORE_PW_VOL=$(awk "BEGIN {printf \"%.2f\", $RESTORE_VOLUME / 100.0}")
+                sudo -u fpp XDG_RUNTIME_DIR="/run/user/${FPP_UID}" \
+                    pw-cli set-param "$RESTORE_STREAM_ID" Props '{ volume: '"$RESTORE_PW_VOL"' }' 2>/dev/null
+                log_message "Background music volume restored to ${RESTORE_VOLUME}% (stream $RESTORE_STREAM_ID, volume $RESTORE_PW_VOL)"
+                
+                # Clean up temporary files
+                rm -f /tmp/bg_music_preduck_volume.txt
+            else
+                log_message "WARNING: Could not find background music stream to restore"
+            fi
+            
+            rm -f /tmp/bg_music_stream_id.txt
         fi
     else
         log_message "No background music to restore (was not playing)"

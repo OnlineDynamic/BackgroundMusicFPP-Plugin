@@ -1,28 +1,30 @@
 #!/bin/bash
-# Set PipeWire stream volume for background music player
+# Set PipeWire stream volume for background music player using pw-dump + jq
 
 TARGET_VOLUME=${1:-70}  # Target volume (0-100)
 FPP_UID=$(id -u fpp)
 RUNTIME_DIR="/run/user/${FPP_UID}"
 
-# Convert percentage to PipeWire volume (0.0 to 1.0 for wpctl)
+# Convert percentage to PipeWire volume (0.0 to 1.0)
 PW_VOLUME=$(echo "scale=2; $TARGET_VOLUME / 100" | bc)
 
-# Use wpctl (WirePlumber control) to set stream volume
+# Find all BackgroundMusic streams using pw-dump + jq
 if [ "$(whoami)" = "fpp" ]; then
     export XDG_RUNTIME_DIR="$RUNTIME_DIR"
-    WPCTL_CMD="wpctl"
+    STREAM_IDS=$(pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"]? // "" | startswith("BackgroundMusic")) | select(.type == "PipeWire:Interface:Node") | .id')
 else
-    WPCTL_CMD="sudo -u fpp XDG_RUNTIME_DIR=$RUNTIME_DIR wpctl"
+    STREAM_IDS=$(sudo -u fpp XDG_RUNTIME_DIR="$RUNTIME_DIR" pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"]? // "" | startswith("BackgroundMusic")) | select(.type == "PipeWire:Interface:Node") | .id')
 fi
 
-# Find all sink-inputs (playback streams) and set volume for bgmplayer/SDL streams
 FOUND=0
-$WPCTL_CMD status 2>/dev/null | grep -A100 "Sink inputs:" | grep -B1 -E "bgmplayer|SDL" | grep "^\s*[0-9]" | while read LINE; do
-    STREAM_ID=$(echo "$LINE" | grep -oP '^\s*\K[0-9]+')
+for STREAM_ID in $STREAM_IDS; do
     if [ -n "$STREAM_ID" ]; then
         echo "Found bgmplayer stream ID: $STREAM_ID, setting volume to ${TARGET_VOLUME}%"
-        $WPCTL_CMD set-volume $STREAM_ID $PW_VOLUME 2>&1
+        if [ "$(whoami)" = "fpp" ]; then
+            pw-cli set-param "$STREAM_ID" Props '{ volume: '"$PW_VOLUME"' }' 2>/dev/null
+        else
+            sudo -u fpp XDG_RUNTIME_DIR="$RUNTIME_DIR" pw-cli set-param "$STREAM_ID" Props '{ volume: '"$PW_VOLUME"' }' 2>/dev/null
+        fi
         FOUND=1
     fi
 done

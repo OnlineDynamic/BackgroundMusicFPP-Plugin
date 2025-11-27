@@ -910,9 +910,12 @@ while true; do
                 fi
             fi
             
-            # After crossfade, we've already played this track in full.
+            # After crossfade, we've already played this track in full and the next track is playing.
+            # Increment the index to reflect that we're now on the next track
+            current_track_index=\$((current_track_index + 1))
+            
             # Skip the rest of the loop iteration (don't execute normal playback code)
-            # and go directly to the next loop iteration which will advance index normally.
+            # and go directly to the next loop iteration.
             continue
         elif [ \$result -eq 1 ]; then
             # Normal completion without crossfade

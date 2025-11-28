@@ -64,7 +64,11 @@ fi
 
 log_message "Brightness and bgmplayer volume faded to 0%"
 
-# Now stop the player (it's at 0% volume so no audible artifacts)
+# Stop all FPP playlists (sequences) before stopping bgmplayer
+log_message "Stopping all playlists"
+curl -s -X GET "http://localhost/api/playlists/stop" > /dev/null 2>&1
+
+# Now stop the background music player (it's at 0% volume so no audible artifacts)
 if [ -f "/tmp/background_music_player.pid" ]; then
     PLAYER_PID=$(cat /tmp/background_music_player.pid 2>/dev/null)
     if [ -n "$PLAYER_PID" ] && kill -0 "$PLAYER_PID" 2>/dev/null; then
@@ -86,7 +90,18 @@ fi
 if pgrep -f "bgmplayer" > /dev/null 2>&1; then
     log_message "Found running bgmplayer processes - killing them"
     pkill -f "bgmplayer" 2>/dev/null
-    sleep 1
+    sleep 0.5
+fi
+
+# Blackout period - wait for audio device to be fully released
+# This ensures bgmplayer has completely released the sound card before starting the show
+if [ "$BLACKOUT_TIME" -gt 0 ]; then
+    log_message "Blackout for $BLACKOUT_TIME seconds (allowing audio device to be released)"
+    sleep "$BLACKOUT_TIME"
+else
+    # Even with 0 blackout, wait a minimum time for cleanup
+    log_message "Minimum wait for audio device cleanup (0.5s)"
+    sleep 0.5
 fi
 
 # Get the Show Playlist Volume setting
@@ -103,19 +118,6 @@ log_message "Setting volume to ${SHOW_PLAYLIST_VOLUME}% for show playlist via FP
 curl -s -X POST -H "Content-Type: application/json" -d "{\"volume\": ${SHOW_PLAYLIST_VOLUME}}" "http://localhost/api/system/volume" > /dev/null 2>&1
 
 log_message "Volume set to ${SHOW_PLAYLIST_VOLUME}% for show playback"
-
-# Wait for audio device to be fully released
-sleep 1
-
-# Stop all FPP playlists (sequences)
-log_message "Stopping all playlists"
-curl -s -X GET "http://localhost/api/playlists/stop" > /dev/null 2>&1
-
-# Blackout period
-if [ "$BLACKOUT_TIME" -gt 0 ]; then
-    log_message "Blackout for $BLACKOUT_TIME seconds"
-    sleep "$BLACKOUT_TIME"
-fi
 
 # Restore original brightness using Brightness plugin
 log_message "Restoring brightness to $ORIGINAL_BRIGHTNESS% using Brightness plugin"

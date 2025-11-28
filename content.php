@@ -1013,18 +1013,37 @@ $audioFiles = getAudioFiles();
                 type: 'GET',
                 success: function(data) {
                     if (data.installed) {
-                        $('#ttsStatus').html(
-                            '<p style="color: green;"><i class="fas fa-check-circle"></i> <strong>Piper TTS Installed</strong></p>' +
+                        var statusHtml = '<p style="color: green;"><i class="fas fa-check-circle"></i> <strong>Piper TTS Installed</strong></p>' +
                             '<ul style="margin: 5px 0; padding-left: 20px;">' +
                             '<li>Version: ' + (data.version || 'Unknown') + '</li>' +
                             '<li>Architecture: ' + (data.architecture || 'Unknown') + '</li>' +
                             '<li>Voices: ' + (data.voices.length > 0 ? data.voices.join(', ') : 'None') + '</li>' +
                             '<li>Default Voice: ' + (data.defaultVoice || 'None') + '</li>' +
-                            '</ul>'
-                        );
-                        $('#ttsGeneratorPanel').show();
-                        $('#voiceManagementPanel').show();
-                        loadVoices('piper');
+                            '</ul>';
+                        
+                        // If installation seems broken, show warning
+                        if (data.functional === false) {
+                            statusHtml += '<div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-left: 4px solid #ff9800;">' +
+                                '<p style="color: #856404; margin: 0;"><i class="fas fa-exclamation-triangle"></i> <strong>Warning: Installation may be incomplete</strong></p>' +
+                                '<p style="color: #856404; margin: 5px 0 0 0; font-size: 12px;">' +
+                                (data.message || 'Piper binary found but installation appears incomplete. Try reinstalling.') +
+                                '</p>' +
+                                '<button type="button" class="btn btn-warning btn-sm" onclick="installTTS()" style="margin-top: 10px;">' +
+                                '<i class="fas fa-redo"></i> Reinstall Piper TTS</button>' +
+                                '</div>';
+                        }
+                        
+                        $('#ttsStatus').html(statusHtml);
+                        
+                        // Only show panels if functional
+                        if (data.functional === false) {
+                            $('#ttsGeneratorPanel').hide();
+                            $('#voiceManagementPanel').hide();
+                        } else {
+                            $('#ttsGeneratorPanel').show();
+                            $('#voiceManagementPanel').show();
+                            loadVoices('piper');
+                        }
                     } else {
                         $('#ttsStatus').html(
                             '<p style="color: #ff9800;"><i class="fas fa-exclamation-triangle"></i> <strong>Piper TTS Not Installed</strong></p>' +

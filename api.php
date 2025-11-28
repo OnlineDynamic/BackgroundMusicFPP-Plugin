@@ -1278,14 +1278,16 @@ function fppBackgroundMusicTTSStatus() {
     
     $status = array(
         'installed' => false,
-        'version' => '',
-        'architecture' => '',
+        'version' => 'unknown',
+        'architecture' => 'unknown',
         'installDate' => '',
         'voices' => array(),
-        'defaultVoice' => ''
+        'defaultVoice' => '',
+        'functional' => false
     );
     
-    if (file_exists($piperBin)) {
+    // Check if binary exists and is executable
+    if (file_exists($piperBin) && is_executable($piperBin)) {
         $status['installed'] = true;
         
         // Read status file if it exists
@@ -1302,6 +1304,13 @@ function fppBackgroundMusicTTSStatus() {
             }
         }
         
+        // If status file doesn't exist or is incomplete, installation may be broken
+        if ($status['version'] === 'unknown' || $status['architecture'] === 'unknown') {
+            $status['installed'] = true; // Binary exists
+            $status['functional'] = false; // But might not work
+            $status['message'] = 'Piper binary found but installation may be incomplete. Version/architecture unknown. Try reinstalling Piper.';
+        }
+        
         // List available voices
         $voicesDir = $piperDir . '/voices';
         if (is_dir($voicesDir)) {
@@ -1312,12 +1321,17 @@ function fppBackgroundMusicTTSStatus() {
             }
         }
         
-        // Check default voice
+        // Check default voice exists
         if (file_exists($piperDir . '/default_voice.onnx')) {
             $defaultLink = readlink($piperDir . '/default_voice.onnx');
             if ($defaultLink) {
                 $status['defaultVoice'] = basename($defaultLink, '.onnx');
             }
+        }
+        
+        // Mark as functional only if we have version info and at least one voice
+        if ($status['version'] !== 'unknown' && !empty($status['voices'])) {
+            $status['functional'] = true;
         }
     }
     

@@ -526,6 +526,7 @@ play_track_with_crossfade() {
     local crossfade_start_time=0
     if [ "\$ENABLE_CROSSFADE" = "1" ] && [ -n "\$next_media_file" ] && [ "\$duration" -gt "\$CROSSFADE_DURATION" ]; then
         crossfade_start_time=\$((duration - CROSSFADE_DURATION))
+        echo "\$(date +%s.%N) [CROSSFADE CONFIG] Duration=\${duration}s, FadeDuration=\${CROSSFADE_DURATION}s, StartAt=\${crossfade_start_time}s" >&2
     fi
     
     # Update status before starting
@@ -826,6 +827,7 @@ while true; do
             local crossfade_start_time=0
             if [ "\$ENABLE_CROSSFADE" = "1" ] && [ -n "\$next_media_file" ] && [ "\$duration" -gt "\$CROSSFADE_DURATION" ]; then
                 crossfade_start_time=\$((duration - CROSSFADE_DURATION))
+                echo "\$(date +%s.%N) [MONITORING CROSSFADE] Duration=\${duration}s, FadeDuration=\${CROSSFADE_DURATION}s, StartAt=\${crossfade_start_time}s" >&2
             fi
             
             # Read the PID of the currently playing track (set by crossfade function)
@@ -1045,7 +1047,8 @@ LOOPSCRIPT
     chmod +x /tmp/bg_music_loop.sh
     
     # Start the looping script in background
-    nohup /bin/bash /tmp/bg_music_loop.sh > /tmp/background_music_player.log 2>&1 &
+    # Log to persistent location so logs survive restarts
+    nohup /bin/bash /tmp/bg_music_loop.sh >> /home/fpp/media/logs/fpp-plugin-BackgroundMusic.log 2>&1 &
     
     local pid=$!
     echo $pid > "$PID_FILE"

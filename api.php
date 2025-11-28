@@ -304,11 +304,16 @@ function fppBackgroundMusicStatus() {
     
     // Check if a show is running
     // A show is considered running if:
-    // 1. A playlist is currently running in FPP, AND
-    // 2. It's NOT the background music playlist (background music is handled separately)
+    // 1. The configured show playlist is currently running in FPP, OR
+    // 2. The background music playlist is running (handled separately)
+    // NOTE: Other playlists (like lights-only sequences) are allowed to run alongside background music
     $showRunning = false;
     if ($currentPlaylist !== '' && $currentPlaylist !== $backgroundMusicPlaylist) {
-        $showRunning = true;
+        // Only consider it a "show" if it matches the configured show playlist
+        // This allows lights-only sequences to run without blocking background music
+        if (!empty($showPlaylist) && $currentPlaylist === $showPlaylist) {
+            $showRunning = true;
+        }
     }
     
     // Check if fpp-brightness plugin is installed (required for transitions)

@@ -8,6 +8,15 @@ PIPER_BIN="${PIPER_DIR}/piper"
 
 echo "Installing Piper TTS for Background Music Plugin..."
 
+# Install required dependencies
+echo "Installing required dependencies..."
+apt-get update -qq
+apt-get install -y -qq libstdc++6 libgomp1 libatomic1 > /dev/null 2>&1
+
+if [ $? -ne 0 ]; then
+    echo "Warning: Some dependencies may not have installed correctly"
+fi
+
 # Detect architecture
 ARCH=$(uname -m)
 case "$ARCH" in
@@ -63,6 +72,21 @@ rm piper.tar.gz
 if [ -f "piper" ]; then
     chmod +x piper
     echo "Piper binary found and made executable"
+    
+    # Check if the binary can be executed (check for missing libraries)
+    if ! ldd piper > /dev/null 2>&1; then
+        echo "Warning: Unable to check binary dependencies with ldd"
+    else
+        echo "Checking binary dependencies..."
+        MISSING_LIBS=$(ldd piper 2>&1 | grep "not found")
+        if [ -n "$MISSING_LIBS" ]; then
+            echo "Error: Missing required libraries:"
+            echo "$MISSING_LIBS"
+            echo ""
+            echo "Attempting to install additional dependencies..."
+            apt-get install -y -qq libc6 libgcc-s1 > /dev/null 2>&1
+        fi
+    fi
 else
     echo "Error: piper binary not found after extraction"
     exit 1
@@ -93,6 +117,20 @@ chown -R fpp:fpp "${PIPER_DIR}"
 
 # Test Piper installation
 echo "Testing Piper installation..."
+
+# First test if the binary can execute at all
+if ! "${PIPER_BIN}" --version > /dev/null 2>&1; then
+    echo "Error: Piper binary cannot execute"
+    echo "Checking for missing dependencies..."
+    ldd "${PIPER_BIN}" 2>&1 | grep -E "not found|cannot"
+    echo ""
+    echo "Troubleshooting suggestions:"
+    echo "1. Ensure all system packages are up to date: sudo apt-get update && sudo apt-get upgrade"
+    echo "2. Try manually installing: sudo apt-get install -y libstdc++6 libgomp1 libatomic1"
+    echo "3. Check system architecture matches downloaded binary"
+    exit 1
+fi
+
 echo "Hello, this is a test." | "${PIPER_BIN}" --model "${PIPER_DIR}/default_voice.onnx" --output_file /tmp/piper_test.wav
 
 if [ $? -eq 0 ] && [ -f /tmp/piper_test.wav ]; then
@@ -108,5 +146,7 @@ if [ $? -eq 0 ] && [ -f /tmp/piper_test.wav ]; then
     exit 0
 else
     echo "✗ Piper installation test failed"
+    echo "The binary executed but failed to generate audio"
+    echo "Check if voice model was downloaded correctly"
     exit 1
 fi

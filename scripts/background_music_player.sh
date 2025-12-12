@@ -135,6 +135,15 @@ strip_quotes() {
 
 # Function to start background music
 start_music() {
+    # SAFETY CHECK: Verify FPPD is responsive before starting background music
+    # This prevents starting background music while FPPD is in an unstable state (Issue #11)
+    FPPD_STATUS=$(curl -s --max-time 3 "http://localhost/api/fppd/status" 2>/dev/null)
+    if [ $? -ne 0 ] || [ -z "$FPPD_STATUS" ]; then
+        echo "ERROR: Cannot connect to FPPD API - FPPD may be stopped or unresponsive"
+        echo "Not starting background music to avoid resource conflicts"
+        return 1
+    fi
+    
     # Read configuration first to determine source type
     if [ ! -f "$PLUGIN_CONFIG" ]; then
         echo "ERROR: Plugin configuration not found"

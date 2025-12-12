@@ -1232,7 +1232,25 @@ $audioFiles = getAudioFiles();
                     grouped[voice.language].push(voice);
                 });
                 
-                Object.keys(grouped).sort().forEach(function(language) {
+                // Custom sort: English (US), (GB), (AU) first, then alphabetical
+                var sortedLanguages = Object.keys(grouped).sort(function(a, b) {
+                    var priority = {
+                        'English (US)': 1,
+                        'English (GB)': 2,
+                        'English (AU)': 3
+                    };
+                    
+                    var aPriority = priority[a] || 999;
+                    var bPriority = priority[b] || 999;
+                    
+                    if (aPriority !== bPriority) {
+                        return aPriority - bPriority;
+                    }
+                    
+                    return a.localeCompare(b);
+                });
+                
+                sortedLanguages.forEach(function(language) {
                     html += '<h5 style="margin: 15px 0 10px 0; color: #673ab7; border-bottom: 1px solid #673ab7;">' + language + '</h5>';
                     html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px;">';
                     

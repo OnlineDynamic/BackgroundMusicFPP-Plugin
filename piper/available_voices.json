@@ -11,31 +11,58 @@
             "default": true
         },
         {
-            "id": "en_US-amy-medium",
-            "name": "Amy (US)",
-            "language": "English (US)",
+            "id": "nl_NL-mls-medium",
+            "name": "MLS (Dutch)",
+            "language": "Dutch (NL)",
+            "gender": "neutral",
+            "quality": "medium",
+            "size_mb": 55,
+            "description": "Multi-speaker Dutch voice"
+        },
+        {
+            "id": "nl_NL-pim-medium",
+            "name": "Pim (Dutch)",
+            "language": "Dutch (NL)",
+            "gender": "male",
+            "quality": "medium",
+            "size_mb": 52,
+            "description": "Clear Dutch male voice"
+        },
+        {
+            "id": "nl_NL-ronnie-medium",
+            "name": "Ronnie (Dutch)",
+            "language": "Dutch (NL)",
+            "gender": "male",
+            "quality": "medium",
+            "size_mb": 48,
+            "description": "Natural Dutch male voice"
+        },
+        {
+            "id": "nl_BE-nathalie-medium",
+            "name": "Nathalie (Belgian Dutch)",
+            "language": "Dutch (BE)",
             "gender": "female",
             "quality": "medium",
-            "size_mb": 60,
-            "description": "Natural American female voice"
+            "size_mb": 51,
+            "description": "Belgian Dutch female voice"
         },
         {
-            "id": "en_US-ryan-high",
-            "name": "Ryan (US)",
-            "language": "English (US)",
+            "id": "nl_BE-rdh-medium",
+            "name": "RDH (Belgian Dutch)",
+            "language": "Dutch (BE)",
             "gender": "male",
-            "quality": "high",
-            "size_mb": 116,
-            "description": "High quality American male voice"
+            "quality": "medium",
+            "size_mb": 53,
+            "description": "Belgian Dutch male voice"
         },
         {
-            "id": "en_US-libritts-high",
-            "name": "LibriTTS (US)",
-            "language": "English (US)",
-            "gender": "neutral",
-            "quality": "high",
-            "size_mb": 124,
-            "description": "High quality multi-speaker voice"
+            "id": "en_AU-isabelle-medium",
+            "name": "Isabelle (Australian)",
+            "language": "English (AU)",
+            "gender": "female",
+            "quality": "medium",
+            "size_mb": 45,
+            "description": "Australian English female voice"
         },
         {
             "id": "en_GB-alan-medium",
@@ -65,13 +92,31 @@
             "description": "Lightweight British female voice"
         },
         {
-            "id": "en_AU-isabelle-medium",
-            "name": "Isabelle (Australian)",
-            "language": "English (AU)",
+            "id": "en_US-amy-medium",
+            "name": "Amy (US)",
+            "language": "English (US)",
             "gender": "female",
             "quality": "medium",
-            "size_mb": 45,
-            "description": "Australian English female voice"
+            "size_mb": 60,
+            "description": "Natural American female voice"
+        },
+        {
+            "id": "en_US-ryan-high",
+            "name": "Ryan (US)",
+            "language": "English (US)",
+            "gender": "male",
+            "quality": "high",
+            "size_mb": 116,
+            "description": "High quality American male voice"
+        },
+        {
+            "id": "en_US-libritts-high",
+            "name": "LibriTTS (US)",
+            "language": "English (US)",
+            "gender": "neutral",
+            "quality": "high",
+            "size_mb": 124,
+            "description": "High quality multi-speaker voice"
         },
         {
             "id": "fr_FR-siwis-medium",

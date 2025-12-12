@@ -19,10 +19,21 @@ fi
 
 # Detect architecture
 ARCH=$(uname -m)
+
+# Check if we're running 32-bit OS on 64-bit hardware (common on Raspberry Pi 5)
+if [ "$ARCH" = "aarch64" ]; then
+    # Check if 64-bit dynamic linker exists
+    if [ ! -f /lib/ld-linux-aarch64.so.1 ] && [ ! -f /lib64/ld-linux-aarch64.so.1 ]; then
+        echo "Warning: Detected 64-bit hardware but 32-bit OS"
+        echo "Using 32-bit ARM binaries instead"
+        ARCH="armv7l"
+    fi
+fi
+
 case "$ARCH" in
     aarch64|arm64)
         PIPER_ARCH="aarch64"
-        echo "Detected ARM64 architecture"
+        echo "Detected ARM64 architecture with 64-bit OS"
         ;;
     armv7l|armv6l)
         PIPER_ARCH="armv7l"

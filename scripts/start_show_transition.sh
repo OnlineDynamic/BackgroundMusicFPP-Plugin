@@ -93,16 +93,53 @@ if pgrep -f "bgmplayer" > /dev/null 2>&1; then
     sleep 0.5
 fi
 
-# Blackout period - wait for audio device to be fully released
-# This ensures bgmplayer has completely released the sound card before starting the show
+# Also check for any lingering audio processes that might be holding the device
+if pgrep -f "background_music_player.sh" > /dev/null 2>&1; then
+    log_message "Found background_music_player.sh processes - killing them"
+    pkill -f "background_music_player.sh" 2>/dev/null
+    sleep 0.3
+fi
+
+# CRITICAL: Stop PipeWire to release the ALSA device for FPP's direct ALSA access
+# The plugin uses PipeWire, but FPP uses ALSA directly (until FPP migrates to PipeWire)
+# We must stop PipeWire completely so FPP can have exclusive ALSA access
+log_message "Stopping PipeWire to release ALSA device for FPP's main show"
+pkill -u fpp pipewire 2>/dev/null
+pkill -u fpp pipewire-pulse 2>/dev/null
+pkill -u fpp wireplumber 2>/dev/null
+sleep 0.5
+
+# Clean up PipeWire sockets to ensure complete release
+FPP_UID=$(id -u fpp)
+RUNTIME_DIR="/run/user/${FPP_UID}"
+if [ -d "$RUNTIME_DIR" ]; then
+    rm -f "$RUNTIME_DIR"/pipewire-* 2>/dev/null
+    rm -rf "$RUNTIME_DIR/pulse" 2>/dev/null
+fi
+
+# Blackout period - wait for complete audio device release
+# This ensures PipeWire has fully released the ALSA device before FPP tries to use it
 if [ "$BLACKOUT_TIME" -gt 0 ]; then
-    log_message "Blackout for $BLACKOUT_TIME seconds (allowing audio device to be released)"
+    log_message "Blackout for $BLACKOUT_TIME seconds (allowing ALSA device to be fully released)"
     sleep "$BLACKOUT_TIME"
 else
-    # Even with 0 blackout, wait a minimum time for cleanup
-    log_message "Minimum wait for audio device cleanup (0.5s)"
+    # Even with 0 blackout, we need minimum time for PipeWire/ALSA cleanup
+    # 0.5s is typically sufficient for process termination and kernel cleanup
+    log_message "Minimum wait for PipeWire/ALSA cleanup (0.5s)"
     sleep 0.5
 fi
+
+# Verify ALSA device is available
+log_message "Verifying ALSA device is ready for FPP"
+for i in {1..5}; do
+    if aplay -l > /dev/null 2>&1; then
+        log_message "ALSA device ready after $i attempt(s)"
+        break
+    else
+        log_message "ALSA device not ready, waiting... (attempt $i/5)"
+        sleep 0.5
+    fi
+done
 
 # Get the Show Playlist Volume setting
 SHOW_PLAYLIST_VOLUME=$(grep "^ShowPlaylistVolume=" "$PLUGIN_CONFIG" 2>/dev/null | cut -d'=' -f2 | tr -d '\r')
@@ -126,6 +163,7 @@ curl -s -X GET "http://localhost/api/plugin-apis/Brightness/$ORIGINAL_BRIGHTNESS
 # Start the show playlist
 if [ -n "$SHOW_PLAYLIST" ]; then
     log_message "Starting show playlist: $SHOW_PLAYLIST"
+    
     # Use FPP's command API to start the playlist
     curl -s -X POST "http://localhost/api/command" \
         -H "Content-Type: application/json" \

@@ -216,6 +216,9 @@
             <button class="tab-button" onclick="switchTab('troubleshooting', this)">
                 <i class="fas fa-wrench"></i> Troubleshooting
             </button>
+            <button class="tab-button" onclick="switchTab('support', this)">
+                <i class="fas fa-life-ring"></i> Support
+            </button>
             <button class="tab-button" onclick="switchTab('logs', this)">
                 <i class="fas fa-file-alt"></i> Log Viewer
             </button>
@@ -1160,26 +1163,174 @@
             <div class="code-block">/home/fpp/media/logs/fpp-plugin-BackgroundMusic.log</div>
             <p>View recent log entries:</p>
             <div class="code-block">tail -f /home/fpp/media/logs/fpp-plugin-BackgroundMusic.log</div>
+            <p>Or use the <strong>Log Viewer</strong> tab above for a convenient web-based log viewer.</p>
             
-            <h3>Support</h3>
-            <p>
-                If issues persist, please visit: 
-                <a href="https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin/issues" target="_blank">
-                    <i class="fab fa-github"></i> GitHub Issues
-                </a>
-            </p>
-            <p>When reporting issues, please include:</p>
-            <ul>
-                <li>FPP version</li>
-                <li>Plugin version</li>
-                <li>Relevant log entries</li>
-                <li>Steps to reproduce the problem</li>
-                <li>Your configuration settings (sanitized if needed)</li>
-            </ul>
+            <h3>Need More Help?</h3>
+            <div style="background-color: #d1ecf1; border-left: 4px solid #0c5460; padding: 15px; margin: 15px 0;">
+                <p style="margin: 0;">
+                    <strong><i class="fas fa-info-circle"></i> For support and bug reports:</strong><br>
+                    Visit the <strong><a href="#" onclick="switchTab('support', document.querySelector('.tab-button')); return false;">Support</a></strong> tab 
+                    to access system diagnostics and report issues on GitHub. The Support tab includes a comprehensive 
+                    system configuration tool that gathers all necessary information for troubleshooting.
+                </p>
+            </div>
         </div>
         
-        <!-- Changelog Tab -->
-        <div id="changelog" class="tab-content">
+        <!-- Support Tab -->
+        <div id="support" class="tab-content">
+            <h2><i class="fas fa-life-ring"></i> Support & System Diagnostics</h2>
+            
+            <div style="background-color: #d4edda; border: 2px solid #28a745; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+                <h3 style="margin-top: 0; color: #155724;"><i class="fab fa-github"></i> Report Issues</h3>
+                <p style="margin-bottom: 10px;">
+                    If you encounter problems or have feature requests, please report them on GitHub. Before reporting please check a ticket is not already open for your issue:                </p>
+                <p style="text-align: center; margin: 15px 0;">
+                    <a href="https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin/issues" target="_blank" 
+                       style="display: inline-block; background-color: #28a745; color: white; padding: 12px 24px; 
+                              text-decoration: none; border-radius: 5px; font-weight: bold;">
+                        <i class="fab fa-github"></i> Open GitHub Issues
+                    </a>
+                </p>
+            </div>
+            
+            <h3><i class="fas fa-clipboard-list"></i> System Configuration for Bug Reports</h3>
+            <p>
+                When reporting issues, include the system configuration below. Click the "Copy to Clipboard" button
+                to copy all diagnostic information, then paste it into your GitHub issue. Or use "Create GitHub Issue"
+                to open a new issue with diagnostics pre-populated.
+            </p>
+            
+            <div style="margin: 20px 0;">
+                <button onclick="loadSystemConfig()" style="padding: 10px 20px; background-color: #007bff; color: white; 
+                        border: none; border-radius: 5px; cursor: pointer; font-size: 14px; margin-right: 10px;">
+                    <i class="fas fa-sync-alt"></i> Refresh System Info
+                </button>
+                <button onclick="copySystemConfig()" style="padding: 10px 20px; background-color: #28a745; color: white; 
+                        border: none; border-radius: 5px; cursor: pointer; font-size: 14px; margin-right: 10px;">
+                    <i class="fas fa-copy"></i> Copy to Clipboard
+                </button>
+                <button onclick="createGitHubIssue()" style="padding: 10px 20px; background-color: #6c757d; color: white; 
+                        border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
+                    <i class="fab fa-github"></i> Create GitHub Issue
+                </button>
+            </div>
+            
+            <div id="systemConfigContainer" style="background-color: #f8f9fa; border: 2px solid #dee2e6; 
+                 border-radius: 5px; padding: 15px; margin: 20px 0;">
+                <pre id="systemConfigContent" style="margin: 0; white-space: pre-wrap; word-wrap: break-word; 
+                     font-family: 'Courier New', monospace; font-size: 12px; max-height: 600px; overflow-y: auto;">
+<i class="fas fa-spinner fa-spin"></i> Click "Refresh System Info" to load configuration data...</pre>
+            </div>
+            
+            <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
+                <h4 style="margin-top: 0; color: #856404;"><i class="fas fa-info-circle"></i> What to Include in Bug Reports</h4>
+                <ul style="margin-bottom: 0;">
+                    <li><strong>System Configuration:</strong> The diagnostic info above (copied via button)</li>
+                    <li><strong>Problem Description:</strong> Clear description of the issue</li>
+                    <li><strong>Steps to Reproduce:</strong> Exact steps that cause the problem</li>
+                    <li><strong>Expected vs Actual:</strong> What should happen vs what actually happens</li>
+                    <li><strong>Log Entries:</strong> Relevant entries from the Log Viewer tab (if applicable)</li>
+                    <li><strong>Screenshots:</strong> Visual evidence of the issue (if helpful)</li>
+                </ul>
+            </div>
+            
+            <script>
+                let systemConfigData = null;
+                
+                function loadSystemConfig() {
+                    const container = document.getElementById('systemConfigContent');
+                    container.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading system configuration...';
+                    
+                    fetch('/api/plugin/fpp-plugin-BackgroundMusic/system-diagnostics')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'OK') {
+                                systemConfigData = data.diagnostics;
+                                container.textContent = systemConfigData;
+                            } else {
+                                container.innerHTML = '<span style="color: #dc3545;"><i class="fas fa-exclamation-triangle"></i> Error loading system configuration: ' + 
+                                    (data.message || 'Unknown error') + '</span>';
+                            }
+                        })
+                        .catch(error => {
+                            container.innerHTML = '<span style="color: #dc3545;"><i class="fas fa-exclamation-triangle"></i> Error: ' + 
+                                error.message + '</span>';
+                        });
+                }
+                
+                function copySystemConfig() {
+                    if (!systemConfigData) {
+                        alert('Please load system configuration first by clicking "Refresh System Info"');
+                        return;
+                    }
+                    
+                    navigator.clipboard.writeText(systemConfigData)
+                        .then(() => {
+                            // Visual feedback
+                            const btn = event.target.closest('button');
+                            const originalHTML = btn.innerHTML;
+                            btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                            btn.style.backgroundColor = '#28a745';
+                            setTimeout(() => {
+                                btn.innerHTML = originalHTML;
+                                btn.style.backgroundColor = '#28a745';
+                            }, 2000);
+                        })
+                        .catch(err => {
+                            alert('Failed to copy to clipboard. Please manually select and copy the text.');
+                        });
+                }
+                
+                function createGitHubIssue() {
+                    if (!systemConfigData) {
+                        alert('Please load system configuration first by clicking "Refresh System Info"');
+                        return;
+                    }
+                    
+                    // Create issue template with diagnostics
+                    const issueTemplate = `## Description
+<!-- Provide a clear and concise description of the issue -->
+
+
+## Steps to Reproduce
+1. 
+2. 
+3. 
+
+## Expected Behavior
+<!-- What you expected to happen -->
+
+
+## Actual Behavior
+<!-- What actually happened -->
+
+
+## System Diagnostics
+<details>
+<summary>Click to expand system configuration</summary>
+
+\`\`\`
+${systemConfigData}
+\`\`\`
+</details>
+
+## Additional Context
+<!-- Add any other context, screenshots, or log entries here -->
+
+`;
+                    
+                    // Encode the body for URL
+                    const encodedBody = encodeURIComponent(issueTemplate);
+                    const issueUrl = `https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin/issues/new?body=${encodedBody}`;
+                    
+                    // Open in new tab
+                    window.open(issueUrl, '_blank');
+                }
+            </script>
+        </div>
+        
+        <!-- Log Viewer Tab -->
+        <div id="logs" class="tab-content">
             <h2>Plugin Version History</h2>
             <p>Recent commits and changes to the Background Music Plugin:</p>
             
@@ -1491,7 +1642,7 @@
                         <li><a href='https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin' target='_blank'>
                             <i class="fab fa-github"></i> Git Repository
                         </a></li>
-                        <li><a href='https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin/issues' target='_blank'>
+                        <li><a href='https://github.com/OnlineDynamic/BackgroundMusicFPP-Plugin/issues/new' target='_blank'>
                             <i class="fas fa-bug"></i> Bug Reporter / Feature Requests
                         </a></li>
                     </ul>

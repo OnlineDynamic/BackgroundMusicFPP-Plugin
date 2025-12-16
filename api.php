@@ -185,6 +185,12 @@ function getEndpointsfpppluginBackgroundMusic() {
         'endpoint' => 'delete-voice',
         'callback' => 'fppBackgroundMusicDeleteVoice');
     array_push($result, $ep);
+    
+    $ep = array(
+        'method' => 'GET',
+        'endpoint' => 'system-diagnostics',
+        'callback' => 'fppBackgroundMusicSystemDiagnostics');
+    array_push($result, $ep);
 
     return $result;
 }
@@ -1823,6 +1829,350 @@ function fppBackgroundMusicDownloadLog() {
     
     readfile($logFile);
     exit;
+}
+
+// Helper function to fetch FPP setting value
+function getFPPSettingValue($settingName) {
+    $url = "http://127.0.0.1/api/settings/" . urlencode($settingName);
+    $value = @file_get_contents($url);
+    if ($value === false || $value === '') {
+        return null;
+    }
+    // API returns JSON-encoded value, so decode it
+    $decoded = json_decode($value, true); // Decode as array for easier handling
+    
+    // If it's an array with a 'value' key (standard FPP setting format), return just the value
+    if (is_array($decoded) && isset($decoded['value'])) {
+        // If the value itself is an array or object, convert to string representation
+        if (is_array($decoded['value']) || is_object($decoded['value'])) {
+            return json_encode($decoded['value']);
+        }
+        return $decoded['value'];
+    }
+    
+    // If it's an object or array without a value key, convert to JSON string representation
+    if (is_object($decoded) || is_array($decoded)) {
+        return json_encode($decoded);
+    }
+    
+    return $decoded !== null ? $decoded : $value;
+}
+
+function fppBackgroundMusicSystemDiagnostics() {
+    global $settings;
+    $pluginName = "fpp-plugin-BackgroundMusic";
+    $pluginConfigFile = $settings['configDirectory'] . "/plugin." . $pluginName;
+    
+    try {
+        $diagnostics = "=== BACKGROUND MUSIC PLUGIN - SYSTEM DIAGNOSTICS ===\n";
+        $diagnostics .= "Generated: " . date('Y-m-d H:i:s T') . "\n\n";
+        
+        // Get system info from FPP API
+        $systemInfoJson = @file_get_contents('http://127.0.0.1/api/system/info');
+        $systemInfo = array();
+        if ($systemInfoJson !== false) {
+            $systemInfo = json_decode($systemInfoJson, true);
+            if (!is_array($systemInfo)) {
+                $systemInfo = array();
+            }
+        }
+        
+        // === FPP CORE INFORMATION ===
+        $diagnostics .= "--- FPP CORE INFORMATION ---\n";
+        
+        // FPP Version from system info
+        $fppVersion = $systemInfo['Version'] ?? 'Unknown';
+        $diagnostics .= "FPP Version: " . $fppVersion . "\n";
+        
+        // FPP Branch from system info
+        $fppBranch = $systemInfo['Branch'] ?? 'Unknown';
+        $diagnostics .= "FPP Branch: " . $fppBranch . "\n";
+        
+        // OS Version
+        $osVersion = $systemInfo['OSVersion'] ?? 'Unknown';
+        $diagnostics .= "OS Version: " . $osVersion . "\n";
+        
+        // Platform/Hardware from system info
+        $platform = $systemInfo['Platform'] ?? 'Unknown';
+        $diagnostics .= "Platform: " . $platform . "\n";
+        
+        // Variant
+        $variant = $systemInfo['Variant'] ?? '';
+        if ($variant) {
+            $diagnostics .= "Variant: " . $variant . "\n";
+        }
+        
+        // SubPlatform (Hardware model)
+        $subPlatform = $systemInfo['SubPlatform'] ?? exec("cat /proc/device-tree/model 2>/dev/null | tr -d '\\0' || echo 'Unknown'");
+        $diagnostics .= "Hardware Model: " . $subPlatform . "\n";
+        
+        // OS Release Information
+        $osRelease = $systemInfo['OSRelease'] ?? exec("cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2 | tr -d '\"' 2>/dev/null || echo 'Unknown'");
+        $diagnostics .= "Operating System: " . $osRelease . "\n";
+        
+        // Kernel Version
+        $kernel = exec("uname -r 2>/dev/null || echo 'Unknown'");
+        $diagnostics .= "Kernel Version: " . $kernel . "\n";
+        
+        $diagnostics .= "\n--- FPP SETTINGS ---\n";
+        
+        // Audio Output Settings
+        $audioOutput = getFPPSettingValue('AudioOutput');
+        $diagnostics .= "Audio Output: " . ($audioOutput !== null && $audioOutput !== '' && $audioOutput !== '[]' ? $audioOutput : 'Not Set') . "\n";
+        
+        $audioCard = getFPPSettingValue('AudioCard');
+        $diagnostics .= "Audio Card: " . ($audioCard !== null && $audioCard !== '' && $audioCard !== '[]' ? $audioCard : 'Not Set') . "\n";
+        
+        // Volume Settings
+        $volume = getFPPSettingValue('volume');
+        $diagnostics .= "System Volume: " . ($volume !== null && $volume !== '' ? $volume : 'Not Set') . "\n";
+        
+        $audioMixerDevice = getFPPSettingValue('AudioMixerDevice');
+        $diagnostics .= "Audio Mixer Device: " . ($audioMixerDevice !== null && $audioMixerDevice !== '' && $audioMixerDevice !== '[]' ? $audioMixerDevice : 'Not Set') . "\n";
+        
+        // Boot Delay
+        $bootDelay = getFPPSettingValue('bootDelay');
+        $diagnostics .= "Boot Delay: " . ($bootDelay !== null ? $bootDelay : '0') . " seconds\n";
+        
+        // Timezone
+        $timezone = getFPPSettingValue('TimeZone');
+        $diagnostics .= "Timezone: " . ($timezone !== null && $timezone !== '' ? $timezone : 'Not Set') . "\n";
+        
+        // Host name
+        $hostname = getFPPSettingValue('HostName');
+        $diagnostics .= "Hostname: " . ($hostname !== null && $hostname !== '' ? $hostname : exec("hostname")) . "\n";
+        
+        // FPP Mode (Player/Remote)
+        $fppMode = getFPPSettingValue('fppMode');
+        $diagnostics .= "FPP Mode: " . ($fppMode !== null && $fppMode !== '' ? $fppMode : 'Unknown') . "\n";
+        
+        // Multisync Settings
+        $multisyncEnabled = getFPPSettingValue('MultiSyncEnabled');
+        $diagnostics .= "MultiSync Enabled: " . ($multisyncEnabled == '1' ? 'Yes' : 'No') . "\n";
+        
+        if ($multisyncEnabled == '1') {
+            $multisyncInterface = getFPPSettingValue('MultiSyncInterface');
+            $diagnostics .= "MultiSync Interface: " . ($multisyncInterface !== null && $multisyncInterface !== '' && $multisyncInterface !== '[]' ? $multisyncInterface : 'Not Set') . "\n";
+        }
+        
+        // Current Brightness
+        $brightness = getFPPSettingValue('brightness');
+        $diagnostics .= "Current Brightness: " . ($brightness !== null && $brightness !== '' && $brightness !== '[]' ? $brightness : '100') . "%\n";
+    
+    // === PLUGIN INFORMATION ===
+    $diagnostics .= "\n--- BACKGROUND MUSIC PLUGIN INFORMATION ---\n";
+    
+    // Plugin Version from pluginInfo.json
+    $pluginInfoFile = '/home/fpp/media/plugins/fpp-plugin-BackgroundMusic/pluginInfo.json';
+    if (file_exists($pluginInfoFile)) {
+        $pluginInfo = json_decode(file_get_contents($pluginInfoFile), true);
+        if ($pluginInfo) {
+            $diagnostics .= "Plugin Name: " . ($pluginInfo['name'] ?? 'Unknown') . "\n";
+            $diagnostics .= "Plugin Version: " . ($pluginInfo['version'] ?? 'Unknown') . "\n";
+            $diagnostics .= "Plugin Author: " . ($pluginInfo['author'] ?? 'Unknown') . "\n";
+        }
+    }
+    
+    // Git commit info
+    $gitHash = exec("cd /home/fpp/media/plugins/fpp-plugin-BackgroundMusic && git rev-parse HEAD 2>/dev/null | cut -c1-7 || echo 'Unknown'");
+    $diagnostics .= "Git Commit: " . $gitHash . "\n";
+    
+    $gitBranch = exec("cd /home/fpp/media/plugins/fpp-plugin-BackgroundMusic && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'Unknown'");
+    $diagnostics .= "Git Branch: " . $gitBranch . "\n";
+    
+    // === PLUGIN CONFIGURATION ===
+    $diagnostics .= "\n--- PLUGIN CONFIGURATION ---\n";
+    
+    $pluginSettings = array();
+    if (file_exists($pluginConfigFile)) {
+        $pluginSettings = @parse_ini_file($pluginConfigFile);
+        if ($pluginSettings === false) {
+            $pluginSettings = array();
+        }
+    }
+    
+    $backgroundMusicPlaylist = $pluginSettings['BackgroundMusicPlaylist'] ?? 'Not Set';
+    $diagnostics .= "Background Music Playlist: " . $backgroundMusicPlaylist . "\n";
+    
+    $backgroundMusicMode = $pluginSettings['BackgroundMusicMode'] ?? 'playlist';
+    $diagnostics .= "Background Music Mode: " . $backgroundMusicMode . "\n";
+    
+    if ($backgroundMusicMode === 'stream') {
+        $streamURL = $pluginSettings['StreamURL'] ?? 'Not Set';
+        $diagnostics .= "Stream URL: " . $streamURL . "\n";
+        
+        $streamPreset = $pluginSettings['StreamPreset'] ?? 'None';
+        $diagnostics .= "Stream Preset: " . $streamPreset . "\n";
+    }
+    
+    $showPlaylist = $pluginSettings['ShowPlaylist'] ?? 'Not Set';
+    $diagnostics .= "Main Show Playlist: " . $showPlaylist . "\n";
+    
+    $fadeTime = $pluginSettings['FadeTime'] ?? '5';
+    $diagnostics .= "Fade Time: " . $fadeTime . " seconds\n";
+    
+    $blackoutTime = $pluginSettings['BlackoutTime'] ?? '2';
+    $diagnostics .= "Blackout Time: " . $blackoutTime . " seconds\n";
+    
+    $returnToPreShow = $pluginSettings['ReturnToPreShow'] ?? '1';
+    $diagnostics .= "Return to Pre-Show: " . ($returnToPreShow == '1' ? 'Enabled' : 'Disabled') . "\n";
+    
+    $shuffleMusic = $pluginSettings['ShuffleMusic'] ?? '0';
+    $diagnostics .= "Shuffle Music: " . ($shuffleMusic == '1' ? 'Enabled' : 'Disabled') . "\n";
+    
+    $volumeLevel = $pluginSettings['VolumeLevel'] ?? '70';
+    $diagnostics .= "Background Music Volume: " . $volumeLevel . "%\n";
+    
+    $backgroundMusicVolume = $pluginSettings['BackgroundMusicVolume'] ?? $volumeLevel;
+    $diagnostics .= "Pre-Show Background Volume: " . $backgroundMusicVolume . "%\n";
+    
+    $showPlaylistVolume = $pluginSettings['ShowPlaylistVolume'] ?? '100';
+    $diagnostics .= "Show Playlist Volume: " . $showPlaylistVolume . "%\n";
+    
+    $postShowBackgroundVolume = $pluginSettings['PostShowBackgroundVolume'] ?? $backgroundMusicVolume;
+    $diagnostics .= "Post-Show Background Volume: " . $postShowBackgroundVolume . "%\n";
+    
+    // Crossfade settings
+    $enableCrossfade = $pluginSettings['EnableCrossfade'] ?? '0';
+    $diagnostics .= "Crossfade Enabled: " . ($enableCrossfade == '1' ? 'Yes' : 'No') . "\n";
+    
+    if ($enableCrossfade == '1') {
+        $crossfadeDuration = $pluginSettings['CrossfadeDuration'] ?? '3';
+        $diagnostics .= "Crossfade Duration: " . $crossfadeDuration . " seconds\n";
+    }
+    
+    // PSA Settings
+    $diagnostics .= "\n--- PSA SYSTEM SETTINGS ---\n";
+    
+    $enablePSA = $pluginSettings['EnablePSA'] ?? '1';
+    $diagnostics .= "PSA System Enabled: " . ($enablePSA == '1' ? 'Yes' : 'No') . "\n";
+    
+    $psaDuckVolume = $pluginSettings['PSADuckVolume'] ?? '30';
+    $diagnostics .= "PSA Duck Volume: " . $psaDuckVolume . "%\n";
+    
+    $psaButtonCount = 0;
+    for ($i = 1; $i <= 20; $i++) {
+        $buttonLabel = $pluginSettings["PSAButton{$i}Label"] ?? '';
+        if (!empty($buttonLabel)) {
+            $psaButtonCount++;
+        }
+    }
+    $diagnostics .= "Configured PSA Buttons: " . $psaButtonCount . "/20\n";
+    
+    // TTS Settings
+    $ttsEngine = $pluginSettings['TTSEngine'] ?? 'piper';
+    $diagnostics .= "TTS Engine: " . ucfirst($ttsEngine) . "\n";
+    
+    if ($ttsEngine === 'elevenlabs') {
+        $elevenLabsApiKey = $pluginSettings['ElevenLabsAPIKey'] ?? '';
+        $diagnostics .= "ElevenLabs API Key: " . (!empty($elevenLabsApiKey) ? 'Configured' : 'Not Set') . "\n";
+    }
+    
+    // === SYSTEM STATUS ===
+    $diagnostics .= "\n--- SYSTEM STATUS ---\n";
+    
+    // FPP Status
+    $status = GetCurrentStatus();
+    $fppStatus = $status['status_name'] ?? 'unknown';
+    $diagnostics .= "FPP Status: " . $fppStatus . "\n";
+    
+    $currentPlaylist = $status['current_playlist']['playlist'] ?? 'None';
+    $diagnostics .= "Current Playlist: " . $currentPlaylist . "\n";
+    
+    $currentSequence = $status['current_sequence'] ?? 'None';
+    $diagnostics .= "Current Sequence: " . $currentSequence . "\n";
+    
+    // Background music player status
+    $pidFile = '/tmp/background_music_player.pid';
+    $bgmRunning = false;
+    if (file_exists($pidFile)) {
+        $pid = trim(file_get_contents($pidFile));
+        if (file_exists("/proc/$pid")) {
+            $bgmRunning = true;
+        }
+    }
+    $diagnostics .= "Background Music Player: " . ($bgmRunning ? 'Running' : 'Not Running') . "\n";
+    
+    // === SYSTEM RESOURCES ===
+    $diagnostics .= "\n--- SYSTEM RESOURCES ---\n";
+    
+    // Disk usage
+    $diskUsage = exec("df -h / | tail -1 | awk '{print $5}'");
+    $diagnostics .= "Root Disk Usage: " . $diskUsage . "\n";
+    
+    $mediaDiskUsage = exec("df -h /home/fpp/media | tail -1 | awk '{print $5}'");
+    $diagnostics .= "Media Disk Usage: " . $mediaDiskUsage . "\n";
+    
+    // Memory usage
+    $memInfo = exec("free -h | grep Mem | awk '{print $3 \"/\" $2}'");
+    $diagnostics .= "Memory Usage: " . $memInfo . "\n";
+    
+    // CPU Load
+    $loadAvg = exec("cat /proc/loadavg | awk '{print $1, $2, $3}'");
+    $diagnostics .= "CPU Load (1/5/15 min): " . $loadAvg . "\n";
+    
+    // Uptime
+    $uptime = exec("uptime -p 2>/dev/null || uptime | awk '{print $3, $4}'");
+    $diagnostics .= "System Uptime: " . $uptime . "\n";
+    
+    // === INSTALLED PLUGINS ===
+    $diagnostics .= "\n--- KEY INSTALLED PLUGINS ---\n";
+    
+    // Check for brightness plugin
+    $brightnessPluginPath = '/home/fpp/media/plugins/fpp-brightness';
+    if (is_dir($brightnessPluginPath)) {
+        $diagnostics .= "fpp-brightness: Installed\n";
+        $brightnessVersion = exec("cd $brightnessPluginPath && git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo 'Unknown'");
+        $diagnostics .= "  Version: " . $brightnessVersion . "\n";
+    } else {
+        $diagnostics .= "fpp-brightness: NOT INSTALLED (Required for MultiSync fade transitions)\n";
+    }
+    
+    // === NETWORK INFORMATION ===
+    $diagnostics .= "\n--- NETWORK INFORMATION ---\n";
+    
+    // IP Address
+    $ipAddress = exec("hostname -I | awk '{print $1}'");
+    $diagnostics .= "IP Address: " . $ipAddress . "\n";
+    
+    // Network interfaces
+    $interfaces = exec("ip -o link show | awk -F': ' '{print $2}' | grep -v lo | tr '\\n' ', ' | sed 's/,$//'");
+    $diagnostics .= "Network Interfaces: " . $interfaces . "\n";
+    
+    // === AUDIO SYSTEM ===
+    $diagnostics .= "\n--- AUDIO SYSTEM DETAILS ---\n";
+    
+    // ALSA cards
+    $alsaCards = shell_exec("cat /proc/asound/cards 2>/dev/null || echo 'No ALSA cards found'");
+    $diagnostics .= "ALSA Sound Cards:\n" . trim($alsaCards) . "\n";
+    
+    // Check if PipeWire is running
+    $pipewireRunning = exec("pidof pipewire >/dev/null && echo 'Yes' || echo 'No'");
+    $diagnostics .= "\nPipeWire Running: " . $pipewireRunning . "\n";
+    
+    // === RECENT LOG ENTRIES ===
+    $diagnostics .= "\n--- RECENT LOG ENTRIES (Last 20 lines) ---\n";
+    $logFile = '/home/fpp/media/logs/fpp-plugin-BackgroundMusic.log';
+    if (file_exists($logFile)) {
+        $recentLog = shell_exec("tail -n 20 " . escapeshellarg($logFile) . " 2>/dev/null || echo 'Could not read log file'");
+        $diagnostics .= trim($recentLog) . "\n";
+    } else {
+        $diagnostics .= "Log file not found\n";
+    }
+    
+    $diagnostics .= "\n=== END OF DIAGNOSTICS ===\n";
+    
+    return json(array(
+        'status' => 'OK',
+        'diagnostics' => $diagnostics
+    ));
+    
+    } catch (Exception $e) {
+        return json(array(
+            'status' => 'ERROR',
+            'message' => 'Error generating diagnostics: ' . $e->getMessage()
+        ));
+    }
 }
 
 ?>

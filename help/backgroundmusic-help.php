@@ -1329,9 +1329,9 @@ ${systemConfigData}
             </script>
         </div>
         
-        <!-- Log Viewer Tab -->
-        <div id="logs" class="tab-content">
-            <h2>Plugin Version History</h2>
+        <!-- Changelog Tab -->
+        <div id="changelog" class="tab-content">
+            <h2><i class="fas fa-history"></i> Plugin Version History</h2>
             <p>Recent commits and changes to the Background Music Plugin:</p>
             
             <div id="changelogContent" style="margin-top: 20px;">

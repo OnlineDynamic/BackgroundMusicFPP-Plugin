@@ -24,6 +24,16 @@ log_message() {
 
 log_message "Starting show transition: fade=$FADE_TIME sec, blackout=$BLACKOUT_TIME sec, show=$SHOW_PLAYLIST"
 
+# Check if a show is already running - prevent double-triggering
+CURRENT_STATUS=$(curl -s "http://localhost/api/fppd/status")
+CURRENT_PLAYLIST=$(echo "$CURRENT_STATUS" | jq -r '.current_playlist.playlist // ""')
+FPP_STATUS=$(echo "$CURRENT_STATUS" | jq -r '.status_name // ""')
+
+if [ "$CURRENT_PLAYLIST" = "$SHOW_PLAYLIST" ] && [ "$FPP_STATUS" != "idle" ]; then
+    log_message "WARNING: Show playlist '$SHOW_PLAYLIST' is already running - ignoring duplicate request"
+    exit 0
+fi
+
 # Get current brightness setting (will restore this later)
 ORIGINAL_BRIGHTNESS=$(curl -s "http://localhost/api/system/brightness" | jq -r '.brightness' 2>/dev/null)
 if [ -z "$ORIGINAL_BRIGHTNESS" ] || [ "$ORIGINAL_BRIGHTNESS" = "false" ]; then

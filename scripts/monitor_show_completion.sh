@@ -16,6 +16,20 @@ log_message() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
 }
 
+# Check if another monitor is already running
+if [ -f "$MONITOR_PID_FILE" ]; then
+    OLD_PID=$(cat "$MONITOR_PID_FILE" 2>/dev/null)
+    if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+        log_message "Monitor already running with PID $OLD_PID - stopping old monitor first"
+        kill -TERM "$OLD_PID" 2>/dev/null
+        sleep 0.5
+        # Force kill if still running
+        if kill -0 "$OLD_PID" 2>/dev/null; then
+            kill -9 "$OLD_PID" 2>/dev/null
+        fi
+    fi
+fi
+
 # Store our PID
 echo $$ > "$MONITOR_PID_FILE"
 

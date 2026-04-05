@@ -711,7 +711,7 @@
             // Update display immediately for responsiveness
             $('#statusVolume').text(volume + '%');
             
-            // Use plugin's volume API to control bgmplayer independently
+            // Use plugin's volume API to control bgmusic independently
             var obj = { volume: parseInt(volume) };
             $.post({
                 url: '/api/plugin/fpp-plugin-BackgroundMusic/set-volume',

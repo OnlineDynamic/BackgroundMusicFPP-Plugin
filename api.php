@@ -325,22 +325,19 @@ function fppBackgroundMusicStatus() {
     // Check if fpp-brightness plugin is installed (required for transitions)
     $brightnessPluginInstalled = file_exists('/home/fpp/media/plugins/fpp-brightness/libfpp-brightness.so');
     
-    // Get current bgmplayer volume from PipeWire stream (query actual volume)
-    $bgmplayerVolume = $backgroundMusicVolume; // default from config
+    // Get current bgmusic volume from PipeWire stream (query actual volume)
+    $bgmusicVolume = $backgroundMusicVolume; // default from config
     
-    // Query PipeWire for actual stream volume
-    // Note: We query all running BackgroundMusic streams and take the first result.
-    // The player sets bgmplayer.role metadata to distinguish "main" vs "crossfade" streams,
-    // but querying metadata requires per-stream lookups which is slower.
-    // Since volume should be consistent across streams, we rely on the most recent stream.
-    $fppUid = trim(shell_exec('id -u fpp'));
-    $pwDumpCmd = "sudo -u fpp XDG_RUNTIME_DIR=/run/user/{$fppUid} pw-dump 2>/dev/null";
-    $jqQuery = '.[] | select(.info.props["media.name"]? // "" | startswith("BackgroundMusic")) | select(.type == "PipeWire:Interface:Node") | select(.info.state? == "running") | .info.params.Props[0].volume';
-    $streamVolume = trim(shell_exec("{$pwDumpCmd} | jq -r '{$jqQuery}' 2>/dev/null | tail -1"));
+    // Query PipeWire for actual stream volume via system socket
+    $pwDumpCmd = "PIPEWIRE_REMOTE=/run/pipewire-fpp/pipewire-0 pw-dump 2>/dev/null";
+    $jqQuery = '.[] | select(.info.props["node.name"]? == "bgmusic_main") | select(.type == "PipeWire:Interface:Node") | .id';
+    $nodeId = trim(shell_exec("{$pwDumpCmd} | jq -r '{$jqQuery}' 2>/dev/null | tail -1"));
     
-    if (!empty($streamVolume) && $streamVolume !== 'null' && is_numeric($streamVolume)) {
-        // Convert from 0.0-1.0 to 0-100
-        $bgmplayerVolume = intval($streamVolume * 100);
+    if (!empty($nodeId) && is_numeric($nodeId)) {
+        $volStr = trim(shell_exec("PIPEWIRE_REMOTE=/run/pipewire-fpp/pipewire-0 wpctl get-volume {$nodeId} 2>/dev/null | awk '{print \$2}'"));
+        if (!empty($volStr) && is_numeric($volStr)) {
+            $bgmusicVolume = intval(floatval($volStr) * 100);
+        }
     }
     
     $result = array(
@@ -361,7 +358,7 @@ function fppBackgroundMusicStatus() {
         'totalTracks' => $totalTracks,
         'streamTitle' => $streamTitle,
         'streamArtist' => $streamArtist,
-        'volume' => $bgmplayerVolume,
+        'volume' => $bgmusicVolume,
         'config' => array(
             'backgroundMusicSource' => isset($pluginSettings['BackgroundMusicSource']) ? $pluginSettings['BackgroundMusicSource'] : 'playlist',
             'backgroundMusicPlaylist' => $backgroundMusicPlaylist,
@@ -709,9 +706,8 @@ function fppBackgroundMusicSetVolume() {
     }
     file_put_contents($pluginConfigFile, $configContent);
     
-    // Apply volume change immediately to bgmplayer (not system volume)
-    // This controls the player's internal volume via SIGUSR1/SIGUSR2 signals
-    $scriptPath = dirname(__FILE__) . '/scripts/set_bgmplayer_volume.sh';
+    // Apply volume change immediately to bgmusic GStreamer pipeline
+    $scriptPath = dirname(__FILE__) . '/scripts/set_bgmusic_volume.sh';
     exec("/bin/bash " . escapeshellarg($scriptPath) . " " . escapeshellarg($volume) . " 2>&1", $output, $returnCode);
     
     if ($returnCode === 0) {

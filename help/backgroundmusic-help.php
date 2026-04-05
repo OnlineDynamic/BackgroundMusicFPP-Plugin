@@ -275,7 +275,7 @@
             </p>
             <ul>
                 <li><strong>Pre-Show:</strong> FPP scheduler runs your looping sequence playlist. 
-                    Plugin plays background music independently using bgmplayer (custom SDL2/FFmpeg player).</li>
+                    Plugin plays background music independently using GStreamer through PipeWire.</li>
                 <li><strong>Main Show:</strong> Plugin fades out, stops music, and triggers your main show.</li>
                 <li><strong>After Show:</strong> If "Return to Pre-Show" is enabled, background music 
                     automatically restarts (scheduler will resume pre-show sequence per its schedule).</li>

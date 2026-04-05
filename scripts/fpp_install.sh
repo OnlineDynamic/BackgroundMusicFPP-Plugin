@@ -1,26 +1,32 @@
 #!/bin/bash
 
-# fpp-plugin-backgroundmusic install script
+# fpp-plugin-backgroundmusic install script (FPP 10+ / PipeWire+GStreamer)
 
 BASEDIR=$(dirname "$0")
 cd "$BASEDIR"
 cd ..
 PLUGIN_DIR=$(pwd)
 
-# Check if this is an upgrade (ALSA config with our marker already exists)
+# Check if this is an upgrade
 IS_UPGRADE=0
-if [ -f "/etc/asound.conf" ] && grep -q "Background Music Plugin" /etc/asound.conf; then
+if [ -f "/home/fpp/media/config/plugin.fpp-plugin-BackgroundMusic" ]; then
     IS_UPGRADE=1
     echo "=========================================="
     echo "Upgrading Background Music Plugin"
     echo "=========================================="
-    
-    # Clean up old ffplay processes and PID files from previous version
+
+    # Clean up old bgmplayer/ffplay processes from previous versions
     echo "Cleaning up old processes..."
+    pkill -f "bgmplayer" 2>/dev/null || true
     pkill -f "ffplay" 2>/dev/null || true
-    rm -f /tmp/bg_music_ffplay.pid 2>/dev/null || true
-    rm -f /tmp/bg_music_ffplay_next.pid 2>/dev/null || true
+    pkill -f "node.name=bgmusic_" 2>/dev/null || true
+    rm -f /tmp/bg_music_ffplay.pid /tmp/bg_music_ffplay_next.pid 2>/dev/null
+    rm -f /tmp/bg_music_bgmplayer.pid /tmp/bg_music_bgmplayer_next.pid 2>/dev/null
     echo "Old processes cleaned up"
+
+    # Clean up old per-user PipeWire config (no longer needed — system service)
+    rm -f /home/fpp/.config/pipewire/pipewire.conf.d/99-backgroundmusic.conf 2>/dev/null
+    rm -f /home/fpp/.config/wireplumber/main.lua.d/51-fpp-audio.lua 2>/dev/null
 else
     echo "=========================================="
     echo "Installing Background Music Plugin"
@@ -39,81 +45,57 @@ echo "=========================================="
 echo "Installing Dependencies"
 echo "=========================================="
 
-# Install jq utility for PSU Control script to work
+# jq is required for PipeWire node queries and config parsing
 sudo apt-get -y install jq
 
-# Install build tools and libraries for custom audio player
-echo "Installing build dependencies for bgmplayer..."
-sudo apt-get -y install g++ make
-sudo apt-get -y install libsdl2-dev
-sudo apt-get -y install libavformat-dev libavcodec-dev libavutil-dev libswresample-dev
-sudo apt-get -y install ffmpeg
+# GStreamer plugins for stream playback (souphttpsrc for HTTP streams)
+echo "Installing GStreamer plugins..."
+sudo apt-get -y install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+sudo apt-get -y install gstreamer1.0-pipewire
 
-# Install PipeWire stack for reliable mixed audio playback
-echo "Installing PipeWire audio stack..."
-sudo apt-get -y install pipewire pipewire-pulse pipewire-alsa wireplumber
+echo "=========================================="
 
-# Compile custom audio player
-echo ""
-echo "=========================================="
-echo "Compiling Background Music Player"
-echo "=========================================="
-cd "$PLUGIN_DIR"
-if make; then
-    echo "✓ bgmplayer compiled successfully"
-    # Make it executable
-    chmod +x bgmplayer
+# Verify FPP 10 audio stack is available
+echo "Verifying FPP 10 audio stack..."
+ERRORS=0
+
+if ! command -v gst-launch-1.0 &>/dev/null; then
+    echo "✗ ERROR: gst-launch-1.0 not found"
+    ERRORS=$((ERRORS + 1))
 else
-    echo "⚠ WARNING: Failed to compile bgmplayer"
-    echo "   Plugin requires bgmplayer for proper operation"
-    echo "   Volume control will not work without it"
+    echo "✓ GStreamer available: $(gst-launch-1.0 --version | head -1)"
 fi
-echo "=========================================="
+
+if ! command -v wpctl &>/dev/null; then
+    echo "✗ ERROR: wpctl not found (WirePlumber)"
+    ERRORS=$((ERRORS + 1))
+else
+    echo "✓ WirePlumber available"
+fi
+
+if systemctl is-active --quiet fpp-pipewire.service 2>/dev/null; then
+    echo "✓ fpp-pipewire.service is running"
+else
+    echo "⚠ WARNING: fpp-pipewire.service is not running"
+    echo "  Background music requires PipeWire to be enabled in FPP settings"
+fi
+
+if [ -S "/run/pipewire-fpp/pipewire-0" ]; then
+    echo "✓ PipeWire socket available at /run/pipewire-fpp/pipewire-0"
+else
+    echo "⚠ WARNING: PipeWire socket not found at /run/pipewire-fpp/pipewire-0"
+    echo "  Enable PipeWire in FPP settings and restart"
+fi
+
+if [ $ERRORS -gt 0 ]; then
+    echo ""
+    echo "✗ $ERRORS critical dependency missing — plugin may not work correctly"
+fi
 
 # Ensure helper scripts are executable
-# Scripts will be executed by root via sudo, but can be owned by fpp for easy editing
 echo "Setting permissions on helper scripts..."
 chmod +x "$PLUGIN_DIR/scripts"/*.sh 2>/dev/null
 chown fpp:fpp "$PLUGIN_DIR/scripts"/*.sh 2>/dev/null
-
-# Create per-user PipeWire config for the fpp user
-PIPEWIRE_CONF_DIR="/home/fpp/.config/pipewire/pipewire.conf.d"
-sudo -u fpp mkdir -p "$PIPEWIRE_CONF_DIR"
-cat <<'EOF' | sudo tee "$PIPEWIRE_CONF_DIR/99-backgroundmusic.conf" > /dev/null
-context.properties = {
-    default.clock.rate = 48000
-    default.clock.quantum = 2048
-    default.clock.min-quantum = 1024
-    default.clock.max-quantum = 8192
-}
-EOF
-sudo chown fpp:fpp "$PIPEWIRE_CONF_DIR/99-backgroundmusic.conf"
-sudo chmod 644 "$PIPEWIRE_CONF_DIR/99-backgroundmusic.conf"
-
-echo "PipeWire configuration written to $PIPEWIRE_CONF_DIR/99-backgroundmusic.conf"
-
-# Ensure WirePlumber config directory exists with proper permissions
-WIREPLUMBER_CONF_DIR="/home/fpp/.config/wireplumber/main.lua.d"
-sudo -u fpp mkdir -p "$WIREPLUMBER_CONF_DIR"
-sudo chown -R fpp:fpp /home/fpp/.config/wireplumber
-sudo chmod -R 755 /home/fpp/.config/wireplumber
-
-# Ensure /run/user/500 exists with proper permissions for PipeWire runtime
-if [ ! -d "/run/user/500" ]; then
-    echo "Creating /run/user/500 for PipeWire runtime..."
-    sudo mkdir -p /run/user/500
-    sudo chown fpp:fpp /run/user/500
-    sudo chmod 700 /run/user/500
-fi
-
-# Start/refresh PipeWire stack so new settings take effect
-echo "Starting PipeWire services..."
-if /home/fpp/media/plugins/fpp-plugin-BackgroundMusic/scripts/start_pipewire.sh; then
-    echo "✓ PipeWire stack started for fpp user"
-else
-    echo "⚠ WARNING: PipeWire start script encountered an error"
-    echo "  Check /tmp/pipewire*.log for details"
-fi
 
 echo "=========================================="
 
@@ -175,16 +157,13 @@ if [ $IS_UPGRADE -eq 1 ]; then
     echo ""
     echo "IMPORTANT UPGRADE NOTES:"
     echo "------------------------"
-    echo "✓ ALSA audio configuration updated for software mixing"
-    echo "✓ PSA announcement system now available"
+    echo "✓ Plugin now uses FPP 10's GStreamer + PipeWire audio stack"
+    echo "✓ No more custom bgmplayer — uses gst-launch-1.0"
+    echo "✓ Audio routes through system PipeWire (no more start/stop)"
     echo ""
     echo "ACTION REQUIRED:"
-    echo "If background music is currently running:"
-    echo "  1. Stop background music"
-    echo "  2. Wait 2-3 seconds"
-    echo "  3. Start background music"
-    echo ""
-    echo "This applies the new ALSA configuration for PSA support."
+    echo "  1. Enable PipeWire in FPP Audio settings if not already"
+    echo "  2. Stop and restart background music to use new engine"
     echo "=========================================="
 else
     echo ""
@@ -205,8 +184,9 @@ if [ ! -f "$LOG_FILE" ]; then
 fi
 
 # Temporary log files in /tmp will be created by root at runtime - no need to pre-create
-# Clean up any old temp files
+# Clean up any old temp files from previous versions
 rm -f /tmp/background_music*.log /tmp/background_music*.pid /tmp/bg_music*.pid 2>/dev/null
+rm -f /tmp/bgmusic_gst*.pid /tmp/bgmplayer_*.txt 2>/dev/null
 echo "Cleaned up temporary files"
 
 # Clean up any temp files from previous versions or manual testing

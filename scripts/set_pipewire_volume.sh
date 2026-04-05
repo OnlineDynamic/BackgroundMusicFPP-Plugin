@@ -1,38 +1,31 @@
 #!/bin/bash
-# Set PipeWire stream volume for background music player using pw-dump + jq
+###############################################################################
+# set_pipewire_volume.sh - Set volume on all background music PipeWire streams
+# FPP 10 version: uses wpctl with system PipeWire socket
+# Usage: set_pipewire_volume.sh <volume_percent>
+###############################################################################
 
-TARGET_VOLUME=${1:-70}  # Target volume (0-100)
-FPP_UID=$(id -u fpp)
-RUNTIME_DIR="/run/user/${FPP_UID}"
+SCRIPT_DIR="$(dirname "$0")"
+. "$SCRIPT_DIR/pw_env.sh"
 
-# Convert percentage to PipeWire volume (0.0 to 1.0)
-PW_VOLUME=$(echo "scale=2; $TARGET_VOLUME / 100" | bc)
+TARGET_VOLUME=${1:-70}
 
-# Find all BackgroundMusic streams using pw-dump + jq
-if [ "$(whoami)" = "fpp" ]; then
-    export XDG_RUNTIME_DIR="$RUNTIME_DIR"
-    STREAM_IDS=$(pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"]? // "" | startswith("BackgroundMusic")) | select(.type == "PipeWire:Interface:Node") | .id')
-else
-    STREAM_IDS=$(sudo -u fpp XDG_RUNTIME_DIR="$RUNTIME_DIR" pw-dump 2>/dev/null | jq -r '.[] | select(.info.props["media.name"]? // "" | startswith("BackgroundMusic")) | select(.type == "PipeWire:Interface:Node") | .id')
-fi
-
+# Set volume on all bgmusic streams
 FOUND=0
-for STREAM_ID in $STREAM_IDS; do
-    if [ -n "$STREAM_ID" ]; then
-        echo "Found bgmplayer stream ID: $STREAM_ID, setting volume to ${TARGET_VOLUME}%"
-        if [ "$(whoami)" = "fpp" ]; then
-            pw-cli set-param "$STREAM_ID" Props '{ volume: '"$PW_VOLUME"' }' 2>/dev/null
-        else
-            sudo -u fpp XDG_RUNTIME_DIR="$RUNTIME_DIR" pw-cli set-param "$STREAM_ID" Props '{ volume: '"$PW_VOLUME"' }' 2>/dev/null
-        fi
+for node_name in bgmusic_main bgmusic_crossfade; do
+    NODE_ID=$(find_bgmusic_node "$node_name")
+    if [ -n "$NODE_ID" ]; then
+        set_node_volume "$NODE_ID" "$TARGET_VOLUME"
+        echo "Set $node_name (node $NODE_ID) volume to ${TARGET_VOLUME}%"
         FOUND=1
     fi
 done
 
 if [ $FOUND -eq 0 ]; then
-    echo "No bgmplayer stream found - it may not be playing yet"
+    echo "No background music streams found"
     exit 1
 fi
 
+echo "$TARGET_VOLUME" > "$VOLUME_FILE"
 echo "Volume set successfully"
 exit 0

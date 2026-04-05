@@ -86,7 +86,7 @@ EOF
         ! decodebin ! audioconvert ! audioresample \
         ! "audio/x-raw,rate=48000" \
         ! pipewiresink target-object="$BGMUSIC_SINK" \
-            stream-properties="props,node.name=bgmusic_psa,media.class=Stream/Output/Audio,application.name=BGMusic\ Plugin" &
+            stream-properties="props,node.name=bgmusic_psa,media.class=Stream/Output/Audio,application.name=BGMusic-Plugin" &
     PSA_PID=$!
 
     log_message "[PSA] GStreamer started (PID: $PSA_PID)"

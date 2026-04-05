@@ -212,7 +212,7 @@ while true; do
         ! decodebin ! audioconvert ! audioresample \
         ! "audio/x-raw,rate=48000" \
         ! pipewiresink target-object="$BGMUSIC_SINK" \
-            stream-properties="props,node.name=bgmusic_main,media.class=Stream/Output/Audio,application.name=BGMusic\ Plugin" &
+            stream-properties="props,node.name=bgmusic_main,media.class=Stream/Output/Audio,application.name=BGMusic-Plugin" &
     gst_pid=$!
     echo $gst_pid > "$GST_PID_FILE"
 
@@ -309,7 +309,7 @@ play_track_with_crossfade() {
         filesrc location="\$media_file" ! decodebin ! audioconvert ! audioresample \\
         ! "audio/x-raw,rate=48000" \\
         ! pipewiresink target-object="\$BGMUSIC_SINK" \\
-            stream-properties="props,node.name=bgmusic_main,media.class=Stream/Output/Audio,application.name=BGMusic\\ Plugin" &
+            stream-properties="props,node.name=bgmusic_main,media.class=Stream/Output/Audio,application.name=BGMusic-Plugin" &
     local player_pid=\$!
     echo "\$player_pid" > "\$GST_PID_FILE"
 
@@ -338,7 +338,7 @@ play_track_with_crossfade() {
                 filesrc location="\$next_media_file" ! decodebin ! audioconvert ! audioresample \\
                 ! "audio/x-raw,rate=48000" \\
                 ! pipewiresink target-object="\$BGMUSIC_SINK" \\
-                    stream-properties="props,node.name=bgmusic_crossfade,media.class=Stream/Output/Audio,application.name=BGMusic\\ Plugin" &
+                    stream-properties="props,node.name=bgmusic_crossfade,media.class=Stream/Output/Audio,application.name=BGMusic-Plugin" &
             next_player_pid=\$!
             echo "\$next_player_pid" > "\$GST_NEXT_PID_FILE"
             log_message "[CROSSFADE] Started next PID=\$next_player_pid file='\$(basename "\$next_media_file")'"
@@ -493,7 +493,7 @@ while true; do
                             filesrc location="\$next_media_file" ! decodebin ! audioconvert ! audioresample \\
                             ! "audio/x-raw,rate=48000" \\
                             ! pipewiresink target-object="\$BGMUSIC_SINK" \\
-                                stream-properties="props,node.name=bgmusic_crossfade,media.class=Stream/Output/Audio,application.name=BGMusic\\ Plugin" &
+                                stream-properties="props,node.name=bgmusic_crossfade,media.class=Stream/Output/Audio,application.name=BGMusic-Plugin" &
                         next_player_pid=\$!
                         echo "\$next_player_pid" > "\$GST_NEXT_PID_FILE"
                         (
@@ -535,7 +535,7 @@ while true; do
             filesrc location="\$media_file" ! decodebin ! audioconvert ! audioresample \\
             ! "audio/x-raw,rate=48000" \\
             ! pipewiresink target-object="\$BGMUSIC_SINK" \\
-                stream-properties="props,node.name=bgmusic_main,media.class=Stream/Output/Audio,application.name=BGMusic\\ Plugin" &
+                stream-properties="props,node.name=bgmusic_main,media.class=Stream/Output/Audio,application.name=BGMusic-Plugin" &
         player_pid=\$!
         echo "\$player_pid" > "\$GST_PID_FILE"
 

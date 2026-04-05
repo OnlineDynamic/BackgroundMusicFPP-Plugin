@@ -48,7 +48,7 @@ gst_play_file() {
         ! audioresample \
         ! "audio/x-raw,rate=48000" \
         ! pipewiresink target-object="$BGMUSIC_SINK" \
-            stream-properties="props,node.name=$node_name,media.class=Stream/Output/Audio,application.name=BGMusic\ Plugin"
+            stream-properties="props,node.name=$node_name,media.class=Stream/Output/Audio,application.name=BGMusic-Plugin"
 }
 
 # Play an internet stream through the plugin's PipeWire sink
@@ -63,7 +63,7 @@ gst_play_stream() {
         ! audioresample \
         ! "audio/x-raw,rate=48000" \
         ! pipewiresink target-object="$BGMUSIC_SINK" \
-            stream-properties="props,node.name=$node_name,media.class=Stream/Output/Audio,application.name=BGMusic\ Plugin"
+            stream-properties="props,node.name=$node_name,media.class=Stream/Output/Audio,application.name=BGMusic-Plugin"
 }
 
 ###############################################################################

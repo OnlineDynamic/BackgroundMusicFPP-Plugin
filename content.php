@@ -379,6 +379,46 @@ $audioFiles = getAudioFiles();
                 </tr>
             </table>
 
+            <!-- Audio Output -->
+            <h3 style="margin: 30px auto 10px; max-width: 800px; color: #9C27B0; border-bottom: 2px solid #9C27B0; padding-bottom: 5px;">
+                <i class="fas fa-headphones"></i> Audio Output
+            </h3>
+            <table class="settingsTable">
+                <tr>
+                    <td class="label">PipeWire Input Group:</td>
+                    <td class="value">
+                        <select name="PipeWireInputGroup" id="PipeWireInputGroup">
+                            <?php
+                            $savedInputGroup = isset($pluginSettings['PipeWireInputGroup']) ? $pluginSettings['PipeWireInputGroup'] : 'default';
+                            $inputGroupsFile = '/home/fpp/media/config/pipewire-input-groups.json';
+                            $inputGroups = array();
+                            if (file_exists($inputGroupsFile)) {
+                                $igJson = json_decode(file_get_contents($inputGroupsFile), true);
+                                if (is_array($igJson) && isset($igJson['inputGroups'])) {
+                                    $inputGroups = $igJson['inputGroups'];
+                                } elseif (is_array($igJson) && isset($igJson[0]['name'])) {
+                                    $inputGroups = $igJson;
+                                }
+                            }
+                            ?>
+                            <option value="default" <?php echo ($savedInputGroup == 'default') ? 'selected' : ''; ?>>Same as FPP (default)</option>
+                            <?php
+                            foreach ($inputGroups as $ig) {
+                                if (!isset($ig['enabled']) || !$ig['enabled']) continue;
+                                $igName = isset($ig['name']) ? $ig['name'] : '';
+                                if ($igName === '') continue;
+                                $igNode = 'fpp_input_' . preg_replace('/[^a-zA-Z0-9_]/', '_', strtolower($igName));
+                                $selected = ($savedInputGroup === $igNode) ? 'selected' : '';
+                                echo '<option value="' . htmlspecialchars($igNode) . '" ' . $selected . '>' .
+                                     htmlspecialchars($igName) . ' (' . htmlspecialchars($igNode) . ')</option>';
+                            }
+                            ?>
+                        </select>
+                        <small>Which PipeWire input group to route background music through. "Same as FPP" uses FPP's own default output.</small>
+                    </td>
+                </tr>
+            </table>
+
             <!-- Main Show Configuration -->
             <h3 style="margin: 30px auto 10px; max-width: 800px; color: #ff9800; border-bottom: 2px solid #ff9800; padding-bottom: 5px;">
                 <i class="fas fa-star"></i> Main Show Configuration
@@ -935,6 +975,7 @@ $audioFiles = getAudioFiles();
                 'BackgroundMusicSource': $('#BackgroundMusicSource').val(),
                 'BackgroundMusicPlaylist': $('#BackgroundMusicPlaylist').val(),
                 'BackgroundMusicStreamURL': streamURL,
+                'PipeWireInputGroup': $('#PipeWireInputGroup').val(),
                 'ShowPlaylist': $('#ShowPlaylist').val(),
                 'FadeTime': $('#FadeTime').val(),
                 'BlackoutTime': $('#BlackoutTime').val(),

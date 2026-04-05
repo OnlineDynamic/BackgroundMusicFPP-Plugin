@@ -363,6 +363,7 @@ function fppBackgroundMusicStatus() {
             'backgroundMusicSource' => isset($pluginSettings['BackgroundMusicSource']) ? $pluginSettings['BackgroundMusicSource'] : 'playlist',
             'backgroundMusicPlaylist' => $backgroundMusicPlaylist,
             'backgroundMusicStreamURL' => isset($pluginSettings['BackgroundMusicStreamURL']) ? $pluginSettings['BackgroundMusicStreamURL'] : '',
+            'pipeWireInputGroup' => isset($pluginSettings['PipeWireInputGroup']) ? $pluginSettings['PipeWireInputGroup'] : 'default',
             'showPlaylist' => $showPlaylist,
             'fadeTime' => isset($pluginSettings['FadeTime']) ? $pluginSettings['FadeTime'] : 5,
             'blackoutTime' => isset($pluginSettings['BlackoutTime']) ? $pluginSettings['BlackoutTime'] : 2,

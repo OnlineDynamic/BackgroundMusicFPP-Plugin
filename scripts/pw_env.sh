@@ -12,9 +12,6 @@ export PIPEWIRE_REMOTE=/run/pipewire-fpp/pipewire-0
 export PIPEWIRE_RUNTIME_DIR=/run/pipewire-fpp
 export XDG_RUNTIME_DIR=/run/pipewire-fpp
 
-# Plugin's combine-stream sink that background music routes through
-BGMUSIC_SINK="fpp_bgmusic_group"
-
 # Common paths
 PLUGIN_DIR="/home/fpp/media/plugins/fpp-plugin-BackgroundMusic"
 PLUGIN_CONFIG="/home/fpp/media/config/plugin.fpp-plugin-BackgroundMusic"
@@ -134,6 +131,18 @@ get_plugin_setting() {
     fi
     echo "${value:-$default}"
 }
+
+###############################################################################
+# PipeWire sink target — resolve from plugin setting, fall back to FPP default
+###############################################################################
+_cfg_sink=$(get_plugin_setting "PipeWireInputGroup" "")
+if [ -z "$_cfg_sink" ] || [ "$_cfg_sink" = "default" ]; then
+    # Use FPP's own PipeWireSinkName from /home/fpp/media/settings
+    _cfg_sink=$(grep "^PipeWireSinkName " /home/fpp/media/settings 2>/dev/null \
+        | head -1 | sed 's/.*= *"\?\([^"]*\)"\?/\1/')
+fi
+BGMUSIC_SINK="${_cfg_sink:-fpp_input_input_group_1}"
+unset _cfg_sink
 
 ###############################################################################
 # Process helpers

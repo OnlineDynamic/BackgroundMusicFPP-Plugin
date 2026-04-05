@@ -51,8 +51,22 @@ fi
 
 RESULT=$?
 
+# Wait for the announcement subshell to finish playing before cleaning up.
+# play_announcement.sh backgrounds a subshell that runs GStreamer — if we delete
+# the temp file too early, GStreamer loses its source and exits with error 255.
+ANNOUNCEMENT_PID_FILE="/tmp/announcement_player.pid"
+if [ -f "$ANNOUNCEMENT_PID_FILE" ]; then
+    ANN_PID=$(cat "$ANNOUNCEMENT_PID_FILE")
+    if [ -n "$ANN_PID" ] && kill -0 "$ANN_PID" 2>/dev/null; then
+        echo "Waiting for announcement playback to finish (PID: $ANN_PID)..."
+        while kill -0 "$ANN_PID" 2>/dev/null; do
+            sleep 0.5
+        done
+    fi
+fi
+
 # Cleanup
-sleep 1
+sleep 0.5
 rm -f "$TEMP_WAV" "$TEMP_MP3"
 
 if [ $RESULT -eq 0 ]; then

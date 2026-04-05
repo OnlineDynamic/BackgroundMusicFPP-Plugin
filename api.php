@@ -709,7 +709,7 @@ function fppBackgroundMusicSetVolume() {
     
     // Apply volume change immediately to bgmusic GStreamer pipeline
     $scriptPath = dirname(__FILE__) . '/scripts/set_bgmusic_volume.sh';
-    exec("/bin/bash " . escapeshellarg($scriptPath) . " " . escapeshellarg($volume) . " 2>&1", $output, $returnCode);
+    exec("sudo /bin/bash " . escapeshellarg($scriptPath) . " " . escapeshellarg($volume) . " 2>&1", $output, $returnCode);
     
     if ($returnCode === 0) {
         return json(array('status' => 'OK', 'message' => 'Volume updated', 'volume' => $volume));
@@ -879,7 +879,7 @@ function fppBackgroundMusicPlayAnnouncement() {
     $output = array();
     $returnCode = 0;
     
-    $cmd = "/bin/bash " . escapeshellarg($scriptPath) . " " . 
+    $cmd = "sudo /bin/bash " . escapeshellarg($scriptPath) . " " . 
            escapeshellarg($announcementFile) . " " . 
            escapeshellarg($duckVolume) . " " . 
            escapeshellarg($announcementVolume) . " " . 
@@ -1479,7 +1479,7 @@ function fppBackgroundMusicPlayTTS() {
     
     // Build command
     $playScript = $pluginDir . '/scripts/play_tts_announcement.sh';
-    $cmd = "bash " . escapeshellarg($playScript) . " " . escapeshellarg($text);
+    $cmd = "sudo bash " . escapeshellarg($playScript) . " " . escapeshellarg($text);
     
     if (!empty($voice)) {
         $cmd .= " " . escapeshellarg($voice);

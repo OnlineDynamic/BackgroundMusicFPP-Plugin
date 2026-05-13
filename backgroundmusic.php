@@ -284,6 +284,133 @@
         margin-right: 5px;
         color: #2196F3;
     }
+
+    /* ── Utility classes (replaces inline styles for dark-mode targeting) ── */
+    .volume-control-divider {
+        border-top: 2px solid #e0e0e0;
+        margin-top: 25px;
+        padding-top: 20px;
+    }
+    .volume-level-label {
+        font-size: 12px;
+        color: #666;
+    }
+    .volume-note {
+        font-size: 10px;
+        color: #777;
+        margin: 0;
+        padding: 6px 8px;
+        background-color: #f9f9f9;
+        border-left: 3px solid #4CAF50;
+        border-radius: 3px;
+        line-height: 1.3;
+    }
+    .realtime-tts-box {
+        margin-top: 20px;
+        padding: 15px;
+        border: 2px solid #3f51b5;
+        border-radius: 8px;
+        background-color: #f0f4ff;
+    }
+    .player-controls-box {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+    }
+    .track-progress-bg {
+        background-color: #e9ecef;
+    }
+    .track-progress-text {
+        color: #000;
+    }
+    .playlist-tip-box {
+        background-color: #e3f2fd;
+    }
+    .playlist-table-header {
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+    .config-section-h4 {
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .playing-track-row {
+        background-color: #e3f2fd !important;
+        font-weight: bold;
+        border-left: 3px solid #2196F3;
+    }
+
+    /* ── Dark Mode Overrides ── */
+    [data-bs-theme="dark"] .controlColumn {
+        background-color: var(--bs-secondary-bg);
+        border-color: var(--bs-border-color);
+    }
+    [data-bs-theme="dark"] .statusPanel {
+        background-color: var(--bs-secondary-bg);
+    }
+    [data-bs-theme="dark"] .statusPanel h2:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+    [data-bs-theme="dark"] .advanced-show-section {
+        border-top-color: var(--bs-border-color);
+    }
+    [data-bs-theme="dark"] .advanced-select {
+        background-color: var(--bs-body-bg);
+        color: var(--bs-body-color);
+        border-color: var(--bs-border-color);
+    }
+    [data-bs-theme="dark"] .advanced-hint {
+        color: var(--bs-secondary-color);
+        background-color: var(--bs-tertiary-bg);
+    }
+    [data-bs-theme="dark"] #brightnessPluginWarning {
+        background-color: #3d2f00 !important;
+        border-color: #997404 !important;
+    }
+    [data-bs-theme="dark"] #brightnessPluginWarning h3 {
+        color: #ffc107;
+    }
+    [data-bs-theme="dark"] .volume-control-divider {
+        border-top-color: var(--bs-border-color);
+    }
+    [data-bs-theme="dark"] .volume-level-label {
+        color: var(--bs-secondary-color);
+    }
+    [data-bs-theme="dark"] .volume-note {
+        color: var(--bs-secondary-color);
+        background-color: var(--bs-tertiary-bg);
+    }
+    [data-bs-theme="dark"] .realtime-tts-box {
+        background-color: rgba(63, 81, 181, 0.12);
+    }
+    [data-bs-theme="dark"] .realtime-tts-box textarea {
+        background-color: var(--bs-body-bg);
+        color: var(--bs-body-color);
+        border-color: #3f51b5;
+    }
+    [data-bs-theme="dark"] .player-controls-box {
+        background-color: var(--bs-secondary-bg);
+        border-color: var(--bs-border-color);
+    }
+    [data-bs-theme="dark"] .track-progress-bg {
+        background-color: var(--bs-tertiary-bg);
+    }
+    [data-bs-theme="dark"] .track-progress-text {
+        color: var(--bs-body-color);
+        text-shadow: none;
+    }
+    [data-bs-theme="dark"] .playlist-tip-box {
+        background-color: rgba(33, 150, 243, 0.12);
+    }
+    [data-bs-theme="dark"] .playlist-table-header {
+        background-color: var(--bs-secondary-bg) !important;
+        border-bottom-color: var(--bs-border-color) !important;
+    }
+    [data-bs-theme="dark"] .config-section-h4 {
+        border-bottom-color: var(--bs-border-color);
+    }
+    [data-bs-theme="dark"] .playing-track-row {
+        background-color: rgba(33, 150, 243, 0.15) !important;
+    }
 </style>
 
 <div id="global" class="settings">
@@ -345,14 +472,14 @@
             </div>
             
             <!-- Volume Control -->
-            <div style="margin-top: 25px; border-top: 2px solid #e0e0e0; padding-top: 20px;">
+            <div class="volume-control-divider">
                 <div style="text-align: left; padding: 0 10px;">
                     <div style="font-size: 13px; font-weight: 600; color: #4CAF50; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
                         <i class="fas fa-volume-up"></i> Background Music Volume Control
                     </div>
                     <div style="margin-bottom: 12px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <span style="font-size: 12px; color: #666;">Current Level:</span>
+                            <span class="volume-level-label">Current Level:</span>
                             <span id="statusVolume" style="font-weight: bold; font-size: 16px; color: #4CAF50;">--</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
@@ -364,7 +491,7 @@
                             <span style="font-size: 20px; cursor: pointer; user-select: none;" onclick="increaseVolume()" title="Increase volume">🔊</span>
                         </div>
                     </div>
-                    <p style="font-size: 10px; color: #777; margin: 0; padding: 6px 8px; background-color: #f9f9f9; border-left: 3px solid #4CAF50; border-radius: 3px; line-height: 1.3;">
+                    <p class="volume-note">
                         <i class="fas fa-info-circle" style="color: #4CAF50;"></i> Adjusts background music volume only (FPP system volume controls overall level)
                     </p>
                 </div>
@@ -382,7 +509,7 @@
             </div>
             
             <!-- Real-time TTS Section -->
-            <div style="margin-top: 20px; padding: 15px; border: 2px solid #3f51b5; border-radius: 8px; background-color: #f0f4ff;">
+            <div class="realtime-tts-box">
                 <h3 style="margin-top: 0; color: #3f51b5; font-size: 16px;">
                     <i class="fas fa-robot"></i> Real-Time TTS Announcement
                 </h3>
@@ -449,9 +576,9 @@
             <div class="statusItem" id="trackProgressContainer" style="display: none;">
                 <span class="statusLabel">Progress:</span>
                 <div style="display: inline-block; width: 60%; vertical-align: middle;">
-                    <div style="background-color: #e9ecef; border-radius: 4px; height: 20px; position: relative; overflow: hidden;">
+                    <div class="track-progress-bg" style="border-radius: 4px; height: 20px; position: relative; overflow: hidden;">
                         <div id="statusTrackProgressBar" style="background-color: #007bff; height: 100%; width: 0%; transition: width 0.3s;"></div>
-                        <span id="trackProgressText" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px; font-weight: bold; color: #000;">0%</span>
+                        <span id="trackProgressText" class="track-progress-text" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px; font-weight: bold;">0%</span>
                     </div>
                 </div>
                 <span id="trackTimeDisplay" style="margin-left: 10px; font-size: 12px; color: #6c757d;">0:00 / 0:00</span>
@@ -510,7 +637,7 @@
             </div>
             
             <!-- Player Controls -->
-            <div id="playerControls" style="display: none; margin: 15px 0; text-align: center; background-color: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">
+            <div id="playerControls" class="player-controls-box" style="display: none; margin: 15px 0; text-align: center; padding: 15px;">
                 <div style="margin-bottom: 10px;">
                     <strong>Now Playing:</strong> <span id="nowPlayingTrack" style="color: #007bff;">-</span>
                 </div>
@@ -518,7 +645,7 @@
                     <span id="trackTime" style="font-family: monospace; font-size: 14px;">0:00 / 0:00</span>
                 </div>
                 <div style="margin-bottom: 15px;">
-                    <div style="width: 100%; height: 6px; background-color: #e0e0e0; border-radius: 3px; overflow: hidden;">
+                    <div class="track-progress-bg" style="width: 100%; height: 6px; border-radius: 3px; overflow: hidden;">
                         <div id="trackProgressBar" style="width: 0%; height: 100%; background-color: #4CAF50; transition: width 0.3s;"></div>
                     </div>
                 </div>
@@ -534,12 +661,12 @@
                     </button>
                 </div>
             </div>
-            <div style="margin-top: 15px; padding: 8px; background-color: #e3f2fd; border-radius: 4px; font-size: 13px;">
+            <div class="playlist-tip-box" style="margin-top: 15px; padding: 8px; border-radius: 4px; font-size: 13px;">
                 <i class="fas fa-info-circle"></i> <strong>Tip:</strong> Drag and drop tracks to reorder, or click a track to jump to it
             </div>
             <div style="margin-top: 10px; max-height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px; padding-right: 5px;">
                 <table id="playlistTable" style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                    <thead style="position: sticky; top: 0; background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                    <thead class="playlist-table-header" style="position: sticky; top: 0;">
                         <tr>
                             <th style="padding: 8px; text-align: center; width: 30px;"><i class="fas fa-grip-vertical"></i></th>
                             <th style="padding: 8px; text-align: left; width: 40px;">#</th>
@@ -568,7 +695,7 @@
             <div id="configSummary" class="collapsible-section">
             
             <!-- Playlists -->
-            <h4 style="color: #2196F3; margin-top: 15px; margin-bottom: 10px; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px;">
+            <h4 class="config-section-h4" style="color: #2196F3; margin-top: 15px; margin-bottom: 10px; padding-bottom: 5px;">
                 <i class="fas fa-list"></i> Background Music Source
             </h4>
             <div class="statusItem">
@@ -593,7 +720,7 @@
             </div>
 
             <!-- Volume Settings -->
-            <h4 style="color: #4CAF50; margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px;">
+            <h4 class="config-section-h4" style="color: #4CAF50; margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px;">
                 <i class="fas fa-volume-up"></i> Volume Settings
             </h4>
             <div class="statusItem">
@@ -610,7 +737,7 @@
             </div>
 
             <!-- Transition Settings -->
-            <h4 style="color: #FF9800; margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px;">
+            <h4 class="config-section-h4" style="color: #FF9800; margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px;">
                 <i class="fas fa-adjust"></i> Show Transition
             </h4>
             <div class="statusItem">
@@ -623,7 +750,7 @@
             </div>
 
             <!-- Post-Show Settings -->
-            <h4 style="color: #9C27B0; margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px;">
+            <h4 class="config-section-h4" style="color: #9C27B0; margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px;">
                 <i class="fas fa-redo"></i> Post-Show Settings
             </h4>
             <div class="statusItem">
@@ -972,7 +1099,7 @@
                             var iconHtml = '';
                             
                             if (isPlaying) {
-                                rowStyle = ' style="cursor: pointer; background-color: #e3f2fd; font-weight: bold; border-left: 3px solid #2196F3;"';
+                                rowStyle = ' class="playing-track-row" style="cursor: pointer;"';
                                 iconHtml = ' <i class="fas fa-play" style="color: #2196F3; margin-left: 5px;"></i>';
                             } else {
                                 rowStyle = ' style="cursor: pointer;"';
@@ -1033,16 +1160,11 @@
                 var trackName = $row.data('track-name');
                 var $nameCell = $row.find('td:eq(2)'); // Column 0=grip, 1=number, 2=name, 3=duration
                 var isPlaying = currentTrack && trackName === currentTrack;
-                var rowStyle = $row.attr('style') || '';
-                var hasHighlight = rowStyle.indexOf('background-color: #e3f2fd') >= 0 || rowStyle.indexOf('background-color:#e3f2fd') >= 0;
-                
+                var hasHighlight = $row.hasClass('playing-track-row');
+
                 if (isPlaying && !hasHighlight) {
                     // Add highlight
-                    $row.css({
-                        'background-color': '#e3f2fd',
-                        'font-weight': 'bold',
-                        'border-left': '3px solid #2196F3'
-                    });
+                    $row.addClass('playing-track-row');
                     // Add play icon if not present
                     if ($nameCell.find('.fa-play').length === 0) {
                         var currentText = $nameCell.clone().children().remove().end().text().trim();
@@ -1050,11 +1172,7 @@
                     }
                 } else if (!isPlaying && hasHighlight) {
                     // Remove highlight
-                    $row.css({
-                        'background-color': '',
-                        'font-weight': '',
-                        'border-left': ''
-                    });
+                    $row.removeClass('playing-track-row');
                     // Remove play icon
                     if ($nameCell.find('.fa-play').length > 0) {
                         var currentText = $nameCell.clone().children().remove().end().text().trim();

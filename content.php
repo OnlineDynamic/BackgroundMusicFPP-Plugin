@@ -194,6 +194,107 @@ $audioFiles = getAudioFiles();
         border-bottom: 2px solid #e0e0e0;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
+
+    /* ── Utility classes for dark-mode targeting ── */
+    .brightness-warning-box {
+        background-color: #fff3cd;
+        border: 2px solid #ffc107;
+        border-radius: 5px;
+        padding: 15px;
+        margin: 20px auto;
+        max-width: 800px;
+    }
+    .brightness-warning-box h3 {
+        margin-top: 0;
+        color: #856404;
+    }
+    .tts-engine-panel {
+        max-width: 800px;
+        margin: 20px auto;
+        padding: 15px;
+        border: 2px solid #2196F3;
+        border-radius: 8px;
+        background-color: #E3F2FD;
+    }
+    .voice-card {
+        border-radius: 6px;
+        padding: 12px;
+    }
+    .voice-card-default {
+        border: 2px solid #4caf50;
+        background-color: #e8f5e9;
+    }
+    .voice-card-installed {
+        border: 2px solid #2196f3;
+        background-color: #e3f2fd;
+    }
+    .voice-card-available {
+        border: 2px solid #ccc;
+        background-color: #fafafa;
+    }
+    .voice-desc {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 8px;
+    }
+    .voice-meta {
+        font-size: 11px;
+        color: #999;
+        margin-bottom: 8px;
+    }
+
+    /* ── Dark Mode Overrides ── */
+    [data-bs-theme="dark"] .description {
+        background-color: var(--bs-tertiary-bg);
+        border-color: var(--bs-border-color);
+        color: var(--bs-body-color);
+    }
+    [data-bs-theme="dark"] .config-header {
+        background-color: var(--bs-body-bg);
+        border-bottom-color: var(--bs-border-color);
+    }
+    [data-bs-theme="dark"] .brightness-warning-box {
+        background-color: #3d2f00;
+        border-color: #997404;
+    }
+    [data-bs-theme="dark"] .brightness-warning-box h3 {
+        color: #ffc107;
+    }
+    [data-bs-theme="dark"] .tts-engine-panel {
+        background-color: rgba(33, 150, 243, 0.1);
+        border-color: #2196F3;
+    }
+    [data-bs-theme="dark"] #elevenLabsSettings {
+        border-top-color: var(--bs-border-color);
+    }
+    [data-bs-theme="dark"] #ttsStatusPanel {
+        background-color: var(--bs-secondary-bg) !important;
+        border-color: var(--bs-border-color) !important;
+    }
+    [data-bs-theme="dark"] #ttsGeneratorPanel {
+        background-color: rgba(63, 81, 181, 0.12) !important;
+        border-color: #3f51b5 !important;
+    }
+    [data-bs-theme="dark"] #voiceManagementPanel {
+        background-color: rgba(103, 58, 183, 0.12) !important;
+        border-color: #673ab7 !important;
+    }
+    [data-bs-theme="dark"] .voice-card-default {
+        background-color: rgba(76, 175, 80, 0.15);
+    }
+    [data-bs-theme="dark"] .voice-card-installed {
+        background-color: rgba(33, 150, 243, 0.15);
+    }
+    [data-bs-theme="dark"] .voice-card-available {
+        background-color: var(--bs-secondary-bg);
+        border-color: var(--bs-border-color);
+    }
+    [data-bs-theme="dark"] .voice-desc {
+        color: var(--bs-secondary-color);
+    }
+    [data-bs-theme="dark"] .voice-meta {
+        color: var(--bs-secondary-color);
+    }
 </style>
 
 <div id="global" class="settings">
@@ -215,8 +316,8 @@ $audioFiles = getAudioFiles();
     </div>
     
     <!-- Brightness Plugin Warning -->
-    <div style="background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 15px; margin: 20px auto; max-width: 800px;">
-        <h3 style="margin-top: 0; color: #856404;"><i class="fas fa-exclamation-triangle"></i> Required: fpp-brightness Plugin</h3>
+    <div class="brightness-warning-box">
+        <h3><i class="fas fa-exclamation-triangle"></i> Required: fpp-brightness Plugin</h3>
         <p style="margin-bottom: 10px;">
             This plugin requires the <strong>fpp-brightness</strong> plugin to be installed on <strong>ALL controllers</strong> 
             in your setup for brightness transitions and MultiSync to work properly.
@@ -732,7 +833,7 @@ $audioFiles = getAudioFiles();
             </div>
             
             <!-- TTS Engine Selection -->
-            <div style="max-width: 800px; margin: 20px auto; padding: 15px; border: 2px solid #2196F3; border-radius: 8px; background-color: #E3F2FD;">
+            <div class="tts-engine-panel">
                 <h4 style="margin-top: 0; color: #2196F3;"><i class="fas fa-cogs"></i> TTS Engine Configuration</h4>
                 <table class="settingsTable" style="margin: 0;">
                     <tr>
@@ -1297,16 +1398,15 @@ $audioFiles = getAudioFiles();
                     
                     grouped[language].forEach(function(voice) {
                         var isDefault = voice.id === defaultVoice;
-                        var borderColor = isDefault ? '#4caf50' : (voice.installed ? '#2196f3' : '#ccc');
-                        var bgColor = isDefault ? '#e8f5e9' : (voice.installed ? '#e3f2fd' : '#fafafa');
-                        
-                        html += '<div style="border: 2px solid ' + borderColor + '; border-radius: 6px; padding: 12px; background-color: ' + bgColor + ';">';
+                        var cardClass = isDefault ? 'voice-card-default' : (voice.installed ? 'voice-card-installed' : 'voice-card-available');
+
+                        html += '<div class="voice-card ' + cardClass + '">';
                         html += '<div style="font-weight: bold; font-size: 14px; margin-bottom: 5px;">';
                         html += '<i class="fas fa-' + getGenderIcon(voice.gender) + '"></i> ' + voice.name;
                         if (isDefault) html += ' <span style="color: #4caf50; font-size: 11px;">(DEFAULT)</span>';
                         html += '</div>';
-                        html += '<div style="font-size: 12px; color: #666; margin-bottom: 8px;">' + voice.description + '</div>';
-                        html += '<div style="font-size: 11px; color: #999; margin-bottom: 8px;">';
+                        html += '<div class="voice-desc">' + voice.description + '</div>';
+                        html += '<div class="voice-meta">';
                         html += 'Gender: ' + voice.gender + ' | Quality: ' + voice.quality + ' | Size: ' + voice.size_mb + 'MB';
                         html += '</div>';
                         

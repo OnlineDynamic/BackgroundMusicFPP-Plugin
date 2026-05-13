@@ -183,6 +183,142 @@
             font-family: "Font Awesome 6 Brands";
             src: none;
         }
+
+        /* ── Alert/info box utility classes ── */
+        .help-warning-box {
+            background-color: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .help-warning-box h3 { margin-top: 0; color: #856404; }
+        .help-warning-stripe {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .help-warning-stripe h4 { margin-top: 0; color: #856404; }
+        .help-info-stripe {
+            background-color: #d1ecf1;
+            border-left: 4px solid #0c5460;
+            padding: 10px;
+            margin: 15px 0;
+        }
+        .help-success-box {
+            background-color: #d4edda;
+            border: 2px solid #28a745;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .help-success-box h3 { margin-top: 0; color: #155724; }
+        .help-config-container {
+            background-color: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        /* ── Dark Mode Overrides ── */
+        [data-bs-theme="dark"] .tab-navigation {
+            border-bottom-color: var(--bs-border-color);
+        }
+        [data-bs-theme="dark"] .tab-button {
+            background-color: var(--bs-secondary-bg);
+            color: var(--bs-secondary-color);
+        }
+        [data-bs-theme="dark"] .tab-button:hover {
+            background-color: var(--bs-tertiary-bg);
+        }
+        [data-bs-theme="dark"] .tab-button.active {
+            background-color: var(--bs-body-bg);
+            color: #6ea8fe;
+            border-bottom-color: #6ea8fe;
+        }
+        [data-bs-theme="dark"] .section-divider {
+            border-top-color: var(--bs-border-color);
+        }
+        [data-bs-theme="dark"] .about-section {
+            background-color: var(--bs-secondary-bg);
+            border-color: var(--bs-border-color);
+        }
+        [data-bs-theme="dark"] .api-endpoint {
+            background-color: var(--bs-secondary-bg);
+        }
+        [data-bs-theme="dark"] .api-path {
+            background-color: var(--bs-tertiary-bg);
+            color: var(--bs-body-color);
+        }
+        [data-bs-theme="dark"] .help-warning-box {
+            background-color: #3d2f00;
+            border-color: #997404;
+        }
+        [data-bs-theme="dark"] .help-warning-box h3 { color: #ffc107; }
+        [data-bs-theme="dark"] .help-warning-stripe {
+            background-color: #3d2f00;
+            border-left-color: #ffc107;
+        }
+        [data-bs-theme="dark"] .help-warning-stripe h4 { color: #ffc107; }
+        [data-bs-theme="dark"] .help-info-stripe {
+            background-color: rgba(13, 84, 96, 0.3);
+            border-left-color: #0dcaf0;
+        }
+        [data-bs-theme="dark"] .help-success-box {
+            background-color: rgba(21, 87, 36, 0.3);
+            border-color: #28a745;
+        }
+        [data-bs-theme="dark"] .help-success-box h3 { color: #75b798; }
+        [data-bs-theme="dark"] .help-config-container {
+            background-color: var(--bs-secondary-bg);
+            border-color: var(--bs-border-color);
+        }
+
+        /* ── Changelog commit rows ── */
+        .changelog-commit {
+            border-left: 4px solid #007bff;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .changelog-commit-even { background-color: #f8f9fa; }
+        .changelog-commit-odd  { background-color: #ffffff; }
+        .changelog-message { color: #212529; font-size: 15px; }
+        .changelog-hash {
+            background-color: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            color: #495057;
+        }
+        .changelog-meta { font-size: 13px; color: #6c757d; }
+        .help-error-box {
+            background-color: #f8d7da;
+            border: 2px solid #f5c6cb;
+            border-radius: 5px;
+            padding: 20px;
+            text-align: center;
+        }
+        .help-error-box p  { margin: 0; color: #721c24; }
+
+        [data-bs-theme="dark"] .changelog-commit-even { background-color: var(--bs-secondary-bg); }
+        [data-bs-theme="dark"] .changelog-commit-odd  { background-color: var(--bs-body-bg); }
+        [data-bs-theme="dark"] .changelog-message { color: var(--bs-body-color); }
+        [data-bs-theme="dark"] .changelog-hash {
+            background-color: var(--bs-tertiary-bg);
+            color: var(--bs-secondary-color);
+        }
+        [data-bs-theme="dark"] .changelog-meta { color: var(--bs-secondary-color); }
+        [data-bs-theme="dark"] .help-warning-box i,
+        [data-bs-theme="dark"] .help-warning-box p { color: #ffc107; }
+        [data-bs-theme="dark"] .help-error-box {
+            background-color: rgba(220, 53, 69, 0.2);
+            border-color: #dc3545;
+        }
+        [data-bs-theme="dark"] .help-error-box p { color: #ea868f; }
     </style>
 </head>
 <body>
@@ -232,8 +368,8 @@
         
         <!-- Overview Tab -->
         <div id="overview" class="tab-content active">
-            <div style="background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
-                <h3 style="margin-top: 0; color: #856404;"><i class="fas fa-exclamation-triangle"></i> Required Plugin - Install on ALL Controllers</h3>
+            <div class="help-warning-box">
+                <h3><i class="fas fa-exclamation-triangle"></i> Required Plugin - Install on ALL Controllers</h3>
                 <p style="margin-bottom: 10px; font-weight: bold;">
                     This plugin requires the <strong>fpp-brightness</strong> plugin to be installed on <strong>EVERY controller</strong> 
                     in your setup - both master and all remotes.
@@ -343,7 +479,7 @@
                 <li>Main show playlist starts</li>
             </ol>
             
-            <div style="background-color: #d1ecf1; border-left: 4px solid #0c5460; padding: 10px; margin: 15px 0;">
+            <div class="help-info-stripe" style="padding: 10px; margin: 15px 0;">
                 <p style="margin: 0;"><strong><i class="fas fa-info-circle"></i> MultiSync Requirement:</strong> 
                 For brightness to fade in sync across all controllers, the <strong>fpp-brightness plugin must be installed 
                 on the master AND every remote controller</strong>. When MultiSync is enabled in FPP and the plugin is installed 
@@ -1166,7 +1302,7 @@
             <p>Or use the <strong>Log Viewer</strong> tab above for a convenient web-based log viewer.</p>
             
             <h3>Need More Help?</h3>
-            <div style="background-color: #d1ecf1; border-left: 4px solid #0c5460; padding: 15px; margin: 15px 0;">
+            <div class="help-info-stripe" style="padding: 15px; margin: 15px 0;">
                 <p style="margin: 0;">
                     <strong><i class="fas fa-info-circle"></i> For support and bug reports:</strong><br>
                     Visit the <strong><a href="#" onclick="switchTab('support', document.querySelector('.tab-button')); return false;">Support</a></strong> tab 
@@ -1180,8 +1316,8 @@
         <div id="support" class="tab-content">
             <h2><i class="fas fa-life-ring"></i> Support & System Diagnostics</h2>
             
-            <div style="background-color: #d4edda; border: 2px solid #28a745; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
-                <h3 style="margin-top: 0; color: #155724;"><i class="fab fa-github"></i> Report Issues</h3>
+            <div class="help-success-box">
+                <h3><i class="fab fa-github"></i> Report Issues</h3>
                 <p style="margin-bottom: 10px;">
                     If you encounter problems or have feature requests, please report them on GitHub. Before reporting please check a ticket is not already open for your issue:                </p>
                 <p style="text-align: center; margin: 15px 0;">
@@ -1215,15 +1351,14 @@
                 </button>
             </div>
             
-            <div id="systemConfigContainer" style="background-color: #f8f9fa; border: 2px solid #dee2e6; 
-                 border-radius: 5px; padding: 15px; margin: 20px 0;">
+            <div id="systemConfigContainer" class="help-config-container">
                 <pre id="systemConfigContent" style="margin: 0; white-space: pre-wrap; word-wrap: break-word; 
                      font-family: 'Courier New', monospace; font-size: 12px; max-height: 600px; overflow-y: auto;">
 <i class="fas fa-spinner fa-spin"></i> Click "Refresh System Info" to load configuration data...</pre>
             </div>
             
-            <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
-                <h4 style="margin-top: 0; color: #856404;"><i class="fas fa-info-circle"></i> What to Include in Bug Reports</h4>
+            <div class="help-warning-stripe">
+                <h4><i class="fas fa-info-circle"></i> What to Include in Bug Reports</h4>
                 <ul style="margin-bottom: 0;">
                     <li><strong>System Configuration:</strong> The diagnostic info above (copied via button)</li>
                     <li><strong>Problem Description:</strong> Clear description of the issue</li>
@@ -1376,24 +1511,19 @@ ${systemConfigData}
                                     const escapedMessage = escapeHtml(commit.message);
                                     const escapedAuthor = escapeHtml(commit.author);
                                     const shortHash = commit.hash.substring(0, 7);
-                                    const bgColor = index % 2 === 0 ? '#f8f9fa' : '#ffffff';
-                                    
+                                    const rowClass = index % 2 === 0 ? 'changelog-commit changelog-commit-even' : 'changelog-commit changelog-commit-odd';
+
                                     html += `
-                                        <div style="background-color: ${bgColor}; 
-                                                    border-left: 4px solid #007bff; 
-                                                    padding: 15px 20px; 
-                                                    margin-bottom: 10px; 
-                                                    border-radius: 4px;
-                                                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                        <div class="${rowClass}">
                                             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
                                                 <div style="flex: 1;">
-                                                    <strong style="color: #212529; font-size: 15px;">${escapedMessage}</strong>
+                                                    <strong class="changelog-message">${escapedMessage}</strong>
                                                 </div>
                                                 <div style="text-align: right; margin-left: 15px;">
-                                                    <code style="background-color: #e9ecef; padding: 2px 6px; border-radius: 3px; font-size: 11px; color: #495057;">${shortHash}</code>
+                                                    <code class="changelog-hash">${shortHash}</code>
                                                 </div>
                                             </div>
-                                            <div style="font-size: 13px; color: #6c757d;">
+                                            <div class="changelog-meta">
                                                 <i class="fas fa-user" style="margin-right: 5px;"></i>${escapedAuthor}
                                                 <span style="margin: 0 10px;">•</span>
                                                 <i class="fas fa-calendar" style="margin-right: 5px;"></i>${formattedDate}
@@ -1405,18 +1535,18 @@ ${systemConfigData}
                             } else {
                                 const errorMsg = data.message || 'Unable to load commit history. This may be a manual installation or Git is not available.';
                                 container.innerHTML = `
-                                    <div style="background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 20px; text-align: center;">
-                                        <i class="fas fa-exclamation-triangle" style="font-size: 32px; color: #856404; margin-bottom: 10px;"></i>
-                                        <p style="margin: 0; color: #856404;">${escapeHtml(errorMsg)}</p>
+                                    <div class="help-warning-box" style="text-align: center;">
+                                        <i class="fas fa-exclamation-triangle" style="font-size: 32px; margin-bottom: 10px;"></i>
+                                        <p>${escapeHtml(errorMsg)}</p>
                                     </div>
                                 `;
                             }
                         })
                         .catch(error => {
                             document.getElementById('changelogContent').innerHTML = `
-                                <div style="background-color: #f8d7da; border: 2px solid #f5c6cb; border-radius: 5px; padding: 20px; text-align: center;">
-                                    <i class="fas fa-exclamation-circle" style="font-size: 32px; color: #721c24; margin-bottom: 10px;"></i>
-                                    <p style="margin: 0; color: #721c24;">Error loading commit history: ${escapeHtml(error.message)}</p>
+                                <div class="help-error-box">
+                                    <i class="fas fa-exclamation-circle" style="font-size: 32px; margin-bottom: 10px;"></i>
+                                    <p>Error loading commit history: ${escapeHtml(error.message)}</p>
                                 </div>
                             `;
                         });

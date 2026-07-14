@@ -56,7 +56,8 @@ for audio routing, independent of fppd's show audio group.
 ### scripts/fpp_uninstall.sh
 - Change: Kill `gst-launch-1.0` processes instead of `bgmplayer`
 - Remove: PipeWire config cleanup (system-managed)
-- Keep: PID/state file cleanup, header indicator removal
+- Keep: PID/state file cleanup
+- Remove: header indicator symlink cleanup (legacy `header-indicator.js` is gone; FPP core polls the `headerIndicator` API endpoint instead)
 
 ### scripts/background_music_player.sh
 - Replace `bgmplayer` invocations with `gst-launch-1.0` pipelines:

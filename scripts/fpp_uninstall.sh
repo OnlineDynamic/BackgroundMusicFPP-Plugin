@@ -42,14 +42,6 @@ rm -f /tmp/bg_music_reorder.txt /tmp/bg_music_metadata.pid
 # Kill any remaining GStreamer pipelines from this plugin
 pkill -f "node.name=bgmusic_" 2>/dev/null || true
 
-# Remove header indicator symlink
-echo "Removing header indicator..."
-WEB_JS_LINK="/opt/fpp/www/js/fpp-plugin-backgroundmusic-indicator.js"
-if [ -L "$WEB_JS_LINK" ]; then
-    rm -f "$WEB_JS_LINK"
-    echo "Header indicator removed"
-fi
-
 echo ""
 echo "============================================"
 echo "Uninstall Summary"

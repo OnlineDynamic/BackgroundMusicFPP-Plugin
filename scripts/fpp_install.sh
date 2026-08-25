@@ -115,14 +115,8 @@ if [ ! -d "/home/fpp/media/plugins/fpp-brightness" ]; then
     # tracking whatever is currently on the default branch
     FPP_BRIGHTNESS_PIN="f85cab1ec633d163b3736f06829a99852fa85da1"
     cd /home/fpp/media/plugins
-    if git clone https://github.com/FalconChristmas/fpp-brightness.git; then
-        echo "✓ fpp-brightness plugin cloned successfully"
-
-        if git -C /home/fpp/media/plugins/fpp-brightness checkout "$FPP_BRIGHTNESS_PIN"; then
-            echo "✓ fpp-brightness pinned to reviewed commit $FPP_BRIGHTNESS_PIN"
-        else
-            echo "⚠ Failed to pin fpp-brightness to $FPP_BRIGHTNESS_PIN - continuing with cloned HEAD"
-        fi
+    if git clone https://github.com/FalconChristmas/fpp-brightness.git && git -C /home/fpp/media/plugins/fpp-brightness checkout "$FPP_BRIGHTNESS_PIN"; then
+        echo "✓ fpp-brightness plugin cloned and pinned to reviewed commit $FPP_BRIGHTNESS_PIN"
 
         # Run its install script if it exists
         if [ -f "/home/fpp/media/plugins/fpp-brightness/install.sh" ]; then

@@ -508,8 +508,7 @@ function fppBackgroundMusicStartBackground() {
     // Give script time to start PipeWire, configure audio, and write PID file
     // Script can take 3-4 seconds when starting PipeWire
     sleep(5);
-    file_put_contents('/tmp/api_debug.log', "After sleep, checking PID file: $pidFile\n", FILE_APPEND);
-    
+
     // Check if the process started successfully
     if (file_exists($pidFile)) {
         $pid = trim(file_get_contents($pidFile));

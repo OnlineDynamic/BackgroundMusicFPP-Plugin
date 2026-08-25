@@ -50,6 +50,8 @@ function getPlaylists() {
     $ch = curl_init('http://localhost/api/playlists');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     $data = curl_exec($ch);
     curl_close($ch);
     $result = json_decode($data, true);
@@ -65,6 +67,8 @@ function isMediaOnlyPlaylist($playlistName) {
     $ch = curl_init('http://localhost/api/playlist/' . rawurlencode($playlistName));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     $data = curl_exec($ch);
     curl_close($ch);
     $playlist = json_decode($data, true);
@@ -93,6 +97,8 @@ function hasPlaylistItems($playlistName) {
     $ch = curl_init('http://localhost/api/playlist/' . rawurlencode($playlistName));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     $data = curl_exec($ch);
     curl_close($ch);
     $playlist = json_decode($data, true);

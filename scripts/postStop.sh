@@ -12,8 +12,9 @@ log_message "[postStop] FPPD stopped - cleaning up background music processes"
 # Stop background music player gracefully
 if [ -f "$SCRIPT_DIR/background_music_player.sh" ]; then
     log_message "[postStop] Stopping background music player"
+    # background_music_player.sh stop already polls until the player process
+    # exits before returning, so no additional wait is needed here
     "$SCRIPT_DIR/background_music_player.sh" stop >> "$LOG_FILE" 2>&1
-    sleep 0.5
 fi
 
 # Kill any remaining GStreamer pipelines from this plugin

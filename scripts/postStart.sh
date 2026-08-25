@@ -34,9 +34,13 @@ if [ ! -S "/run/pipewire-fpp/pipewire-0" ]; then
     fi
 fi
 
-# Give FPP a moment to fully initialize
-log_message "[postStart] Autostart enabled, waiting 5 seconds for FPP to initialize..."
-sleep 5
+# Wait for FPP's API to become responsive instead of a flat sleep
+log_message "[postStart] Autostart enabled, waiting for FPP API to become ready..."
+for i in {1..10}; do
+    FPPD_STATUS=$(curl -s --max-time 1 "http://localhost/api/fppd/status" 2>/dev/null)
+    [ -n "$FPPD_STATUS" ] && break
+    sleep 1
+done
 
 log_message "[postStart] Starting background music via autostart..."
 if /bin/bash "$SCRIPT_DIR/background_music_player.sh" start >> "$LOG_FILE" 2>&1; then

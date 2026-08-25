@@ -488,7 +488,7 @@ function fppBackgroundMusicStartBackground() {
     // This allows music to play while FPP scheduler controls the sequence playlist
     // Run in background to avoid HTTP timeout during PipeWire initialization
     $scriptPath = dirname(__FILE__) . '/scripts/background_music_player.sh';
-    $logFile = '/tmp/background_music_start.log';
+    $logFile = $settings['logDirectory'] . '/fpp-plugin-BackgroundMusic-start.log';
     $pidFile = '/tmp/background_music_start.pid';
     
     // Kill any previous stuck startup processes
@@ -502,7 +502,7 @@ function fppBackgroundMusicStartBackground() {
     // Start in background using wrapper script
     // The wrapper handles proper detachment from Apache
     $wrapperScript = dirname(__FILE__) . '/scripts/start_background_wrapper.sh';
-    $cmd = "sudo " . escapeshellarg($wrapperScript);
+    $cmd = "sudo " . escapeshellarg($wrapperScript) . " " . escapeshellarg($logFile);
     exec($cmd);
     
     // Give script time to start PipeWire, configure audio, and write PID file
@@ -516,7 +516,7 @@ function fppBackgroundMusicStartBackground() {
         if (!empty($pid) && is_numeric($pid)) {
             exec("ps -p " . escapeshellarg($pid) . " > /dev/null 2>&1", $psOutput, $psReturn);
             if ($psReturn === 0) {
-                return json(array('status' => 'OK', 'message' => 'Background music starting...', 'details' => 'Check /tmp/background_music_start.log for progress'));
+                return json(array('status' => 'OK', 'message' => 'Background music starting...', 'details' => 'Check ' . $logFile . ' for progress'));
             }
         }
     }
@@ -722,6 +722,8 @@ function GetCurrentStatus() {
     $ch = curl_init('http://localhost/api/fppd/status');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     $data = curl_exec($ch);
     curl_close($ch);
     return json_decode($data, true);
@@ -1538,6 +1540,8 @@ function fppBackgroundMusicTTSVoices() {
         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
             'xi-api-key: ' . $elevenLabsAPIKey
         ));
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
@@ -1675,6 +1679,10 @@ function fppBackgroundMusicInstallVoice() {
 
 // POST /api/plugin/fpp-plugin-BackgroundMusic/set-default-voice
 function fppBackgroundMusicSetDefaultVoice() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        return json(array('status' => 'ERROR', 'message' => 'POST required'));
+    }
+
     $pluginDir = dirname(__FILE__);
     $piperDir = $pluginDir . '/piper';
     $voicesDir = $piperDir . '/voices';
@@ -1726,6 +1734,10 @@ function fppBackgroundMusicSetDefaultVoice() {
 
 // POST /api/plugin/fpp-plugin-BackgroundMusic/delete-voice
 function fppBackgroundMusicDeleteVoice() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        return json(array('status' => 'ERROR', 'message' => 'POST required'));
+    }
+
     $pluginDir = dirname(__FILE__);
     $piperDir = $pluginDir . '/piper';
     $voicesDir = $piperDir . '/voices';

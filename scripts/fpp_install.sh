@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # fpp-plugin-backgroundmusic install script (FPP 10+ / PipeWire+GStreamer)
 
@@ -46,12 +47,12 @@ echo "Installing Dependencies"
 echo "=========================================="
 
 # jq is required for PipeWire node queries and config parsing
-sudo apt-get -y install jq
+apt-get -y install jq
 
 # GStreamer plugins for stream playback (souphttpsrc for HTTP streams)
 echo "Installing GStreamer plugins..."
-sudo apt-get -y install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
-sudo apt-get -y install gstreamer1.0-pipewire
+apt-get -y install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+apt-get -y install gstreamer1.0-pipewire
 
 echo "=========================================="
 
@@ -94,8 +95,8 @@ fi
 
 # Ensure helper scripts are executable
 echo "Setting permissions on helper scripts..."
-chmod +x "$PLUGIN_DIR/scripts"/*.sh 2>/dev/null
-chown fpp:fpp "$PLUGIN_DIR/scripts"/*.sh 2>/dev/null
+chmod +x "$PLUGIN_DIR/scripts"/*.sh 2>/dev/null || true
+chown fpp:fpp "$PLUGIN_DIR/scripts"/*.sh 2>/dev/null || true
 
 echo "=========================================="
 
@@ -110,22 +111,30 @@ if [ ! -d "/home/fpp/media/plugins/fpp-brightness" ]; then
     echo "Attempting to install fpp-brightness plugin automatically..."
     echo ""
     
-    # Try to install via git clone
+    # Try to install via git clone, pinned to a commit we've reviewed rather than
+    # tracking whatever is currently on the default branch
+    FPP_BRIGHTNESS_PIN="f85cab1ec633d163b3736f06829a99852fa85da1"
     cd /home/fpp/media/plugins
     if git clone https://github.com/FalconChristmas/fpp-brightness.git; then
         echo "✓ fpp-brightness plugin cloned successfully"
-        
+
+        if git -C /home/fpp/media/plugins/fpp-brightness checkout "$FPP_BRIGHTNESS_PIN"; then
+            echo "✓ fpp-brightness pinned to reviewed commit $FPP_BRIGHTNESS_PIN"
+        else
+            echo "⚠ Failed to pin fpp-brightness to $FPP_BRIGHTNESS_PIN - continuing with cloned HEAD"
+        fi
+
         # Run its install script if it exists
         if [ -f "/home/fpp/media/plugins/fpp-brightness/install.sh" ]; then
             echo "Running fpp-brightness install script..."
             cd /home/fpp/media/plugins/fpp-brightness
-            bash install.sh
-            echo "✓ fpp-brightness plugin installed successfully"
+            bash install.sh || echo "⚠ fpp-brightness install script reported an error - continuing"
+            echo "✓ fpp-brightness plugin installed"
         elif [ -f "/home/fpp/media/plugins/fpp-brightness/scripts/fpp_install.sh" ]; then
             echo "Running fpp-brightness install script..."
             cd /home/fpp/media/plugins/fpp-brightness
-            bash scripts/fpp_install.sh
-            echo "✓ fpp-brightness plugin installed successfully"
+            bash scripts/fpp_install.sh || echo "⚠ fpp-brightness install script reported an error - continuing"
+            echo "✓ fpp-brightness plugin installed"
         else
             echo "✓ fpp-brightness plugin downloaded (no install script found)"
         fi
@@ -208,7 +217,7 @@ fi
 
 # Set restart flag if setSetting function is available
 if command -v setSetting &> /dev/null; then
-    setSetting restartFlag 1
+    setSetting restartFlag 1 || true
 fi
 
 echo ""

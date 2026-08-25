@@ -3,7 +3,7 @@
 # This runs as root and detaches properly from Apache
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOG_FILE="/tmp/background_music_start.log"
+LOG_FILE="${1:-/home/fpp/media/logs/fpp-plugin-BackgroundMusic-start.log}"
 
 # Run the start command in background, fully detached
 nohup bash "$SCRIPT_DIR/background_music_player.sh" start > "$LOG_FILE" 2>&1 </dev/null &

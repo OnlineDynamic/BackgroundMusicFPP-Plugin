@@ -185,9 +185,10 @@ if [ ! -f "$LOG_FILE" ]; then
     echo "Created log file: $LOG_FILE"
 fi
 
-# Temporary log files in /tmp will be created by root at runtime - no need to pre-create
-# Clean up any old temp files from previous versions
-rm -f /tmp/background_music*.log /tmp/background_music*.pid /tmp/bg_music*.pid 2>/dev/null
+# Clean up leftover log/pid files from older plugin versions that used to
+# write to /tmp (current versions log to $LOG_FILE, set above)
+find /tmp -maxdepth 1 -name 'background_music*.log' -delete 2>/dev/null
+rm -f /tmp/background_music*.pid /tmp/bg_music*.pid 2>/dev/null
 rm -f /tmp/bgmusic_gst*.pid /tmp/bgmplayer_*.txt 2>/dev/null
 echo "Cleaned up temporary files"
 

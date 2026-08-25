@@ -29,7 +29,7 @@ if [ "$BUTTON_NUMBER" -lt 1 ] || [ "$BUTTON_NUMBER" -gt 20 ]; then
 fi
 
 # Call the plugin API to play announcement
-RESPONSE=$(curl -s -X POST \
+RESPONSE=$(curl -s --connect-timeout 3 --max-time 5 -X POST \
     -H "Content-Type: application/json" \
     -d "{\"buttonNumber\": $BUTTON_NUMBER}" \
     "http://localhost/api/plugin/fpp-plugin-BackgroundMusic/play-announcement")

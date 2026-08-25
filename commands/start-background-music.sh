@@ -4,7 +4,7 @@
 ###########################################################
 
 # Call the plugin API to start background music
-curl -X POST -H "Content-Type: application/json" \
+curl -s --connect-timeout 3 --max-time 5 -X POST -H "Content-Type: application/json" \
   http://localhost/api/plugin/fpp-plugin-BackgroundMusic/start-background
 
 exit 0

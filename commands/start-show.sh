@@ -32,7 +32,7 @@ else
 fi
 
 # Validate that the playlist exists in playable playlists
-PLAYLIST_EXISTS=$(curl -s "http://localhost/api/playlists/playable" | jq -r ".[] | select(. == \"$PLAYLIST_NAME\")")
+PLAYLIST_EXISTS=$(curl -s --connect-timeout 3 --max-time 5 "http://localhost/api/playlists/playable" | jq -r ".[] | select(. == \"$PLAYLIST_NAME\")")
 
 if [ -z "$PLAYLIST_EXISTS" ]; then
     log_message "ERROR: Playlist '$PLAYLIST_NAME' not found"
@@ -43,7 +43,7 @@ fi
 log_message "Starting show transition for playlist: $PLAYLIST_NAME"
 
 # Trigger the show start via the plugin's API
-RESPONSE=$(curl -s -X POST \
+RESPONSE=$(curl -s --connect-timeout 3 --max-time 5 -X POST \
     -H "Content-Type: application/json" \
     -d "{\"playlist\":\"$PLAYLIST_NAME\"}" \
     "http://localhost/api/plugin/fpp-plugin-BackgroundMusic/start-show")

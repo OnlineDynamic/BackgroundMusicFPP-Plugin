@@ -46,7 +46,7 @@ echo "Installing voice: ${VOICE_ID}"
 echo "Downloading from: ${VOICE_URL}"
 
 # Download voice model
-wget -q --show-progress "${VOICE_URL}" -O "${VOICES_DIR}/${VOICE_ID}.onnx"
+wget -q --timeout=30 --show-progress "${VOICE_URL}" -O "${VOICES_DIR}/${VOICE_ID}.onnx"
 
 if [ $? -ne 0 ]; then
     echo "✗ Error: Failed to download voice model"
@@ -55,7 +55,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Download config file
-wget -q --show-progress "${CONFIG_URL}" -O "${VOICES_DIR}/${VOICE_ID}.onnx.json"
+wget -q --timeout=30 --show-progress "${CONFIG_URL}" -O "${VOICES_DIR}/${VOICE_ID}.onnx.json"
 
 if [ $? -ne 0 ]; then
     echo "✗ Error: Failed to download voice config"

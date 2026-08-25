@@ -60,7 +60,7 @@ echo "Output: $OUTPUT_FILE"
 # Call ElevenLabs API
 # Using the text-to-speech endpoint with default settings
 # Note: Using eleven_turbo_v2_5 which is available on free tier
-RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+RESPONSE=$(curl -s --connect-timeout 10 --max-time 60 -w "\n%{http_code}" -X POST \
     "https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}" \
     -H "xi-api-key: ${API_KEY}" \
     -H "Content-Type: application/json" \

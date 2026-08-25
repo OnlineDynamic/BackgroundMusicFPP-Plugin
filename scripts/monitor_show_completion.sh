@@ -42,7 +42,7 @@ sleep 5
 SHOW_RUNNING=true
 while [ "$SHOW_RUNNING" = "true" ]; do
     # Get current FPP status
-    STATUS=$(curl -s "http://localhost/api/fppd/status")
+    STATUS=$(curl -s --connect-timeout 3 --max-time 5 "http://localhost/api/fppd/status")
     CURRENT_PLAYLIST=$(echo "$STATUS" | jq -r '.current_playlist.playlist // ""')
     FPP_STATUS=$(echo "$STATUS" | jq -r '.status_name // ""')
     

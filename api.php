@@ -1344,15 +1344,16 @@ function fppBackgroundMusicTTSStatus() {
 
 // POST /api/plugin/fpp-plugin-BackgroundMusic/install-tts
 function fppBackgroundMusicInstallTTS() {
+    global $settings;
     $pluginDir = dirname(__FILE__);
     $installScript = $pluginDir . '/scripts/install_piper.sh';
-    
+
     if (!file_exists($installScript)) {
         return json(array('status' => 'ERROR', 'message' => 'Installation script not found'));
     }
-    
+
     // Run installation in background
-    $logFile = '/tmp/piper_install.log';
+    $logFile = $settings['logDirectory'] . '/fpp-plugin-BackgroundMusic-piper-install.log';
     $cmd = "bash " . escapeshellarg($installScript) . " > " . escapeshellarg($logFile) . " 2>&1 &";
     exec($cmd);
     

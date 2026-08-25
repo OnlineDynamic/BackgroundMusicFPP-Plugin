@@ -57,7 +57,7 @@ cd "${PIPER_DIR}" || exit 1
 # Note: Using rhasspy/piper repo (2023.11.14-2) which provides pre-compiled binaries.
 # The new OHF-Voice/piper1-gpl v1.3.0+ is Python-based and would require different installation.
 echo "Fetching latest Piper version..."
-PIPER_VERSION=$(curl -s https://api.github.com/repos/rhasspy/piper/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+PIPER_VERSION=$(curl -s --connect-timeout 10 --max-time 30 https://api.github.com/repos/rhasspy/piper/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 
 if [ -z "$PIPER_VERSION" ]; then
     echo "Warning: Could not fetch latest version, using known version"
@@ -68,7 +68,7 @@ echo "Using Piper version: ${PIPER_VERSION}"
 PIPER_URL="https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_${PIPER_ARCH}.tar.gz"
 
 echo "Downloading Piper from ${PIPER_URL}..."
-wget -q --show-progress "${PIPER_URL}" -O piper.tar.gz
+wget -q --timeout=30 --show-progress "${PIPER_URL}" -O piper.tar.gz
 
 if [ $? -ne 0 ]; then
     echo "Error: Failed to download Piper"
@@ -110,8 +110,8 @@ mkdir -p voices
 VOICE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
 VOICE_CONFIG_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
 
-wget -q --show-progress "${VOICE_URL}" -O voices/en_US-lessac-medium.onnx
-wget -q --show-progress "${VOICE_CONFIG_URL}" -O voices/en_US-lessac-medium.onnx.json
+wget -q --timeout=30 --show-progress "${VOICE_URL}" -O voices/en_US-lessac-medium.onnx
+wget -q --timeout=30 --show-progress "${VOICE_CONFIG_URL}" -O voices/en_US-lessac-medium.onnx.json
 
 if [ $? -ne 0 ]; then
     echo "Warning: Failed to download voice model. TTS may not work until a voice is downloaded."

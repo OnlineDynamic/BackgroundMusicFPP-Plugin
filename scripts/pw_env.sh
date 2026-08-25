@@ -33,6 +33,22 @@ log_message() {
 }
 
 ###############################################################################
+# Bounded polling helper — used by lifecycle hooks to wait on a real
+# condition (socket, API, PID) instead of a flat unconditional sleep.
+# Usage: wait_for <max_seconds> <command...>
+###############################################################################
+wait_for() {
+    local max_seconds="$1"; shift
+    local waited=0
+    while [ "$waited" -lt "$max_seconds" ]; do
+        "$@" && return 0
+        waited=$((waited + 1))
+        [ "$waited" -lt "$max_seconds" ] && sleep 1
+    done
+    "$@"
+}
+
+###############################################################################
 # GStreamer pipeline launchers
 ###############################################################################
 

@@ -22,7 +22,7 @@ if ! ps -p "$PLAYER_PID" > /dev/null 2>&1; then
 fi
 
 # Get current volume from FPP API
-CURRENT_VOLUME=$(curl -s "http://localhost/api/system/volume" | jq -r '.volume' 2>/dev/null)
+CURRENT_VOLUME=$(curl -s --connect-timeout 3 --max-time 5 "http://localhost/api/system/volume" | jq -r '.volume' 2>/dev/null)
 if [ -z "$CURRENT_VOLUME" ] || [ "$CURRENT_VOLUME" = "null" ]; then
     CURRENT_VOLUME=70
 fi
@@ -38,7 +38,7 @@ SLEEP_TIME=$(awk "BEGIN {printf \"%.3f\", $FADE_TIME / $FADE_STEPS}")
 for ((i=1; i<=FADE_STEPS; i++)); do
     TARGET_VOLUME=$(awk "BEGIN {v=int($CURRENT_VOLUME - ($VOLUME_STEP * $i)); if(v<0) v=0; print v}")
 
-    curl -s -X POST -H "Content-Type: application/json" \
+    curl -s --connect-timeout 3 --max-time 5 -X POST -H "Content-Type: application/json" \
         -d "{\"volume\": ${TARGET_VOLUME}}" \
         "http://localhost/api/system/volume" > /dev/null 2>&1
 
@@ -51,7 +51,7 @@ for ((i=1; i<=FADE_STEPS; i++)); do
 done
 
 # Ensure volume is at 0
-curl -s -X POST -H "Content-Type: application/json" \
+curl -s --connect-timeout 3 --max-time 5 -X POST -H "Content-Type: application/json" \
     -d '{"volume": 0}' \
     "http://localhost/api/system/volume" > /dev/null 2>&1
 

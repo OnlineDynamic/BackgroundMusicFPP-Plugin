@@ -24,11 +24,7 @@ fi
 # Verify PipeWire socket is available
 if [ ! -S "/run/pipewire-fpp/pipewire-0" ]; then
     log_message "[postStart] WARNING: PipeWire socket not found, waiting..."
-    for i in {1..10}; do
-        sleep 1
-        [ -S "/run/pipewire-fpp/pipewire-0" ] && break
-    done
-    if [ ! -S "/run/pipewire-fpp/pipewire-0" ]; then
+    if ! wait_for 10 test -S "/run/pipewire-fpp/pipewire-0"; then
         log_message "[postStart] ERROR: PipeWire socket still not available"
         exit 1
     fi
@@ -36,11 +32,7 @@ fi
 
 # Wait for FPP's API to become responsive instead of a flat sleep
 log_message "[postStart] Autostart enabled, waiting for FPP API to become ready..."
-for i in {1..10}; do
-    FPPD_STATUS=$(curl -s --max-time 1 "http://localhost/api/fppd/status" 2>/dev/null)
-    [ -n "$FPPD_STATUS" ] && break
-    sleep 1
-done
+wait_for 10 bash -c 'curl -s --max-time 1 "http://localhost/api/fppd/status" 2>/dev/null | grep -q .'
 
 log_message "[postStart] Starting background music via autostart..."
 if /bin/bash "$SCRIPT_DIR/background_music_player.sh" start >> "$LOG_FILE" 2>&1; then

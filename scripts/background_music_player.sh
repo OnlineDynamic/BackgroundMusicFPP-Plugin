@@ -139,7 +139,7 @@ start_music() {
 
     # Set volume via FPP API
     echo "Setting system volume to ${volume_level}% via FPP API"
-    curl -s -X POST -H "Content-Type: application/json" \
+    curl -s --connect-timeout 3 --max-time 5 -X POST -H "Content-Type: application/json" \
          -d "{\"volume\": ${volume_level}}" \
          "http://localhost/api/system/volume" > /dev/null 2>&1
 

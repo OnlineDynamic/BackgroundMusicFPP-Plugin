@@ -12,7 +12,7 @@ SCRIPT_DIR="$(dirname "$0")"
 log_message "Restoring audio volume to ${TARGET_VOLUME}%"
 
 # Restore system volume via FPP API
-curl -s -X POST -H "Content-Type: application/json" \
+curl -s --connect-timeout 3 --max-time 5 -X POST -H "Content-Type: application/json" \
     -d "{\"volume\": ${TARGET_VOLUME}}" \
     "http://localhost/api/system/volume" > /dev/null 2>&1
 

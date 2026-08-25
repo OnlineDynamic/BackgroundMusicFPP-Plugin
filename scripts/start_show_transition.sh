@@ -22,7 +22,7 @@ SCRIPT_DIR="$(dirname "$0")"
 log_message "Starting show transition: fade=$FADE_TIME sec, blackout=$BLACKOUT_TIME sec, show=$SHOW_PLAYLIST"
 
 # Prevent double-triggering
-CURRENT_STATUS=$(curl -s "http://localhost/api/fppd/status")
+CURRENT_STATUS=$(curl -s --connect-timeout 3 --max-time 5 "http://localhost/api/fppd/status")
 CURRENT_PLAYLIST=$(echo "$CURRENT_STATUS" | jq -r '.current_playlist.playlist // ""')
 FPP_STATUS=$(echo "$CURRENT_STATUS" | jq -r '.status_name // ""')
 
@@ -32,7 +32,7 @@ if [ "$CURRENT_PLAYLIST" = "$SHOW_PLAYLIST" ] && [ "$FPP_STATUS" != "idle" ]; th
 fi
 
 # Save current brightness
-ORIGINAL_BRIGHTNESS=$(curl -s "http://localhost/api/system/brightness" | jq -r '.brightness' 2>/dev/null)
+ORIGINAL_BRIGHTNESS=$(curl -s --connect-timeout 3 --max-time 5 "http://localhost/api/system/brightness" | jq -r '.brightness' 2>/dev/null)
 [ -z "$ORIGINAL_BRIGHTNESS" ] || [ "$ORIGINAL_BRIGHTNESS" = "false" ] && ORIGINAL_BRIGHTNESS=100
 log_message "Original brightness: $ORIGINAL_BRIGHTNESS%"
 
@@ -46,7 +46,7 @@ fi
 # Fade brightness via Brightness plugin
 FADE_TIME_MS=$((FADE_TIME * 1000))
 log_message "Fading brightness to 0% over ${FADE_TIME}s"
-curl -s -X GET "http://localhost/api/plugin-apis/Brightness/FadeDown/$FADE_TIME_MS" > /dev/null 2>&1
+curl -s --connect-timeout 3 --max-time 5 -X GET "http://localhost/api/plugin-apis/Brightness/FadeDown/$FADE_TIME_MS" > /dev/null 2>&1
 
 sleep "$FADE_TIME"
 
@@ -58,7 +58,7 @@ log_message "Brightness and bgmusic volume faded to 0%"
 
 # Stop all FPP playlists
 log_message "Stopping all playlists"
-curl -s -X GET "http://localhost/api/playlists/stop" > /dev/null 2>&1
+curl -s --connect-timeout 3 --max-time 5 -X GET "http://localhost/api/playlists/stop" > /dev/null 2>&1
 
 # Stop background music (GStreamer pipelines already at 0 volume)
 if [ -f "$PID_FILE" ]; then
@@ -85,23 +85,23 @@ if [ -z "$SHOW_PLAYLIST_VOLUME" ]; then
 fi
 
 log_message "Setting show volume to ${SHOW_PLAYLIST_VOLUME}%"
-curl -s -X POST -H "Content-Type: application/json" \
+curl -s --connect-timeout 3 --max-time 5 -X POST -H "Content-Type: application/json" \
     -d "{\"volume\": ${SHOW_PLAYLIST_VOLUME}}" \
     "http://localhost/api/system/volume" > /dev/null 2>&1
 
 # Restore brightness
 log_message "Restoring brightness to $ORIGINAL_BRIGHTNESS%"
-curl -s -X GET "http://localhost/api/plugin-apis/Brightness/$ORIGINAL_BRIGHTNESS" > /dev/null 2>&1
+curl -s --connect-timeout 3 --max-time 5 -X GET "http://localhost/api/plugin-apis/Brightness/$ORIGINAL_BRIGHTNESS" > /dev/null 2>&1
 
 # Start show playlist
 if [ -n "$SHOW_PLAYLIST" ]; then
     log_message "Starting show playlist: $SHOW_PLAYLIST"
-    curl -s -X POST "http://localhost/api/command" \
+    curl -s --connect-timeout 3 --max-time 5 -X POST "http://localhost/api/command" \
         -H "Content-Type: application/json" \
         -d "{\"command\":\"Start Playlist\",\"args\":[\"${SHOW_PLAYLIST}\",false,false]}" > /dev/null 2>&1
 
     sleep 2
-    PLAYLIST_STATUS=$(curl -s "http://localhost/api/fppd/status" | jq -r '.current_playlist.playlist' 2>/dev/null)
+    PLAYLIST_STATUS=$(curl -s --connect-timeout 3 --max-time 5 "http://localhost/api/fppd/status" | jq -r '.current_playlist.playlist' 2>/dev/null)
     if [ "$PLAYLIST_STATUS" = "$SHOW_PLAYLIST" ]; then
         log_message "Show playlist started: $SHOW_PLAYLIST"
     else

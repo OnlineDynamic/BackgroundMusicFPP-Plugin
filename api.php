@@ -340,6 +340,26 @@ function fppBackgroundMusicStatus() {
         }
     }
     
+    // Auto-PSA status (written by background_music_player.sh loop)
+    $autoPsaFile = '/tmp/bg_music_auto_psa_state.txt';
+    $songsSincePsa = 0;
+    $nextPsaIn = null;
+    if (file_exists($autoPsaFile)) {
+        $autoData = @parse_ini_file($autoPsaFile);
+        if ($autoData !== false) {
+            $songsSincePsa = isset($autoData['songsSincePsa']) ? intval($autoData['songsSincePsa']) : 0;
+            // Only populate nextPsaIn when interval is configured, music is running, and not in stream mode
+            $interval = isset($pluginSettings['PsaAutoInterval']) ? intval($pluginSettings['PsaAutoInterval']) : 0;
+            if ($interval > 0 && $backgroundMusicRunning && !$streamSource) {
+                $nextPsaIn = max(0, $interval - $songsSincePsa);
+                // If interval reached but PSA still pending (e.g. waiting for song boundary), show 0
+                if ($songsSincePsa >= $interval) {
+                    $nextPsaIn = 0;
+                }
+            }
+        }
+    }
+
     $result = array(
         'backgroundMusicRunning' => $backgroundMusicRunning,
         'showRunning' => $showRunning,
@@ -359,6 +379,8 @@ function fppBackgroundMusicStatus() {
         'streamTitle' => $streamTitle,
         'streamArtist' => $streamArtist,
         'volume' => $bgmusicVolume,
+        'songsSincePsa' => $songsSincePsa,
+        'nextPsaIn' => $nextPsaIn,
         'config' => array(
             'backgroundMusicSource' => isset($pluginSettings['BackgroundMusicSource']) ? $pluginSettings['BackgroundMusicSource'] : 'playlist',
             'backgroundMusicPlaylist' => $backgroundMusicPlaylist,
@@ -377,7 +399,9 @@ function fppBackgroundMusicStatus() {
             'showPlaylistVolume' => $showPlaylistVolume,
             'postShowBackgroundVolume' => $postShowBackgroundVolume,
             'PSAAnnouncementVolume' => isset($pluginSettings['PSAAnnouncementVolume']) ? $pluginSettings['PSAAnnouncementVolume'] : '90',
-            'PSADuckVolume' => isset($pluginSettings['PSADuckVolume']) ? $pluginSettings['PSADuckVolume'] : '30'
+            'PSADuckVolume' => isset($pluginSettings['PSADuckVolume']) ? $pluginSettings['PSADuckVolume'] : '30',
+            'PsaAutoInterval' => isset($pluginSettings['PsaAutoInterval']) ? $pluginSettings['PsaAutoInterval'] : '0',
+            'PsaAutoTrack' => isset($pluginSettings['PsaAutoTrack']) ? $pluginSettings['PsaAutoTrack'] : '0'
         )
     );
     

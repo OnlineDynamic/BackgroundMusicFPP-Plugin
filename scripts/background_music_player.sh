@@ -65,6 +65,8 @@ start_music() {
     local enable_crossfade=$(get_plugin_setting "EnableCrossfade" "0")
     local crossfade_duration=$(get_plugin_setting "CrossfadeDuration" "3")
     local volume_level=$(get_plugin_setting "BackgroundMusicVolume" "")
+    local psa_auto_interval=$(get_plugin_setting "PsaAutoInterval" "0")
+    local psa_auto_track=$(get_plugin_setting "PsaAutoTrack" "0")
 
     # Fallback to VolumeLevel for backward compatibility
     if [ -z "$volume_level" ]; then
@@ -97,6 +99,11 @@ start_music() {
     # Clean up stale files
     rm -f /tmp/bg_music_jump.txt /tmp/bg_music_next.txt /tmp/bg_music_previous.txt 2>/dev/null
     rm -f "$PID_FILE" /tmp/background_music_start.pid 2>/dev/null
+    # Reset auto-PSA state on start (counter persists only within this session)
+    rm -f /tmp/bg_music_auto_psa_state.txt 2>/dev/null
+    echo "songsSincePsa=0" > /tmp/bg_music_auto_psa_state.txt
+    chmod 644 /tmp/bg_music_auto_psa_state.txt 2>/dev/null
+    echo "Auto-PSA: interval=${psa_auto_interval} track=${psa_auto_track}"
 
     echo "$$" > /tmp/background_music_start.pid
 
@@ -250,12 +257,27 @@ PLAYLIST_FILE="/tmp/background_music_playlist.m3u"
 SHUFFLE_MODE="${shuffle_mode:-0}"
 ENABLE_CROSSFADE="${enable_crossfade:-0}"
 CROSSFADE_DURATION="${crossfade_duration:-3}"
+PSA_AUTO_INTERVAL="${psa_auto_interval:-0}"
+PSA_AUTO_TRACK="${psa_auto_track:-0}"
 JUMP_FILE="/tmp/bg_music_jump.txt"
 PREVIOUS_FILE="/tmp/bg_music_previous.txt"
 NEXT_FILE="/tmp/bg_music_next.txt"
 REORDER_FILE="/tmp/bg_music_reorder.txt"
+AUTO_PSA_STATE_FILE="/tmp/bg_music_auto_psa_state.txt"
+ANNOUNCEMENT_PID_FILE="/tmp/announcement_player.pid"
 
 echo "playing" > "\$STATE_FILE"
+# Auto-PSA state: reset on start, persists across loop iterations/reshuffles
+songsSincePsa=0
+autoPsaCycleIndex=0
+manual_psa_handled=""
+echo "songsSincePsa=0" > "\$AUTO_PSA_STATE_FILE"
+chmod 644 "\$AUTO_PSA_STATE_FILE" 2>/dev/null
+log_message "[AUTO-PSA] Loop started interval=\$PSA_AUTO_INTERVAL track=\$PSA_AUTO_TRACK"
+# Validate interval is numeric
+if ! echo "\$PSA_AUTO_INTERVAL" | grep -qE '^[0-9]+\$'; then
+    PSA_AUTO_INTERVAL=0
+fi
 
 shuffle_array() {
     local i tmp size rand
@@ -289,6 +311,126 @@ update_status() {
         echo "total_tracks=\$total_tracks"
     } > "\$STATUS_FILE"
     chmod 644 "\$STATUS_FILE" 2>/dev/null
+}
+
+# Auto-PSA helpers
+update_auto_psa_state() {
+    echo "songsSincePsa=\$songsSincePsa" > "\$AUTO_PSA_STATE_FILE"
+    chmod 644 "\$AUTO_PSA_STATE_FILE" 2>/dev/null
+}
+
+check_manual_psa_reset() {
+    if [ -f "\$ANNOUNCEMENT_PID_FILE" ]; then
+        local _m_pid=\$(cat "\$ANNOUNCEMENT_PID_FILE" 2>/dev/null)
+        if [ -n "\$_m_pid" ] && kill -0 "\$_m_pid" 2>/dev/null; then
+            if [ "\$manual_psa_handled" != "\$_m_pid" ]; then
+                log_message "[AUTO-PSA] Manual PSA detected (PID \$_m_pid), resetting counter (was \$songsSincePsa)"
+                songsSincePsa=0
+                update_auto_psa_state
+                manual_psa_handled="\$_m_pid"
+            fi
+            return 0
+        else
+            # Stale pid file
+            rm -f "\$ANNOUNCEMENT_PID_FILE" 2>/dev/null
+        fi
+    else
+        manual_psa_handled=""
+    fi
+    return 1
+}
+
+get_auto_psa_file() {
+    # Sets globals: _auto_psa_file, _auto_psa_label, _auto_psa_button
+    _auto_psa_file=""
+    _auto_psa_label=""
+    _auto_psa_button=""
+    local track="\$PSA_AUTO_TRACK"
+    # Fixed slot 1-20
+    if [ -n "\$track" ] && [ "\$track" != "0" ] && [ "\$track" != "cycle" ] && echo "\$track" | grep -qE '^[0-9]+\$'; then
+        if [ "\$track" -ge 1 ] && [ "\$track" -le 20 ]; then
+            local f=\$(get_plugin_setting "PSAButton\${track}File" "")
+            local l=\$(get_plugin_setting "PSAButton\${track}Label" "PSA #\${track}")
+            if [ -n "\$f" ] && [ -f "\$f" ]; then
+                _auto_psa_file="\$f"
+                _auto_psa_label="\$l"
+                _auto_psa_button="\$track"
+                return 0
+            else
+                log_message "[AUTO-PSA] Slot \$track empty/missing (\$f), skipping"
+                return 1
+            fi
+        fi
+    fi
+    # Cycle mode: build list of all configured PSAs
+    local avail_files=()
+    local avail_labels=()
+    local avail_buttons=()
+    for _i in \$(seq 1 20); do
+        local _f=\$(get_plugin_setting "PSAButton\${_i}File" "")
+        if [ -n "\$_f" ] && [ -f "\$_f" ]; then
+            local _l=\$(get_plugin_setting "PSAButton\${_i}Label" "PSA #\${_i}")
+            avail_files+=("\$_f")
+            avail_labels+=("\$_l")
+            avail_buttons+=("\$_i")
+        fi
+    done
+    if [ \${#avail_files[@]} -eq 0 ]; then
+        log_message "[AUTO-PSA] No PSA buttons configured"
+        return 1
+    fi
+    local _idx=\$((autoPsaCycleIndex % \${#avail_files[@]}))
+    _auto_psa_file="\${avail_files[\$_idx]}"
+    _auto_psa_label="\${avail_labels[\$_idx]}"
+    _auto_psa_button="\${avail_buttons[\$_idx]}"
+    return 0
+}
+
+trigger_auto_psa() {
+    if ! get_auto_psa_file; then
+        return 1
+    fi
+    # Guard: PSA already playing -> defer until next song gap
+    if [ -f "\$ANNOUNCEMENT_PID_FILE" ]; then
+        local _e_pid=\$(cat "\$ANNOUNCEMENT_PID_FILE" 2>/dev/null)
+        if [ -n "\$_e_pid" ] && kill -0 "\$_e_pid" 2>/dev/null; then
+            log_message "[AUTO-PSA] Deferring - PSA already playing (PID \$_e_pid)"
+            return 1
+        else
+            rm -f "\$ANNOUNCEMENT_PID_FILE" 2>/dev/null
+        fi
+    fi
+    local _duck=\$(get_plugin_setting "PSADuckVolume" "30")
+    local _vol=\$(get_plugin_setting "PSAAnnouncementVolume" "90")
+    log_message "[AUTO-PSA] Firing after \$songsSincePsa songs: button \$_auto_psa_button (\$_auto_psa_label) -> \$(basename "\$_auto_psa_file")"
+    bash "\$PLUGIN_DIR/scripts/play_announcement.sh" "\$_auto_psa_file" "\$_duck" "\$_vol" "\$_auto_psa_button" "\$_auto_psa_label" &
+    # Advance cycle index only on successful fire (not on defer)
+    if [ "\$PSA_AUTO_TRACK" = "0" ] || [ "\$PSA_AUTO_TRACK" = "cycle" ] || [ -z "\$PSA_AUTO_TRACK" ]; then
+        autoPsaCycleIndex=\$((autoPsaCycleIndex + 1))
+    fi
+    # Mark handled so check_manual_psa_reset won't double-reset immediately
+    sleep 0.3
+    if [ -f "\$ANNOUNCEMENT_PID_FILE" ]; then
+        manual_psa_handled=\$(cat "\$ANNOUNCEMENT_PID_FILE" 2>/dev/null)
+    fi
+    return 0
+}
+
+maybe_trigger_auto_psa() {
+    if [ "\$PSA_AUTO_INTERVAL" = "0" ] || [ -z "\$PSA_AUTO_INTERVAL" ]; then
+        return 1
+    fi
+    if [ "\$songsSincePsa" -lt "\$PSA_AUTO_INTERVAL" ]; then
+        return 1
+    fi
+    if trigger_auto_psa; then
+        songsSincePsa=0
+        update_auto_psa_state
+        log_message "[AUTO-PSA] Counter reset to 0, next in \$PSA_AUTO_INTERVAL songs"
+        return 0
+    fi
+    # Failed/deferred: keep counter at threshold, will retry after next song (1-song gap guard satisfied)
+    return 1
 }
 
 # Play a track, optionally starting next track for crossfade
@@ -330,6 +472,7 @@ play_track_with_crossfade() {
         [ "\$current_state" != "paused" ] && elapsed=\$((elapsed + 1))
 
         update_status "\$track_name" "\$duration" "\$elapsed" "\$track_number" "\$total_tracks"
+        check_manual_psa_reset
 
         # Start crossfade when time reached
         if [ \$crossfade_started -eq 0 ] && [ \$crossfade_start_time -gt 0 ] && [ \$elapsed -ge \$crossfade_start_time ]; then
@@ -450,6 +593,7 @@ while true; do
     next_media_file="\${playlist_files[\$next_track_index]}"
 
     crossfade_happened=0
+    track_was_skipped=0
 
     if [ "\$ENABLE_CROSSFADE" = "1" ]; then
         play_track_with_crossfade "\$media_file" "\$track_name" "\$duration" "\$track_number" "\$total_tracks" "\$next_media_file"
@@ -457,6 +601,11 @@ while true; do
         if [ \$result -eq 0 ]; then
             # Crossfade completed — next track is already playing
             crossfade_happened=1
+            # First track counted as completed via crossfade
+            songsSincePsa=\$((songsSincePsa + 1))
+            update_auto_psa_state
+            log_message "[AUTO-PSA] Song completed count=\$songsSincePsa (crossfade)"
+            maybe_trigger_auto_psa
             current_track_index=\$next_track_index
 
             # Monitor the crossfaded track
@@ -486,6 +635,7 @@ while true; do
                     [ -f "\$STATE_FILE" ] && current_state=\$(cat "\$STATE_FILE")
                     [ "\$current_state" != "paused" ] && elapsed=\$((elapsed + 1))
                     update_status "\$track_name" "\$duration" "\$elapsed" "\$track_number" "\$total_tracks"
+                    check_manual_psa_reset
 
                     if [ \$next_crossfade_started -eq 0 ] && [ \$crossfade_start_time -gt 0 ] && [ \$elapsed -ge \$crossfade_start_time ]; then
                         next_crossfade_started=1
@@ -522,6 +672,16 @@ while true; do
                 fi
             fi
 
+            # Count the crossfaded track (second track) if not skipped
+            if [ \$track_was_skipped -eq 0 ]; then
+                songsSincePsa=\$((songsSincePsa + 1))
+                update_auto_psa_state
+                log_message "[AUTO-PSA] Song completed count=\$songsSincePsa (crossfade monitor)"
+                maybe_trigger_auto_psa
+            else
+                log_message "[AUTO-PSA] Song skipped, not counting"
+            fi
+
             current_track_index=\$((current_track_index + 1))
             continue
         elif [ \$result -eq 2 ]; then
@@ -553,6 +713,7 @@ while true; do
             [ -f "\$STATE_FILE" ] && current_state=\$(cat "\$STATE_FILE")
             [ "\$current_state" != "paused" ] && elapsed=\$((elapsed + 1))
             update_status "\$track_name" "\$duration" "\$elapsed" "\$track_number" "\$total_tracks"
+            check_manual_psa_reset
 
             if [ -f "\$JUMP_FILE" ] || [ -f "\$PREVIOUS_FILE" ] || [ -f "\$NEXT_FILE" ]; then
                 kill \$player_pid 2>/dev/null
@@ -563,6 +724,18 @@ while true; do
 
         wait \$player_pid 2>/dev/null
         rm -f "\$GST_PID_FILE"
+    fi
+
+    # Auto-PSA: count completed songs (skip cases already excluded, crossfade-continued already counted)
+    if [ \$crossfade_happened -eq 0 ]; then
+        if [ "\$track_was_skipped" != "1" ]; then
+            songsSincePsa=\$((songsSincePsa + 1))
+            update_auto_psa_state
+            log_message "[AUTO-PSA] Song completed count=\$songsSincePsa"
+            maybe_trigger_auto_psa
+        else
+            log_message "[AUTO-PSA] Song skipped, not counting (songsSincePsa=\$songsSincePsa)"
+        fi
     fi
 
     # Handle navigation
@@ -757,6 +930,7 @@ stop_music() {
     rm -f "$GST_PID_FILE" "$GST_NEXT_PID_FILE"
     rm -f /tmp/bg_music_jump.txt /tmp/bg_music_previous.txt /tmp/bg_music_next.txt
     rm -f /tmp/bg_music_reorder.txt /tmp/bg_music_metadata.pid
+    rm -f /tmp/bg_music_auto_psa_state.txt
     rm -f "$VOLUME_FILE"
 
     echo "All background music processes stopped"

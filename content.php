@@ -691,6 +691,42 @@ $audioFiles = getAudioFiles();
                     </td>
                 </tr>
             </table>
+
+            <h4 style="margin: 20px auto 10px; max-width: 800px; color: #555; border-top: 1px solid #e0e0e0; padding-top: 15px;">
+                Auto-PSA (every N songs)
+            </h4>
+            <div class="description" style="margin-top: 10px; padding: 10px 15px;">
+                <p style="margin: 5px 0; font-size: 13px;"><strong>Auto-play PSA after every N songs</strong> — works with shuffle on or off, counter tracks completed songs and survives reshuffle/loop, resets on Start/Stop. Uses same ducking pipeline; at least one song always plays between PSAs (manual or auto).</p>
+            </div>
+            <table class="settingsTable">
+                <tr>
+                    <td class="label">Auto-PSA Interval:</td>
+                    <td class="value">
+                        <input type="number" name="PsaAutoInterval" id="PsaAutoInterval" min="0" max="100"
+                               value="<?php echo isset($pluginSettings['PsaAutoInterval']) ? htmlspecialchars($pluginSettings['PsaAutoInterval']) : '0'; ?>"
+                               placeholder="0 = disabled">
+                        <small>Number of songs between PSAs (0/blank = disabled). PSA fires after Nth song completes. Disabled for streams.</small>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="label">Auto-PSA Slot:</td>
+                    <td class="value">
+                        <select name="PsaAutoTrack" id="PsaAutoTrack">
+                            <option value="0" <?php echo (!isset($pluginSettings['PsaAutoTrack']) || $pluginSettings['PsaAutoTrack'] == '0' || $pluginSettings['PsaAutoTrack'] == 'cycle') ? 'selected' : ''; ?>>Cycle through all configured PSAs</option>
+                            <?php for ($i = 1; $i <= 20; $i++): 
+                                $lbl = isset($pluginSettings['PSAButton'.$i.'Label']) && $pluginSettings['PSAButton'.$i.'Label'] !== '' ? $pluginSettings['PSAButton'.$i.'Label'] : 'PSA Button ' . $i;
+                                $hasFile = isset($pluginSettings['PSAButton'.$i.'File']) && $pluginSettings['PSAButton'.$i.'File'] !== '';
+                                if (!$hasFile && $i > 5) continue; // hide empty high slots unless configured, keep first 5 always
+                            ?>
+                            <option value="<?php echo $i; ?>" <?php echo (isset($pluginSettings['PsaAutoTrack']) && $pluginSettings['PsaAutoTrack'] == (string)$i) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($lbl); ?><?php echo $hasFile ? '' : ' (not configured)'; ?>
+                            </option>
+                            <?php endfor; ?>
+                        </select>
+                        <small>Which PSA button/label to use for auto playback. "Cycle" rotates through all buttons that have an audio file.</small>
+                    </td>
+                </tr>
+            </table>
             
             <h4 style="margin: 20px auto 10px; max-width: 800px; color: #555;">
                 Configure Announcement Buttons:
@@ -1100,6 +1136,8 @@ $audioFiles = getAudioFiles();
                 // PSA settings
                 'PSAAnnouncementVolume': $('#PSAAnnouncementVolume').val(),
                 'PSADuckVolume': $('#PSADuckVolume').val(),
+                'PsaAutoInterval': $('#PsaAutoInterval').val() || '0',
+                'PsaAutoTrack': $('#PsaAutoTrack').val() || '0',
                 // TTS settings
                 'TTSEngine': $('#TTSEngine').val(),
                 'ElevenLabsAPIKey': $('#ElevenLabsAPIKey').val(),

@@ -602,6 +602,10 @@
                     </div>
                 </div>
             </div>
+            <div class="statusItem" id="autoPsaCountdownContainer" style="display: none;">
+                <span class="statusLabel">Next Auto-PSA:</span>
+                <span id="autoPsaCountdown" style="font-weight: bold; color: #e91e63;"><i class="fas fa-clock"></i> -</span>
+            </div>
             <div class="statusItem">
                 <span class="statusLabel">Current FPP Playlist:</span>
                 <span id="statusCurrentPlaylist" style="font-weight: bold;">-</span>
@@ -1027,6 +1031,19 @@
                         stopSmoothProgress(); // Stop smooth updates when not running
                     }
                     
+                    // Auto-PSA countdown (after every N songs)
+                    if (data.nextPsaIn !== null && data.nextPsaIn !== undefined) {
+                        $('#autoPsaCountdownContainer').show();
+                        if (data.nextPsaIn === 0) {
+                            $('#autoPsaCountdown').html('<i class="fas fa-bullhorn"></i> Next song');
+                        } else {
+                            var plural = data.nextPsaIn > 1 ? 's' : '';
+                            $('#autoPsaCountdown').html('<i class="fas fa-clock"></i> In ' + data.nextPsaIn + ' song' + plural + ' (played ' + data.songsSincePsa + ')');
+                        }
+                    } else {
+                        $('#autoPsaCountdownContainer').hide();
+                    }
+
                     // Check PSA status
                     updatePSAStatus();
                 },

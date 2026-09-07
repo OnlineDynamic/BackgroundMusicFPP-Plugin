@@ -923,18 +923,49 @@ function fppBackgroundMusicPlayAnnouncement() {
 // POST /api/plugin/fpp-plugin-BackgroundMusic/stop-announcement
 function fppBackgroundMusicStopAnnouncement() {
     $pidFile = '/tmp/announcement_player.pid';
+    $gstPidFile = '/tmp/announcement_gst.pid';
     
-    if (!file_exists($pidFile)) {
-        return json(array('status' => 'OK', 'message' => 'No announcement playing'));
+    if (!file_exists($pidFile) && !file_exists($gstPidFile)) {
+        // Also check for orphaned bgmusic_psa pipeline
+        exec("pgrep -f 'node.name=bgmusic_psa' 2>&1", $out, $rc);
+        if ($rc !== 0) {
+            return json(array('status' => 'OK', 'message' => 'No announcement playing'));
+        }
     }
     
-    $pid = trim(file_get_contents($pidFile));
+    $pids = array();
+    if (file_exists($pidFile)) {
+        $pid = trim(file_get_contents($pidFile));
+        if (!empty($pid) && is_numeric($pid)) $pids[] = $pid;
+    }
+    if (file_exists($gstPidFile)) {
+        $gstPid = trim(file_get_contents($gstPidFile));
+        if (!empty($gstPid) && is_numeric($gstPid)) $pids[] = $gstPid;
+    }
+    foreach ($pids as $p) {
+        exec("kill " . escapeshellarg($p) . " 2>&1");
+        // Give trap a moment to kill gst, then force
+        usleep(200000);
+        exec("kill -9 " . escapeshellarg($p) . " 2>&1");
+    }
+    // Kill any remaining PSA GStreamer pipeline (fix #13 orphan)
+    exec("pkill -f 'node.name=bgmusic_psa' 2>&1");
+    exec("pkill -9 -f 'node.name=bgmusic_psa' 2>&1");
     
-    // Kill the announcement process
-    exec("kill $pid 2>&1", $output, $returnCode);
+    // Restore bgmusic volume if ducked (fallback if trap/flow missed)
+    $volumeFile = '/tmp/bgmusic_volume.txt';
+    if (file_exists($volumeFile)) {
+        $vol = intval(trim(file_get_contents($volumeFile)));
+        if ($vol >= 0 && $vol <= 100) {
+            $script = dirname(__FILE__) . '/scripts/set_bgmusic_volume.sh';
+            exec("sudo /bin/bash " . escapeshellarg($script) . " " . escapeshellarg($vol) . " 2>&1");
+        }
+    }
     
-    // Clean up PID file
+    // Clean up PID files
     @unlink($pidFile);
+    @unlink($gstPidFile);
+    @unlink('/tmp/announcement_status.txt');
     
     return json(array('status' => 'OK', 'message' => 'Announcement stopped'));
 }
@@ -980,8 +1011,26 @@ function fppBackgroundMusicPSAStatus() {
                     // Check if announcement has been running too long (stuck)
                     if ($elapsed > $maxDuration) {
                         error_log("BackgroundMusic: PSA stuck for $elapsed seconds, killing process $pid");
-                        // Kill stuck process
-                        exec("kill $pid 2>&1");
+                        // Kill stuck process — both subshell and gst child (fix #13)
+                        exec("kill " . escapeshellarg($pid) . " 2>&1");
+                        $gstPidFile = '/tmp/announcement_gst.pid';
+                        if (file_exists($gstPidFile)) {
+                            $gstPid = trim(file_get_contents($gstPidFile));
+                            if (!empty($gstPid) && is_numeric($gstPid)) {
+                                exec("kill " . escapeshellarg($gstPid) . " 2>&1");
+                                exec("kill -9 " . escapeshellarg($gstPid) . " 2>&1");
+                            }
+                        }
+                        exec("pkill -f 'node.name=bgmusic_psa' 2>&1");
+                        exec("pkill -9 -f 'node.name=bgmusic_psa' 2>&1");
+                        // Restore volume
+                        $volumeFile = '/tmp/bgmusic_volume.txt';
+                        if (file_exists($volumeFile)) {
+                            $vol = intval(trim(file_get_contents($volumeFile)));
+                            $script = dirname(__FILE__) . '/scripts/set_bgmusic_volume.sh';
+                            exec("sudo /bin/bash " . escapeshellarg($script) . " " . escapeshellarg($vol) . " 2>&1");
+                        }
+                        @unlink($gstPidFile);
                         $playing = false;
                     }
                 }
@@ -992,6 +1041,9 @@ function fppBackgroundMusicPSAStatus() {
         if (!$playing) {
             @unlink($pidFile);
             @unlink($statusFile);
+            @unlink('/tmp/announcement_gst.pid');
+            // Ensure any orphaned PSA pipeline killed
+            exec("pkill -f 'node.name=bgmusic_psa' 2>&1");
         }
     } else {
         // No PID file - ensure status file is also cleaned up

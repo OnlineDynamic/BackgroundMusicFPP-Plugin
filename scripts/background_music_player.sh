@@ -513,8 +513,10 @@ play_track_with_crossfade() {
     # If crossfade started and next track is still playing, it becomes the current track
     if [ \$crossfade_started -eq 1 ] && [ \$next_player_pid -gt 0 ] && kill -0 \$next_player_pid 2>/dev/null; then
         echo "\$next_player_pid" > "\$GST_PID_FILE"
+        rm -f "\$GST_NEXT_PID_FILE"
         return 0
     fi
+    rm -f "\$GST_NEXT_PID_FILE"
 
     return 1
 }
@@ -608,26 +610,19 @@ while true; do
             maybe_trigger_auto_psa
             current_track_index=\$next_track_index
 
-            # Monitor the crossfaded track
+            # Monitor the crossfaded track (already playing, elapsed = CROSSFADE_DURATION)
+            # Fix #17: Do NOT launch another crossfade here — outer loop handles next crossfade
+            # to avoid ghost overlap and duplicate node.name=bgmusic_crossfade
             media_file="\${playlist_files[\$current_track_index]}"
             track_name=\$(basename "\$media_file")
             track_number=\$((current_track_index + 1))
             duration=\$(get_duration "\$media_file")
             [ -z "\$duration" ] && duration=0
 
-            next_track_index=\$((current_track_index + 1))
-            [ \$next_track_index -ge \$total_tracks ] && next_track_index=0
-            next_media_file="\${playlist_files[\$next_track_index]}"
-
-            crossfade_start_time=0
-            if [ "\$duration" -gt "\$CROSSFADE_DURATION" ]; then
-                crossfade_start_time=\$((duration - CROSSFADE_DURATION))
-            fi
-
             if [ -f "\$GST_PID_FILE" ]; then
                 player_pid=\$(cat "\$GST_PID_FILE")
                 elapsed=\$CROSSFADE_DURATION
-                next_crossfade_started=0 next_player_pid=0 track_was_skipped=0
+                track_was_skipped=0
 
                 while kill -0 \$player_pid 2>/dev/null; do
                     sleep 1
@@ -637,27 +632,8 @@ while true; do
                     update_status "\$track_name" "\$duration" "\$elapsed" "\$track_number" "\$total_tracks"
                     check_manual_psa_reset
 
-                    if [ \$next_crossfade_started -eq 0 ] && [ \$crossfade_start_time -gt 0 ] && [ \$elapsed -ge \$crossfade_start_time ]; then
-                        next_crossfade_started=1
-                        gst-launch-1.0 -q \\
-                            filesrc location="\$next_media_file" ! decodebin ! audioconvert ! audioresample \\
-                            ! "audio/x-raw,rate=48000" \\
-                            ! pipewiresink target-object="\$BGMUSIC_SINK" \\
-                                stream-properties="props,node.name=bgmusic_crossfade,media.class=Stream/Output/Audio,application.name=BGMusic-Plugin" &
-                        next_player_pid=\$!
-                        echo "\$next_player_pid" > "\$GST_NEXT_PID_FILE"
-                        (
-                            sleep 0.8
-                            xf_node=\$(find_bgmusic_node "bgmusic_crossfade")
-                            if [ -n "\$xf_node" ] && [ -f "\$VOLUME_FILE" ]; then
-                                set_node_volume "\$xf_node" "\$(cat "\$VOLUME_FILE")"
-                            fi
-                        ) &
-                    fi
-
                     if [ -f "\$JUMP_FILE" ] || [ -f "\$NEXT_FILE" ] || [ -f "\$PREVIOUS_FILE" ]; then
                         kill \$player_pid 2>/dev/null
-                        [ \$next_player_pid -gt 0 ] && kill \$next_player_pid 2>/dev/null && rm -f "\$GST_NEXT_PID_FILE"
                         track_was_skipped=1
                         break
                     fi
@@ -665,11 +641,8 @@ while true; do
 
                 wait \$player_pid 2>/dev/null
                 rm -f "\$GST_PID_FILE"
-
-                if [ \$next_crossfade_started -eq 1 ] && [ \$next_player_pid -gt 0 ] && [ \$track_was_skipped -eq 0 ]; then
-                    echo "\$next_player_pid" > "\$GST_PID_FILE"
-                    crossfade_happened=1
-                fi
+            else
+                track_was_skipped=1
             fi
 
             # Count the crossfaded track (second track) if not skipped
@@ -683,6 +656,8 @@ while true; do
             fi
 
             current_track_index=\$((current_track_index + 1))
+            # Ensure stale crossfade pid file cleaned (ghost fix #17)
+            rm -f "\$GST_NEXT_PID_FILE"
             continue
         elif [ \$result -eq 2 ]; then
             track_was_skipped=1
@@ -795,49 +770,59 @@ LOOPSCRIPT
     fi
 }
 
-# Pause background music
+# Pause background music — handles both main and crossfade ghost (fix #17)
 pause_music() {
-    if [ ! -f "$GST_PID_FILE" ]; then
+    local paused_any=0
+    for pidfile in "$GST_PID_FILE" "$GST_NEXT_PID_FILE"; do
+        if [ -f "$pidfile" ]; then
+            local gst_pid=$(cat "$pidfile" 2>/dev/null)
+            if [ -n "$gst_pid" ] && ps -p "$gst_pid" > /dev/null 2>&1; then
+                kill -STOP "$gst_pid" 2>/dev/null && paused_any=1
+            fi
+        fi
+    done
+    # Fallback: check music nodes if pid files stale (fix #17: exclude PSA)
+    if [ $paused_any -eq 0 ] && ! pgrep -f "node.name=bgmusic_main" > /dev/null 2>&1 && ! pgrep -f "node.name=bgmusic_crossfade" > /dev/null 2>&1; then
         echo "No active playback to pause"
         return 1
     fi
-
-    local gst_pid=$(cat "$GST_PID_FILE")
-    if ps -p "$gst_pid" > /dev/null 2>&1; then
-        kill -STOP "$gst_pid" 2>/dev/null
-        if [ $? -eq 0 ]; then
-            echo "paused" > "$STATE_FILE"
-            [ -f "$STATUS_FILE" ] && sed -i 's/^state=.*/state=paused/' "$STATUS_FILE"
-            echo "Background music paused"
-            return 0
-        fi
+    # Fallback pkill for stale pidfiles: SIGSTOP via pkill
+    if [ $paused_any -eq 0 ]; then
+        pkill -STOP -f "node.name=bgmusic_main" 2>/dev/null || true
+        pkill -STOP -f "node.name=bgmusic_crossfade" 2>/dev/null || true
     fi
-    echo "Playback process not found"
-    return 1
+    echo "paused" > "$STATE_FILE"
+    [ -f "$STATUS_FILE" ] && sed -i 's/^state=.*/state=paused/' "$STATUS_FILE"
+    echo "Background music paused"
+    return 0
 }
 
-# Resume background music
+# Resume background music — handles both main and crossfade ghost (fix #17)
 resume_music() {
-    if [ ! -f "$GST_PID_FILE" ]; then
+    local resumed_any=0
+    for pidfile in "$GST_PID_FILE" "$GST_NEXT_PID_FILE"; do
+        if [ -f "$pidfile" ]; then
+            local gst_pid=$(cat "$pidfile" 2>/dev/null)
+            if [ -n "$gst_pid" ] && ps -p "$gst_pid" > /dev/null 2>&1; then
+                kill -CONT "$gst_pid" 2>/dev/null && resumed_any=1
+            fi
+        fi
+    done
+    if [ $resumed_any -eq 0 ] && ! pgrep -f "node.name=bgmusic_main" > /dev/null 2>&1 && ! pgrep -f "node.name=bgmusic_crossfade" > /dev/null 2>&1; then
         echo "No paused playback to resume"
         return 1
     fi
-
-    local gst_pid=$(cat "$GST_PID_FILE")
-    if ps -p "$gst_pid" > /dev/null 2>&1; then
-        kill -CONT "$gst_pid" 2>/dev/null
-        if [ $? -eq 0 ]; then
-            echo "playing" > "$STATE_FILE"
-            [ -f "$STATUS_FILE" ] && sed -i 's/^state=.*/state=playing/' "$STATUS_FILE"
-            echo "Background music resumed"
-            return 0
-        fi
+    if [ $resumed_any -eq 0 ]; then
+        pkill -CONT -f "node.name=bgmusic_main" 2>/dev/null || true
+        pkill -CONT -f "node.name=bgmusic_crossfade" 2>/dev/null || true
     fi
-    echo "Playback process not found"
-    return 1
+    echo "playing" > "$STATE_FILE"
+    [ -f "$STATUS_FILE" ] && sed -i 's/^state=.*/state=playing/' "$STATUS_FILE"
+    echo "Background music resumed"
+    return 0
 }
 
-# Jump to specific track
+# Jump to specific track — kills both main and crossfade pipelines (fix #17)
 jump_to_track() {
     local track_number="$1"
     if [ -z "$track_number" ] || [ "$track_number" -lt 1 ]; then
@@ -847,41 +832,66 @@ jump_to_track() {
     echo "$track_number" > /tmp/bg_music_jump.txt
     chown fpp:fpp /tmp/bg_music_jump.txt 2>/dev/null
 
-    if [ -f "$GST_PID_FILE" ]; then
-        local gst_pid=$(cat "$GST_PID_FILE")
-        kill "$gst_pid" 2>/dev/null
-    fi
+    for pidfile in "$GST_PID_FILE" "$GST_NEXT_PID_FILE"; do
+        if [ -f "$pidfile" ]; then
+            local gst_pid=$(cat "$pidfile" 2>/dev/null)
+            [ -n "$gst_pid" ] && kill "$gst_pid" 2>/dev/null
+        fi
+    done
     echo "Jumping to track $track_number"
     return 0
 }
 
-# Skip to next track
+# Skip to next track — kills both pipelines (fix #17)
 next_track() {
     echo "1" > /tmp/bg_music_next.txt
     chown fpp:fpp /tmp/bg_music_next.txt 2>/dev/null
-    if [ -f "$GST_PID_FILE" ]; then
-        local gst_pid=$(cat "$GST_PID_FILE")
-        if ps -p "$gst_pid" > /dev/null 2>&1; then
-            kill "$gst_pid" 2>/dev/null
-            echo "Skipping to next track"
-            return 0
+    local killed=0
+    for pidfile in "$GST_PID_FILE" "$GST_NEXT_PID_FILE"; do
+        if [ -f "$pidfile" ]; then
+            local gst_pid=$(cat "$pidfile" 2>/dev/null)
+            if [ -n "$gst_pid" ] && ps -p "$gst_pid" > /dev/null 2>&1; then
+                kill "$gst_pid" 2>/dev/null && killed=1
+            fi
         fi
+    done
+    if [ $killed -eq 1 ]; then
+        echo "Skipping to next track"
+        return 0
+    fi
+    # Fallback if pid files stale but pgrep shows bgmusic (exclude PSA)
+    if pgrep -f "node.name=bgmusic_main" > /dev/null 2>&1 || pgrep -f "node.name=bgmusic_crossfade" > /dev/null 2>&1; then
+        pkill -f "node.name=bgmusic_main" 2>/dev/null || true
+        pkill -f "node.name=bgmusic_crossfade" 2>/dev/null || true
+        echo "Skipping to next track (via pkill)"
+        return 0
     fi
     echo "No track currently playing"
     return 1
 }
 
-# Go to previous track
+# Go to previous track — kills both pipelines (fix #17)
 previous_track() {
     echo "1" > /tmp/bg_music_previous.txt
     chown fpp:fpp /tmp/bg_music_previous.txt 2>/dev/null
-    if [ -f "$GST_PID_FILE" ]; then
-        local gst_pid=$(cat "$GST_PID_FILE")
-        if ps -p "$gst_pid" > /dev/null 2>&1; then
-            kill "$gst_pid" 2>/dev/null
-            echo "Going to previous track"
-            return 0
+    local killed=0
+    for pidfile in "$GST_PID_FILE" "$GST_NEXT_PID_FILE"; do
+        if [ -f "$pidfile" ]; then
+            local gst_pid=$(cat "$pidfile" 2>/dev/null)
+            if [ -n "$gst_pid" ] && ps -p "$gst_pid" > /dev/null 2>&1; then
+                kill "$gst_pid" 2>/dev/null && killed=1
+            fi
         fi
+    done
+    if [ $killed -eq 1 ]; then
+        echo "Going to previous track"
+        return 0
+    fi
+    if pgrep -f "node.name=bgmusic_main" > /dev/null 2>&1 || pgrep -f "node.name=bgmusic_crossfade" > /dev/null 2>&1; then
+        pkill -f "node.name=bgmusic_main" 2>/dev/null || true
+        pkill -f "node.name=bgmusic_crossfade" 2>/dev/null || true
+        echo "Going to previous track (via pkill)"
+        return 0
     fi
     echo "No track currently playing"
     return 1
@@ -923,6 +933,21 @@ stop_music() {
     # Kill any remaining loop scripts
     pkill -f "bg_music_loop.sh" 2>/dev/null
     pkill -9 -f "bg_music_loop.sh" 2>/dev/null
+
+    # Also stop any PSA announcement (fix #13)
+    if [ -f "/tmp/announcement_player.pid" ] || [ -f "/tmp/announcement_gst.pid" ] || pgrep -f "node.name=bgmusic_psa" > /dev/null 2>&1; then
+        echo "Stopping PSA announcement..."
+        if [ -f "/tmp/announcement_gst.pid" ]; then
+            _gpid=$(cat /tmp/announcement_gst.pid 2>/dev/null)
+            [ -n "$_gpid" ] && kill "$_gpid" 2>/dev/null; sleep 0.2; [ -n "$_gpid" ] && kill -9 "$_gpid" 2>/dev/null
+        fi
+        if [ -f "/tmp/announcement_player.pid" ]; then
+            _apid=$(cat /tmp/announcement_player.pid 2>/dev/null)
+            [ -n "$_apid" ] && kill "$_apid" 2>/dev/null; sleep 0.2; [ -n "$_apid" ] && kill -9 "$_apid" 2>/dev/null
+        fi
+        pkill -f "node.name=bgmusic_psa" 2>/dev/null; sleep 0.2; pkill -9 -f "node.name=bgmusic_psa" 2>/dev/null
+        rm -f /tmp/announcement_player.pid /tmp/announcement_gst.pid /tmp/announcement_status.txt
+    fi
 
     # Clean up all state files
     rm -f "$PID_FILE" "/tmp/background_music_start.pid" "$PLAYLIST_FILE"

@@ -179,7 +179,9 @@ kill_bgmusic_gst() {
         fi
     done
     # Also kill any orphaned gst-launch processes with our node names
-    pkill -f "node.name=bgmusic_" 2>/dev/null || true
+    # Fix #17: only kill music nodes, not PSA (PSA handled separately)
+    pkill -f "node.name=bgmusic_main" 2>/dev/null || true
+    pkill -f "node.name=bgmusic_crossfade" 2>/dev/null || true
     if [ -n "$pids" ]; then
         sleep 0.3
         for pid in $pids; do

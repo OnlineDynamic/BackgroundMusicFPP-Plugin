@@ -45,18 +45,27 @@ fi
 
 log_message "[PSA] Original vol: ${ORIGINAL_VOLUME}%, duck: ${DUCK_VOLUME}%, PSA vol: ${ANNOUNCEMENT_VOLUME}%"
 
-# Duck background music if playing
+# Duck background music if playing — duck both main and crossfade nodes (fix #13 + #17)
 BG_MUSIC_PLAYING=false
-if [ -f "$GST_PID_FILE" ]; then
-    gst_pid=$(cat "$GST_PID_FILE")
-    if ps -p "$gst_pid" > /dev/null 2>&1; then
-        BG_MUSIC_PLAYING=true
-        BG_NODE=$(find_bgmusic_node "bgmusic_main")
+# Check if any bgmusic pipeline is active via pid files or pgrep
+HAS_BGMUSIC=false
+for _pidfile in "$GST_PID_FILE" "$GST_NEXT_PID_FILE"; do
+    if [ -f "$_pidfile" ]; then
+        _pid=$(cat "$_pidfile" 2>/dev/null)
+        if [ -n "$_pid" ] && ps -p "$_pid" > /dev/null 2>&1; then HAS_BGMUSIC=true; break; fi
+    fi
+done
+if [ "$HAS_BGMUSIC" = false ] && { pgrep -f "node.name=bgmusic_main" > /dev/null 2>&1 || pgrep -f "node.name=bgmusic_crossfade" > /dev/null 2>&1; }; then HAS_BGMUSIC=true; fi
+
+if [ "$HAS_BGMUSIC" = true ]; then
+    BG_MUSIC_PLAYING=true
+    for _node_name in bgmusic_main bgmusic_crossfade; do
+        BG_NODE=$(find_bgmusic_node "$_node_name")
         if [ -n "$BG_NODE" ]; then
-            log_message "[PSA] Ducking bgmusic_main (node $BG_NODE) to ${DUCK_VOLUME}%"
+            log_message "[PSA] Ducking $_node_name (node $BG_NODE) to ${DUCK_VOLUME}%"
             set_node_volume "$BG_NODE" "$DUCK_VOLUME"
         fi
-    fi
+    done
 fi
 
 # Get announcement duration
@@ -78,8 +87,9 @@ startTime=$(date +%s)
 duration=$DURATION
 EOF
 
-# Play announcement in background subshell
+# Play announcement in background subshell — trap ensures gst killed if subshell killed (fix #13)
 (
+    trap 'kill $PSA_PID 2>/dev/null' TERM INT
     # Play PSA through its own GStreamer pipeline with a distinct node name
     gst-launch-1.0 -q \
         filesrc location="$ANNOUNCEMENT_FILE" \
@@ -88,6 +98,7 @@ EOF
         ! pipewiresink target-object="$BGMUSIC_SINK" \
             stream-properties="props,node.name=bgmusic_psa,media.class=Stream/Output/Audio,application.name=BGMusic-Plugin" &
     PSA_PID=$!
+    echo "$PSA_PID" > "/tmp/announcement_gst.pid"
 
     log_message "[PSA] GStreamer started (PID: $PSA_PID)"
 
@@ -101,6 +112,7 @@ EOF
 
     wait $PSA_PID 2>/dev/null
     PLAY_RESULT=$?
+    rm -f "/tmp/announcement_gst.pid"
 
     if [ $PLAY_RESULT -eq 0 ]; then
         log_message "[PSA] Completed successfully"
@@ -108,19 +120,32 @@ EOF
         log_message "[PSA] Playback failed (exit $PLAY_RESULT)"
     fi
 
-    # Restore background music volume
+    # Restore background music volume — restore both main and crossfade (fix #13 + #17)
     if [ "$BG_MUSIC_PLAYING" = true ]; then
         RESTORE_VOLUME=$ORIGINAL_VOLUME
         [ -f "$VOLUME_FILE" ] && RESTORE_VOLUME=$(cat "$VOLUME_FILE")
 
-        BG_NODE=$(find_bgmusic_node "bgmusic_main")
-        if [ -n "$BG_NODE" ]; then
-            set_node_volume "$BG_NODE" "$RESTORE_VOLUME"
-            log_message "[PSA] Restored bgmusic volume to ${RESTORE_VOLUME}%"
+        for _node_name in bgmusic_main bgmusic_crossfade; do
+            BG_NODE=$(find_bgmusic_node "$_node_name")
+            if [ -n "$BG_NODE" ]; then
+                set_node_volume "$BG_NODE" "$RESTORE_VOLUME"
+                log_message "[PSA] Restored $_node_name (node $BG_NODE) volume to ${RESTORE_VOLUME}%"
+            fi
+        done
+        # Fallback: if no node found but bgmusic still active, try again after short delay (PipeWire node recreation)
+        if [ -z "$(find_bgmusic_node "bgmusic_main")" ] && [ -z "$(find_bgmusic_node "bgmusic_crossfade")" ]; then
+            sleep 0.5
+            for _node_name in bgmusic_main bgmusic_crossfade; do
+                BG_NODE=$(find_bgmusic_node "$_node_name")
+                if [ -n "$BG_NODE" ]; then
+                    set_node_volume "$BG_NODE" "$RESTORE_VOLUME"
+                    log_message "[PSA] Restored (retry) $_node_name (node $BG_NODE) volume to ${RESTORE_VOLUME}%"
+                fi
+            done
         fi
     fi
 
-    rm -f "$ANNOUNCEMENT_PID_FILE" "$ANNOUNCEMENT_STATUS_FILE"
+    rm -f "$ANNOUNCEMENT_PID_FILE" "$ANNOUNCEMENT_STATUS_FILE" "/tmp/announcement_gst.pid"
 ) &
 
 ANNOUNCEMENT_PID=$!

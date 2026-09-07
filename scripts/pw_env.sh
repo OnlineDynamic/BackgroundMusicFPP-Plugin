@@ -149,6 +149,43 @@ get_plugin_setting() {
 }
 
 ###############################################################################
+# TTS lead-in silence (fix #18)
+#
+# A PSA is played by handing the file to a brand new GStreamer -> pipewiresink
+# stream. That stream takes roughly a second to be created, routed and linked
+# to the sink (play_announcement.sh has to sleep 0.8s before the node even
+# exists to set its volume). The pipeline is already PLAYING against the
+# PipeWire clock during that window, so buffers rendered before the link is up
+# are late and get dropped.
+#
+# Most recorded announcements start with a bit of room tone, so the loss goes
+# unnoticed. Piper/ElevenLabs output starts speaking at sample 0, so the first
+# word or two disappeared. Padding the front of every TTS clip with silence
+# gives the stream something disposable to lose.
+###############################################################################
+
+# Lead-in duration in milliseconds. Configurable via the TTSLeadInMs plugin
+# setting; 0 disables padding entirely.
+tts_leadin_ms() {
+    local ms
+    ms=$(get_plugin_setting "TTSLeadInMs" "1000")
+    case "$ms" in
+        ''|*[!0-9]*) ms=1000 ;;
+    esac
+    echo "$ms"
+}
+
+# Emit the ffmpeg filter arguments for a lead-in, or nothing when disabled.
+# Usage: ffmpeg -i in.wav $(tts_leadin_filter "$MS") ... out.mp3
+tts_leadin_filter() {
+    local ms="$1"
+    if [ -z "$ms" ] || [ "$ms" = "0" ]; then
+        return 0
+    fi
+    echo "-af adelay=${ms}:all=1"
+}
+
+###############################################################################
 # PipeWire sink target — resolve from plugin setting, fall back to FPP default
 ###############################################################################
 _cfg_sink=$(get_plugin_setting "PipeWireInputGroup" "")

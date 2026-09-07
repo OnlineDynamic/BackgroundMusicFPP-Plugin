@@ -62,6 +62,11 @@ if [[ "$OUTPUT_FILE" != *.mp3 ]]; then
     OUTPUT_FILE="${OUTPUT_FILE}.mp3"
 fi
 
+# Lead-in silence (fix #18) — see tts_leadin_ms() in pw_env.sh
+SCRIPT_DIR="$(dirname "$0")"
+. "${SCRIPT_DIR}/pw_env.sh"
+LEADIN_MS=$(tts_leadin_ms)
+
 # Create temporary WAV file
 TEMP_WAV="/tmp/piper_tts_$(date +%s).wav"
 
@@ -81,8 +86,9 @@ fi
 
 echo "Converting to MP3..."
 
-# Convert WAV to MP3 using ffmpeg
-ffmpeg -i "$TEMP_WAV" -codec:a libmp3lame -qscale:a 2 "$OUTPUT_FILE" -y 2>&1 | grep -v "^frame="
+# Convert WAV to MP3 using ffmpeg, padding the front with lead-in silence
+ffmpeg -i "$TEMP_WAV" $(tts_leadin_filter "$LEADIN_MS") \
+    -codec:a libmp3lame -qscale:a 2 "$OUTPUT_FILE" -y 2>&1 | grep -v "^frame="
 
 if [ $? -eq 0 ] && [ -f "$OUTPUT_FILE" ]; then
     echo "✓ TTS audio generated successfully: $OUTPUT_FILE"

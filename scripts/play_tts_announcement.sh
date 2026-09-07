@@ -6,6 +6,9 @@ PLUGIN_DIR="/home/fpp/media/plugins/fpp-plugin-BackgroundMusic"
 PIPER_DIR="${PLUGIN_DIR}/piper"
 PIPER_BIN="${PIPER_DIR}/piper"
 
+SCRIPT_DIR="$(dirname "$0")"
+. "${SCRIPT_DIR}/pw_env.sh"
+
 # Check if Piper is installed
 if [ ! -f "${PIPER_BIN}" ]; then
     echo "Error: Piper TTS not installed. Run install_piper.sh first."
@@ -37,12 +40,25 @@ if [ $? -ne 0 ] || [ ! -f "$TEMP_WAV" ]; then
     exit 1
 fi
 
-# Convert to MP3 for better compatibility
-ffmpeg -i "$TEMP_WAV" -codec:a libmp3lame -qscale:a 2 "$TEMP_MP3" -y 2>&1 > /dev/null
+# Convert to MP3 for better compatibility, padding the front with lead-in
+# silence so the PSA stream's start-up gap swallows silence, not speech (#18)
+LEADIN_MS=$(tts_leadin_ms)
+LEADIN_FILTER=$(tts_leadin_filter "$LEADIN_MS")
+
+ffmpeg -i "$TEMP_WAV" $LEADIN_FILTER -codec:a libmp3lame -qscale:a 2 "$TEMP_MP3" -y > /dev/null 2>&1
 
 if [ $? -ne 0 ] || [ ! -f "$TEMP_MP3" ]; then
-    echo "Error: MP3 conversion failed, trying WAV directly"
-    TEMP_MP3="$TEMP_WAV"
+    echo "Error: MP3 conversion failed, padding WAV directly"
+    # Still pad the WAV — without a lead-in the first word is lost
+    TEMP_PADDED_WAV="${TEMP_WAV%.wav}_padded.wav"
+    if [ -n "$LEADIN_FILTER" ] && \
+       ffmpeg -i "$TEMP_WAV" $LEADIN_FILTER "$TEMP_PADDED_WAV" -y > /dev/null 2>&1 && \
+       [ -f "$TEMP_PADDED_WAV" ]; then
+        TEMP_MP3="$TEMP_PADDED_WAV"
+    else
+        echo "Warning: could not pad audio, first word may be clipped"
+        TEMP_MP3="$TEMP_WAV"
+    fi
 fi
 
 # Now use the existing play_announcement.sh script to play it
@@ -67,7 +83,7 @@ fi
 
 # Cleanup
 sleep 0.5
-rm -f "$TEMP_WAV" "$TEMP_MP3"
+rm -f "$TEMP_WAV" "$TEMP_MP3" "$TEMP_PADDED_WAV"
 
 if [ $RESULT -eq 0 ]; then
     echo "✓ Real-time TTS announcement played successfully"

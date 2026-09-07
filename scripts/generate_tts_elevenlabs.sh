@@ -5,6 +5,9 @@
 PLUGIN_CONFIG="/home/fpp/media/config/plugin.fpp-plugin-BackgroundMusic"
 MUSIC_DIR="/home/fpp/media/music"
 
+SCRIPT_DIR="$(dirname "$0")"
+. "${SCRIPT_DIR}/pw_env.sh"
+
 # Get parameters
 TEXT="$1"
 OUTPUT_FILE="$2"
@@ -79,7 +82,22 @@ HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
 
 if [ "$HTTP_CODE" = "200" ] && [ -f "$OUTPUT_FILE" ] && [ -s "$OUTPUT_FILE" ]; then
     echo "✓ TTS audio generated successfully: $OUTPUT_FILE"
-    
+
+    # Pad the front with lead-in silence so the PSA stream's start-up gap
+    # swallows silence instead of the first word (#18)
+    LEADIN_FILTER=$(tts_leadin_filter "$(tts_leadin_ms)")
+    if [ -n "$LEADIN_FILTER" ]; then
+        PADDED_FILE="${OUTPUT_FILE}.padded.mp3"
+        if ffmpeg -i "$OUTPUT_FILE" $LEADIN_FILTER \
+                -codec:a libmp3lame -qscale:a 2 "$PADDED_FILE" -y > /dev/null 2>&1 \
+                && [ -s "$PADDED_FILE" ]; then
+            mv -f "$PADDED_FILE" "$OUTPUT_FILE"
+        else
+            echo "Warning: could not add lead-in silence, first word may be clipped"
+            rm -f "$PADDED_FILE"
+        fi
+    fi
+
     # Set proper permissions
     chmod 644 "$OUTPUT_FILE"
     

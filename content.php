@@ -891,6 +891,21 @@ $audioFiles = getAudioFiles();
                             <small>Choose between local Piper TTS or cloud-based ElevenLabs</small>
                         </td>
                     </tr>
+                    <tr>
+                        <td class="label">Lead-in Silence (ms):</td>
+                        <td class="value">
+                            <?php
+                            $ttsLeadInMs = isset($pluginSettings['TTSLeadInMs']) ? $pluginSettings['TTSLeadInMs'] : '1000';
+                            ?>
+                            <input type="number" id="TTSLeadInMs" name="TTSLeadInMs" min="0" max="5000" step="100"
+                                value="<?php echo htmlspecialchars($ttsLeadInMs); ?>"
+                                style="width: 300px;" class="form-control">
+                            <small>Silence added to the start of generated speech. The announcement audio
+                            stream takes about a second to connect, and anything played before then is lost,
+                            which clipped the first word. Lower this only if your announcements start late;
+                            set to 0 to disable.</small>
+                        </td>
+                    </tr>
                 </table>
                 
                 <!-- ElevenLabs Settings (hidden by default) -->
@@ -1140,6 +1155,7 @@ $audioFiles = getAudioFiles();
                 'PsaAutoTrack': $('#PsaAutoTrack').val() || '0',
                 // TTS settings
                 'TTSEngine': $('#TTSEngine').val(),
+                'TTSLeadInMs': $('#TTSLeadInMs').val() || '1000',
                 'ElevenLabsAPIKey': $('#ElevenLabsAPIKey').val(),
                 'ElevenLabsVoiceID': $('#ElevenLabsVoiceID').val()
             };

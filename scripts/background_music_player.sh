@@ -215,7 +215,7 @@ while true; do
     [ ! -f "$STATUS_FILE" ] && break
 
     gst-launch-1.0 -q \
-        souphttpsrc location="$STREAM_URL" is-live=true \
+        souphttpsrc location="$STREAM_URL" \
         ! decodebin ! audioconvert ! audioresample \
         ! "audio/x-raw,rate=48000" \
         ! pipewiresink target-object="$BGMUSIC_SINK" \

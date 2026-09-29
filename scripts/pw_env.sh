@@ -73,7 +73,7 @@ gst_play_stream() {
     local url="$1"
     local node_name="${2:-bgmusic_main}"
     gst-launch-1.0 -q \
-        souphttpsrc location="$url" is-live=true \
+        souphttpsrc location="$url" \
         ! decodebin \
         ! audioconvert \
         ! audioresample \

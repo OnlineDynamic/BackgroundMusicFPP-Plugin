@@ -19,7 +19,16 @@ if [ -f "/home/fpp/media/config/plugin.fpp-plugin-BackgroundMusic" ]; then
     # Clean up old bgmplayer/ffplay processes from previous versions
     echo "Cleaning up old processes..."
     pkill -f "bgmplayer" 2>/dev/null || true
-    pkill -f "ffplay" 2>/dev/null || true
+    # Only kill ffplay instances this plugin started (tracked via its PID files),
+    # never other plugins' ffplay players (e.g. Encore Radio)
+    for f in /tmp/bg_music_ffplay.pid /tmp/bg_music_ffplay_next.pid; do
+        if [ -f "$f" ]; then
+            pid=$(cat "$f" 2>/dev/null || true)
+            if [ -n "$pid" ] && [ "$(ps -p "$pid" -o comm= 2>/dev/null)" = "ffplay" ]; then
+                kill "$pid" 2>/dev/null || true
+            fi
+        fi
+    done
     pkill -f "node.name=bgmusic_" 2>/dev/null || true
     rm -f /tmp/bg_music_ffplay.pid /tmp/bg_music_ffplay_next.pid 2>/dev/null
     rm -f /tmp/bg_music_bgmplayer.pid /tmp/bg_music_bgmplayer_next.pid 2>/dev/null

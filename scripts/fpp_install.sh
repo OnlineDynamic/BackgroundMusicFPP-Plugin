@@ -120,11 +120,11 @@ if [ ! -d "/home/fpp/media/plugins/fpp-brightness" ]; then
     echo "Attempting to install fpp-brightness plugin automatically..."
     echo ""
     
-    # Try to install via git clone, pinned to a commit we've reviewed rather than
-    # tracking whatever is currently on the default branch
+    # Try to install via git clone of the latest master branch, matching what
+    # FPP's Plugin Manager installs so the plugin can be updated normally
     cd /home/fpp/media/plugins
-    if git clone https://github.com/FalconChristmas/fpp-brightness.git && git -C /home/fpp/media/plugins/fpp-brightness checkout f85cab1ec633d163b3736f06829a99852fa85da1; then
-        echo "✓ fpp-brightness plugin cloned and pinned to reviewed commit f85cab1ec633d163b3736f06829a99852fa85da1"
+    if git clone -b master https://github.com/FalconChristmas/fpp-brightness.git; then
+        echo "✓ fpp-brightness plugin cloned (latest master)"
 
         # Run its install script if it exists
         if [ -f "/home/fpp/media/plugins/fpp-brightness/install.sh" ]; then

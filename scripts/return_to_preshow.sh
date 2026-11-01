@@ -48,12 +48,23 @@ if [ "$POST_SHOW_DELAY" -gt 0 ]; then
     sleep "$POST_SHOW_DELAY"
 fi
 
-# In idle-only mode, confirm FPP is still idle before restarting music. If
-# something started playing during the delay, go back to monitoring instead.
+# In idle-only mode, confirm FPP is still idle (or running the pre-show) before
+# restarting music. If something else started during the delay, go back to monitoring.
 RESUME_ONLY_WHEN_IDLE=$(grep "^ResumeOnlyWhenIdle=" "$PLUGIN_CONFIG" | cut -d'=' -f2 | tr -d '\r')
 if [ "$RESUME_ONLY_WHEN_IDLE" = "1" ]; then
-    FPP_STATUS=$(curl -s --connect-timeout 3 --max-time 5 "http://localhost/api/fppd/status" | jq -r '.status_name // ""')
-    if [ "$FPP_STATUS" != "idle" ]; then
+    PRESHOW_SEQUENCE=$(grep "^PreShowSequence=" "$PLUGIN_CONFIG" | cut -d'=' -f2- | tr -d '\r' | sed 's/^"//; s/"$//')
+    STATUS=$(curl -s --connect-timeout 3 --max-time 5 "http://localhost/api/fppd/status")
+    FPP_STATUS=$(echo "$STATUS" | jq -r '.status_name // ""')
+    CURRENT_PLAYLIST=$(echo "$STATUS" | jq -r '.current_playlist.playlist // ""')
+    CURRENT_SEQUENCE=$(echo "$STATUS" | jq -r '.current_sequence // ""')
+    PRESHOW_RUNNING=false
+    if [ -n "$PRESHOW_SEQUENCE" ]; then
+        if [ "$CURRENT_PLAYLIST" = "$PRESHOW_SEQUENCE" ] || \
+           { [ -n "$CURRENT_SEQUENCE" ] && [ "${CURRENT_SEQUENCE%.fseq}" = "${PRESHOW_SEQUENCE%.fseq}" ]; }; then
+            PRESHOW_RUNNING=true
+        fi
+    fi
+    if [ "$FPP_STATUS" != "idle" ] && [ "$PRESHOW_RUNNING" != "true" ]; then
         log_message "FPP is no longer idle (status: ${FPP_STATUS:-unknown}) - not restarting background music, resuming show monitor"
         SCRIPT_DIR="$(dirname "$0")"
         nohup /bin/bash "$SCRIPT_DIR/monitor_show_completion.sh" "$SHOW_PLAYLIST" >> "$LOG_FILE" 2>&1 &

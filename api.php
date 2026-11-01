@@ -390,6 +390,8 @@ function fppBackgroundMusicStatus() {
             'fadeTime' => isset($pluginSettings['FadeTime']) ? $pluginSettings['FadeTime'] : 5,
             'blackoutTime' => isset($pluginSettings['BlackoutTime']) ? $pluginSettings['BlackoutTime'] : 2,
             'returnToPreShow' => $returnToPreShow,
+            'resumeMode' => isset($pluginSettings['ResumeMode']) ? $pluginSettings['ResumeMode'] : 'continue',
+            'preShowSequence' => isset($pluginSettings['PreShowSequence']) ? $pluginSettings['PreShowSequence'] : '',
             'resumeOnlyWhenIdle' => isset($pluginSettings['ResumeOnlyWhenIdle']) && $pluginSettings['ResumeOnlyWhenIdle'] == '1' ? '1' : '0',
             'postShowDelay' => isset($pluginSettings['PostShowDelay']) ? $pluginSettings['PostShowDelay'] : 0,
             'shuffleMusic' => $shuffleMusic,
@@ -2105,6 +2107,9 @@ function fppBackgroundMusicSystemDiagnostics() {
     
     $resumeOnlyWhenIdle = $pluginSettings['ResumeOnlyWhenIdle'] ?? '0';
     $diagnostics .= "Resume Only When FPP Is Idle: " . ($resumeOnlyWhenIdle == '1' ? 'Enabled' : 'Disabled') . "\n";
+    
+    $preShowSequence = $pluginSettings['PreShowSequence'] ?? '';
+    $diagnostics .= "Pre-Show Playlist/Sequence: " . ($preShowSequence != '' ? $preShowSequence : 'Not Set') . "\n";
     
     $shuffleMusic = $pluginSettings['ShuffleMusic'] ?? '0';
     $diagnostics .= "Shuffle Music: " . ($shuffleMusic == '1' ? 'Enabled' : 'Disabled') . "\n";

@@ -133,6 +133,19 @@ function filterNonEmptyPlaylists($playlists) {
     return $nonEmptyPlaylists;
 }
 
+// Get sequence (.fseq) files
+function getSequences() {
+    $sequences = array();
+    $files = glob('/home/fpp/media/sequences/*.fseq');
+    if ($files) {
+        foreach ($files as $file) {
+            $sequences[] = basename($file);
+        }
+        sort($sequences);
+    }
+    return $sequences;
+}
+
 $allPlaylists = getPlaylists();
 // Filter out empty playlists from all playlists first
 $allPlaylists = filterNonEmptyPlaylists($allPlaylists);
@@ -141,6 +154,8 @@ $mediaOnlyPlaylists = getMediaOnlyPlaylists($allPlaylists);
 
 // Get audio files for PSA configuration
 $audioFiles = getAudioFiles();
+
+$allSequences = getSequences();
 ?>
 
 <style>
@@ -637,7 +652,32 @@ $audioFiles = getAudioFiles();
                                 Ignore playlist name changes and only treat the show as ended when FPP is idle
                             </label>
                         </div>
-                        <small>Enable if your show uses "Insert Random Item From Playlist" or nested playlists. Requires FPP to go idle after the show (e.g. pre-show lighting via FPP's idle effect rather than a scheduled playlist)</small>
+                        <small>Enable if your show uses "Insert Random Item From Playlist" or nested playlists. Requires FPP to go idle after the show, or a Pre-Show Playlist/Sequence to be set below</small>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="label">Pre-Show Playlist/Sequence:</td>
+                    <td class="value">
+                        <select name="PreShowSequence" id="PreShowSequence">
+                            <option value="">-- None (FPP idle only) --</option>
+                            <?php
+                            $savedPreShow = isset($pluginSettings['PreShowSequence']) ? $pluginSettings['PreShowSequence'] : '';
+                            echo '<optgroup label="Playlists">';
+                            foreach ($allPlaylists as $playlist) {
+                                $selected = ($savedPreShow != '' && $savedPreShow == $playlist) ? 'selected' : '';
+                                echo '<option value="' . htmlspecialchars($playlist) . '" ' . $selected . '>' .
+                                     htmlspecialchars($playlist) . '</option>';
+                            }
+                            echo '</optgroup><optgroup label="Sequences">';
+                            foreach ($allSequences as $sequence) {
+                                $selected = ($savedPreShow != '' && $savedPreShow == $sequence) ? 'selected' : '';
+                                echo '<option value="' . htmlspecialchars($sequence) . '" ' . $selected . '>' .
+                                     htmlspecialchars($sequence) . '</option>';
+                            }
+                            echo '</optgroup>';
+                            ?>
+                        </select>
+                        <small>Used with "Resume Only When FPP Is Idle": the show is also treated as ended when this pre-show playlist or sequence starts (e.g. resumed by the FPP scheduler)</small>
                     </td>
                 </tr>
                 <tr>
@@ -1152,6 +1192,7 @@ $audioFiles = getAudioFiles();
                 'BlackoutTime': $('#BlackoutTime').val(),
                 'ReturnToPreShow': $('#ReturnToPreShow').is(':checked') ? '1' : '0',
                 'ResumeOnlyWhenIdle': $('#ResumeOnlyWhenIdle').is(':checked') ? '1' : '0',
+                'PreShowSequence': $('#PreShowSequence').val(),
                 'ResumeMode': $('#ResumeMode').val(),
                 'PostShowDelay': $('#PostShowDelay').val(),
                 'PostShowBackgroundVolume': $('#PostShowBackgroundVolume').val(),

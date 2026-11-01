@@ -417,7 +417,9 @@
                     automatically restarts (scheduler will resume pre-show sequence per its schedule).
                     By default the show is considered ended when the running playlist name changes or FPP goes idle.
                     If your show uses "Insert Random Item From Playlist" or nested playlists, enable
-                    "Resume Only When FPP Is Idle" so the music only restarts once FPP reports idle.</li>
+                    "Resume Only When FPP Is Idle" so the music only restarts once FPP reports idle.
+                    If your pre-show lights come from a scheduled playlist or sequence rather than FPP's idle
+                    effect, also set "Pre-Show Playlist/Sequence" so the plugin recognises it as the show ending.</li>
             </ul>
             
             <h2>Features</h2>

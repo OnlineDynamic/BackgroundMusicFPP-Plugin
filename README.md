@@ -251,6 +251,7 @@ Content-Type: application/json
   "ShuffleMusic": 1,
   "ReturnToPreShow": 1,
   "ResumeOnlyWhenIdle": 0,
+  "PreShowSequence": "",
   "PostShowDelay": 5
 }
 ```

@@ -766,6 +766,10 @@
                 <span id="configResumeOnlyWhenIdle">-</span>
             </div>
             <div class="statusItem">
+                <span class="statusLabel">Pre-Show Playlist/Sequence:</span>
+                <span id="configPreShowSequence">-</span>
+            </div>
+            <div class="statusItem">
                 <span class="statusLabel">Resume Playlist:</span>
                 <span id="configResumeMode">-</span>
             </div>
@@ -966,6 +970,7 @@
                     
                     $('#configReturnToPreShow').text(data.config.returnToPreShow == '1' ? 'Yes' : 'No');
                     $('#configResumeOnlyWhenIdle').text(data.config.resumeOnlyWhenIdle == '1' ? 'Yes' : 'No');
+                    $('#configPreShowSequence').text(data.config.preShowSequence || 'Not Set');
                     var resumeMode = data.config.resumeMode || 'continue';
                     $('#configResumeMode').text(resumeMode == 'continue' ? 'Continue from Next Track' : 'Restart from Beginning');
                     $('#configPostShowDelay').text(data.config.postShowDelay || '0');

@@ -8,6 +8,7 @@
 # 2. Let FPP scheduler resume control of the pre-show sequence
 ##########################################################################
 
+SHOW_PLAYLIST="$1"
 PLUGIN_CONFIG="/home/fpp/media/config/plugin.fpp-plugin-BackgroundMusic"
 LOG_FILE="/home/fpp/media/logs/fpp-plugin-BackgroundMusic.log"
 
@@ -45,6 +46,19 @@ fi
 if [ "$POST_SHOW_DELAY" -gt 0 ]; then
     log_message "Waiting ${POST_SHOW_DELAY} seconds before restarting background music"
     sleep "$POST_SHOW_DELAY"
+fi
+
+# In idle-only mode, confirm FPP is still idle before restarting music. If
+# something started playing during the delay, go back to monitoring instead.
+RESUME_ONLY_WHEN_IDLE=$(grep "^ResumeOnlyWhenIdle=" "$PLUGIN_CONFIG" | cut -d'=' -f2 | tr -d '\r')
+if [ "$RESUME_ONLY_WHEN_IDLE" = "1" ]; then
+    FPP_STATUS=$(curl -s --connect-timeout 3 --max-time 5 "http://localhost/api/fppd/status" | jq -r '.status_name // ""')
+    if [ "$FPP_STATUS" != "idle" ]; then
+        log_message "FPP is no longer idle (status: ${FPP_STATUS:-unknown}) - not restarting background music, resuming show monitor"
+        SCRIPT_DIR="$(dirname "$0")"
+        nohup /bin/bash "$SCRIPT_DIR/monitor_show_completion.sh" "$SHOW_PLAYLIST" >> "$LOG_FILE" 2>&1 &
+        exit 0
+    fi
 fi
 
 # Read the PostShowBackgroundVolume setting

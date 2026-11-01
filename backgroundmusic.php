@@ -762,6 +762,10 @@
                 <span id="configReturnToPreShow">-</span>
             </div>
             <div class="statusItem">
+                <span class="statusLabel">Resume Only When Idle:</span>
+                <span id="configResumeOnlyWhenIdle">-</span>
+            </div>
+            <div class="statusItem">
                 <span class="statusLabel">Resume Playlist:</span>
                 <span id="configResumeMode">-</span>
             </div>
@@ -961,6 +965,7 @@
                     $('#configBlackoutTime').text(data.config.blackoutTime || '2');
                     
                     $('#configReturnToPreShow').text(data.config.returnToPreShow == '1' ? 'Yes' : 'No');
+                    $('#configResumeOnlyWhenIdle').text(data.config.resumeOnlyWhenIdle == '1' ? 'Yes' : 'No');
                     var resumeMode = data.config.resumeMode || 'continue';
                     $('#configResumeMode').text(resumeMode == 'continue' ? 'Continue from Next Track' : 'Restart from Beginning');
                     $('#configPostShowDelay').text(data.config.postShowDelay || '0');

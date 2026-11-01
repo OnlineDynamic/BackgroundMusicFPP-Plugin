@@ -414,7 +414,10 @@
                     Plugin plays background music independently using GStreamer through PipeWire.</li>
                 <li><strong>Main Show:</strong> Plugin fades out, stops music, and triggers your main show.</li>
                 <li><strong>After Show:</strong> If "Return to Pre-Show" is enabled, background music 
-                    automatically restarts (scheduler will resume pre-show sequence per its schedule).</li>
+                    automatically restarts (scheduler will resume pre-show sequence per its schedule).
+                    By default the show is considered ended when the running playlist name changes or FPP goes idle.
+                    If your show uses "Insert Random Item From Playlist" or nested playlists, enable
+                    "Resume Only When FPP Is Idle" so the music only restarts once FPP reports idle.</li>
             </ul>
             
             <h2>Features</h2>

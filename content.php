@@ -628,6 +628,19 @@ $audioFiles = getAudioFiles();
                     </td>
                 </tr>
                 <tr>
+                    <td class="label">Resume Only When FPP Is Idle:</td>
+                    <td class="value">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <input type="checkbox" name="ResumeOnlyWhenIdle" id="ResumeOnlyWhenIdle" value="1"
+                                   <?php echo (isset($pluginSettings['ResumeOnlyWhenIdle']) && $pluginSettings['ResumeOnlyWhenIdle'] == '1') ? 'checked' : ''; ?>>
+                            <label for="ResumeOnlyWhenIdle" style="margin: 0; line-height: 1.4;">
+                                Ignore playlist name changes and only treat the show as ended when FPP is idle
+                            </label>
+                        </div>
+                        <small>Enable if your show uses "Insert Random Item From Playlist" or nested playlists. Requires FPP to go idle after the show (e.g. pre-show lighting via FPP's idle effect rather than a scheduled playlist)</small>
+                    </td>
+                </tr>
+                <tr>
                     <td class="label">Resume Playlist Mode:</td>
                     <td class="value">
                         <select name="ResumeMode" id="ResumeMode">
@@ -1138,6 +1151,7 @@ $audioFiles = getAudioFiles();
                 'FadeTime': $('#FadeTime').val(),
                 'BlackoutTime': $('#BlackoutTime').val(),
                 'ReturnToPreShow': $('#ReturnToPreShow').is(':checked') ? '1' : '0',
+                'ResumeOnlyWhenIdle': $('#ResumeOnlyWhenIdle').is(':checked') ? '1' : '0',
                 'ResumeMode': $('#ResumeMode').val(),
                 'PostShowDelay': $('#PostShowDelay').val(),
                 'PostShowBackgroundVolume': $('#PostShowBackgroundVolume').val(),

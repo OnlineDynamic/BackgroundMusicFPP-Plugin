@@ -250,6 +250,7 @@ Content-Type: application/json
   "BlackoutTime": 2,
   "ShuffleMusic": 1,
   "ReturnToPreShow": 1,
+  "ResumeOnlyWhenIdle": 0,
   "PostShowDelay": 5
 }
 ```

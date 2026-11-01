@@ -33,7 +33,14 @@ fi
 # Store our PID
 echo $$ > "$MONITOR_PID_FILE"
 
+# When enabled, ignore playlist-name changes (e.g. "Insert Random Item From Playlist"
+# or nested playlists) and only treat the show as finished when FPP reports idle
+RESUME_ONLY_WHEN_IDLE=$(grep "^ResumeOnlyWhenIdle=" "$PLUGIN_CONFIG" 2>/dev/null | cut -d'=' -f2 | tr -d '\r')
+
 log_message "Starting show completion monitor for playlist: $SHOW_PLAYLIST"
+if [ "$RESUME_ONLY_WHEN_IDLE" = "1" ]; then
+    log_message "Resume only when FPP is idle - ignoring playlist name changes"
+fi
 
 # Wait a bit for the show to actually start
 sleep 5
@@ -47,7 +54,14 @@ while [ "$SHOW_RUNNING" = "true" ]; do
     FPP_STATUS=$(echo "$STATUS" | jq -r '.status_name // ""')
     
     # Check if show playlist is still running
-    if [ "$CURRENT_PLAYLIST" != "$SHOW_PLAYLIST" ] || [ "$FPP_STATUS" = "idle" ]; then
+    if [ "$RESUME_ONLY_WHEN_IDLE" = "1" ]; then
+        if [ "$FPP_STATUS" = "idle" ]; then
+            log_message "FPP is idle - show completed or stopped"
+            SHOW_RUNNING=false
+        else
+            sleep 2
+        fi
+    elif [ "$CURRENT_PLAYLIST" != "$SHOW_PLAYLIST" ] || [ "$FPP_STATUS" = "idle" ]; then
         log_message "Show playlist completed or stopped"
         SHOW_RUNNING=false
     else
@@ -58,7 +72,7 @@ done
 
 # Show has ended, trigger return to pre-show if enabled
 SCRIPT_DIR="$(dirname "$0")"
-/bin/bash "$SCRIPT_DIR/return_to_preshow.sh" &
+/bin/bash "$SCRIPT_DIR/return_to_preshow.sh" "$SHOW_PLAYLIST" &
 
 # Clean up our PID file
 rm -f "$MONITOR_PID_FILE"
